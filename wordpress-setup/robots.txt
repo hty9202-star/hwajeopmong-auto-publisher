@@ -1,0 +1,32 @@
+# 화접몽 한의원 WordPress robots.txt
+# AI 크롤러 접근 허용 (GEO 최적화 핵심)
+
+# AI 크롤러 — 반드시 허용
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: GoogleOther
+Allow: /
+
+# 일반 크롤러
+User-agent: *
+Allow: /
+Disallow: /wp-admin/
+Allow: /wp-admin/admin-ajax.php
+
+Sitemap: https://mongclinictest.wordpress.com/sitemap.xml
