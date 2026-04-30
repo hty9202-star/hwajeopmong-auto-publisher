@@ -233,7 +233,7 @@
   <div class="header">
     <div>
       <h1>화접몽 한의원 GEO Auto-Publisher</h1>
-      <div class="subtitle">피부질화 코텐츠 자동 생성 · 발행 대시보드</div>
+      <div class="subtitle">피부질환 콘텐츠 자동 생성 · 발행 대시보드</div>
     </div>
     <div style="display:flex;align-items:center;gap:12px;"><a href="/settings" style="color:white;text-decoration:none;padding:8px 16px;border-radius:8px;font-size:14px;font-weight:500;background:rgba(255,255,255,0.15);transition:background 0.2s;">설정</a><div class="status-badge online" id="serverStatus">시스템 정상</div></div>
   </div>
@@ -254,7 +254,7 @@
         <div class="progress-bar"><div class="fill" id="progressFill" style="width: 0%"></div></div>
       </div>
       <div class="card">
-        <h3>등록 질홙 수</h3>
+        <h3>등록 질환 수</h3>
         <div class="value" id="topicCount">--</div>
         <div class="sub">5가지 콘텐츠 유형 × 질환</div>
       </div>
@@ -272,7 +272,7 @@
 
     <!-- GEO AI Citation Tracking -->
     <div class="citation-section">
-      <h3>GEO AI 인용 추�</h3>
+      <h3>GEO AI 인용 추적</h3>
       <div class="citation-grid">
         <div class="citation-card">
           <div class="citation-card-header"><div class="citation-dot chatgpt"></div><span>ChatGPT</span></div>
@@ -333,7 +333,7 @@
             <tr>
               <th>질환</th>
               <th>종합 가이드</th>
-              <th>한방 치료박</th>
+              <th>한방 치료법</th>
               <th>FAQ</th>
               <th>치료 사례</th>
               <th>비교 분석</th>
@@ -479,7 +479,7 @@
     function renderRecentPosts(posts) {
       const tbody = document.getElementById('recentPostsBody');
       if (!posts.length) {
-        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">발행된 콘텐츠가 없습니다</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">발행된 콜텐츠가 없습니다</td></tr>';
         return;
       }
       tbody.innerHTML = posts.slice(0, 20).map(post => {
@@ -583,9 +583,15 @@
       if(el){
         var v=document.getElementById('publishPerDay');
         var s=document.getElementById('publishDetail');
-        if(v)v.textContent=freqLabels[p.publishFrequency]||'하루 5회';
+        if(v)v.textContent=freqLabels[p.publishFrequency]||'하��� 5회';
         if(s)s.textContent=daysLabels[p.publishDays]||'매일';
       }
       var topicMap={'flat-warts':'편평사마귀','keratosis-pilaris':'모공각화증','folliculitis':'모낭염','acne':'여드름','atopic-dermatitis':'아토피','acne-scars':'여드름흉터','psoriasis':'건선','dyshidrosis':'한포진','diet':'다이어트','seborrheic-dermatitis':'지루성피부염'};
       var nt=p.nextTopic||'auto';
-      var ntEl=docum
+      var ntEl=document.getElementById('nextTopic');
+      if(ntEl)ntEl.textContent=nt==='auto'?'자동 (순서대로)':topicMap[nt]||nt;
+    });
+  }
+  </script>
+</body>
+</html>
