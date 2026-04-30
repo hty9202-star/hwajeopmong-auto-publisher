@@ -27,7 +27,7 @@ export const AI_CONFIG = {
   provider: 'gemini',
   model: 'gemini-2.5-flash-lite',   // 무료 등급: 10 RPM, 250K TPM, 20 RPD
   maxTokens: 8192,
-  temperature: 0.4,                 // 의료 콘텐츠 정확성·일관성 우선 (v2.0 고도화)
+  temperature: 0.7,                 // v2.1: 콘텐츠 다양성 확보 (단계별 차등: 0.6/0.7/0.85)
   apiBase: 'https://generativelanguage.googleapis.com/v1beta',
 };
 
