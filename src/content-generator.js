@@ -441,4 +441,174 @@ function optimizeImageAlt(originalAlt, topic, index) {
   return altTemplates[index] || `${topic.name} ê´ë ¨ í¼ë¶ ê±´ê° ì´ë¯¸ì§`;
 }
 
-// âââ ì´ë¯¸ì§ë¥¼ HTMLì ì½ì 
+function insertInlineImages(html, images, topic) {
+  if (!images || images.length === 0) return html;
+
+  const h2Tags = html.match(/<\/h2>/gi);
+  if (!h2Tags || h2Tags.length < 2) return html;
+
+  let insertCount = 0;
+  let imageIndex = 0;
+  return html.replace(/<\/h2>/gi, (match) => {
+    insertCount++;
+    // 2번째, 4번째 H2 뒤에 이미지 삽입
+    if ((insertCount === 2 || insertCount === 4) && images[imageIndex]) {
+      const img = images[imageIndex];
+      const altText = optimizeImageAlt(img.alt, topic, imageIndex);
+      imageIndex++;
+      const imgHtml = `</h2>
+<figure class="wp-block-image">
+  <img src="${img.url}" alt="${altText}" loading="lazy" />
+  <figcaption>사진: <a href="${img.photographerUrl}" target="_blank">${img.photographer}</a> / <a href="${img.pexelsUrl}" target="_blank">Pexels</a></figcaption>
+</figure>`;
+      return imgHtml;
+    }
+    return match;
+  });
+}
+
+// ─── FAQ HTML 생성 ───
+function generateFaqHtml(faq) {
+  if (!faq || faq.length === 0) return '';
+
+  let html = '<h2>자주 묻는 질문</h2>\n<div class="faq-section">\n';
+  for (const item of faq) {
+    html += `  <div class="faq-item">
+    <h3>${item.question}</h3>
+    <p>${item.answer}</p>
+  </div>\n`;
+  }
+  html += '</div>';
+  return html;
+}
+
+// ─── 브랜드 CTA 섹션 생성 ───
+function generateBrandCta(topic) {
+  const treatment = TREATMENT_MAP[topic.id] || { name: '한방 맞춤 치료' };
+  return `
+<div class="brand-cta" style="background:#f8f9fa; border-left:4px solid #2E75B6; padding:20px; margin:30px 0;">
+  <h3>${BRAND.name} - ${topic.name} ${treatment.name}</h3>
+  <p>${BRAND.name}에서는 ${topic.name} 치료를 위해 개인별 체질과 증상을 정밀하게 분석한 후 맞춤형 치료를 진행합니다.</p>
+  <p><strong>온라인 상담:</strong> <a href="${BRAND.url}">${BRAND.url}</a></p>
+</div>`;
+}
+
+// ─── 의료 면책 조항 HTML ───
+function generateMedicalDisclaimer() {
+  return `
+<div class="medical-disclaimer" style="background:#fff3cd; border:1px solid #ffc107; border-radius:8px; padding:15px; margin:30px 0; font-size:0.9em; color:#664d03;">
+  <p><strong>※ 의료법에 따른 안내</strong></p>
+  <p>본 콘텐츠는 건강 정보 제공을 목적으로 작성되었으며, 의학적 진단이나 치료를 대체하지 않습니다.
+  개인별 체질과 증상에 따라 치료 결과가 다를 수 있으므로, 정확한 진단과 치료를 위해 반드시 전문 의료진과 상담하시기 바랍니다.</p>
+</div>`;
+}
+
+// ─── HTML 후처리 (의료법 위반 표현 자동 치환) ───
+function postProcessHtml(html) {
+  const violations = [
+    { pattern: /완치/g, replacement: '개선' },
+    { pattern: /100%\s*(효과|치료|개선)/g, replacement: '효과적인 $1' },
+    { pattern: /확실한\s*치료/g, replacement: '체계적인 치료' },
+    { pattern: /최고의\s*(치료|효과|결과)/g, replacement: '전문적인 $1' },
+    { pattern: /유일한\s*(치료|방법)/g, replacement: '효과적인 $1' },
+    { pattern: /획기적인/g, replacement: '전문적인' },
+    { pattern: /놀라운\s*(효과|결과)/g, replacement: '긍정적인 $1' },
+    { pattern: /기적/g, replacement: '개선' },
+  ];
+
+  let processed = html;
+  for (const { pattern, replacement } of violations) {
+    processed = processed.replace(pattern, replacement);
+  }
+  return processed;
+}
+
+// ─── 가짜 인용 제거 ───
+function removeFakeReferences(content) {
+  // references 필드가 있으면 제거
+  if (content.references) {
+    delete content.references;
+  }
+  // HTML 내 가짜 참고문헌 섹션 제거
+  if (content.content) {
+    content.content = content.content.replace(/<h[23]>.*?참고문헌.*?<\/h[23]>[\s\S]*?(?=<h[23]>|$)/gi, '');
+    content.content = content.content.replace(/<h[23]>.*?References.*?<\/h[23]>[\s\S]*?(?=<h[23]>|$)/gi, '');
+  }
+  return content;
+}
+
+// ─── 메인 생성 함수 (외부에서 호출) ───
+export async function generateContent(env, topic, contentType) {
+  const geminiKey = env.GEMINI_API_KEY;
+  const pexelsKey = env.PEXELS_API_KEY;
+
+  if (!geminiKey) throw new Error('GEMINI_API_KEY 환경변수가 설정되지 않았습니다');
+
+  console.log(`[Stage 1] 리서치 시작: ${topic.name} - ${contentType.name}`);
+  const research = await stageResearch(geminiKey, topic, contentType);
+
+  console.log(`[Stage 2] 전략 수립: ${topic.name} - ${contentType.name}`);
+  const strategy = await stageStrategy(geminiKey, topic, contentType, research);
+
+  console.log(`[Stage 3] 콘텐츠 생성: ${topic.name} - ${contentType.name}`);
+  const production = await stageProduction(geminiKey, topic, contentType, strategy);
+
+  // 가짜 인용 제거
+  const cleanedProduction = removeFakeReferences(production);
+
+  // 이미지 가져오기 (검색很다.</p>
+</div>`;
+}
+
+// ─── 의료 면책 조항 HTML ───
+function generateMedicalDisclaimer() {
+  return `
+<div class="medical-disclaimer" style="background:#fff3cd; border:1px solid #ffc107; border-radius:8px; padding:15px; margin:30px 0; font-size:0.9em; color:#664d03;">
+  <p><strong>※ 의료법에 따른 안내</strong></p>
+  <p>본 콘텐츠는 건강 정보 제공터 잭기 치환)
+  finalContent = postProcessHtml(finalContent);
+
+  // 인라인 이미지 삽입 (SEO 최적화된 alt 텍스트)
+  finalContent = insertInlineImages(finalContent, images, topic);
+
+  // FAQ 섹션 추가
+  finalContent += '\n' + generateFaqHtml(cleanedProduction.faq);
+
+  // 브랜드 CTA 추가
+  finalContent += '\n' + generateBrandCta(topic);
+
+  // 의료 면책 조항 추가
+  finalContent += '\n' + generateMedicalDisclaimer();
+
+  // JSON-LD 스키마 생성
+  const schemas = generateSchemas(topic, cleanedProduction);
+
+  // NOTE: WordPress.com 호스팅형은 <script> 태그를 자동 제거하므로
+  // 본문에 JSON-LD를 삽입하지 않음. schemas 필드에 데이터 보존.
+  // 자체 호스팅(WordPress.org) 전환 시 아래 코드 활성화:
+  // const schemaScript = schemas
+  //   .map((s) => `<script type="application/ld+json">\n${JSON.stringify(s, null, 2)}\n</script>`)
+  //   .join('\n');
+  // finalContent = schemaScript + '\n' + finalContent;
+
+  return {
+    title: cleanedProduction.title,
+    slug: cleanedProduction.slug || strategy.slug,
+    content: finalContent,
+    excerpt: cleanedProduction.excerpt,
+    metaDescription: cleanedProduction.metaDescription,
+    tags: cleanedProduction.tags,
+    category: cleanedProduction.category,
+    faq: cleanedProduction.faq,
+    heroImage: images[0] || null,
+    schemas,
+    // 메타 정보 (대시보드용)
+    _meta: {
+      topic: topic.id,
+      contentType: contentType.id,
+      comboId: `${topic.id}__${contentType.id}`,
+      generatedAt: new Date().toISOString(),
+      stages: { research, strategy },
+    },
+  };
+}
