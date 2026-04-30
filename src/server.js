@@ -201,7 +201,15 @@ const server = http.createServer(async (req, res) => {
           remaining: totalTarget - publishedComboIds.length,
           progress: `${Math.round((publishedComboIds.length / totalTarget) * 100)}%`,
         },
-        nextTopic: getNextTopic(publishedComboIds),
+        nextTopic: (() => {
+          if (publishSettings.nextTopic && publishSettings.nextTopic !== 'auto') {
+            const selectedTopic = TOPICS.find(t => t.id === publishSettings.nextTopic);
+            if (selectedTopic) {
+              return { topic: selectedTopic, contentType: CONTENT_TYPES[0], comboId: selectedTopic.id + '__' + CONTENT_TYPES[0].id };
+            }
+          }
+          return getNextTopic(publishedComboIds);
+        })(),
       });
     }
 
