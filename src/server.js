@@ -1,5 +1,5 @@
 /**
- * 화접몽 GEO Auto-Publisher 서버 (Node.js + Supabase)
+ * 화접몹 GEO Auto-Publisher 서버 (Node.js + Supabase)
  * Supabase PostgreSQL로 데이터 관리
  *
  * 실행: node src/server.js
@@ -472,4 +472,32 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(404);
     res.end('Not Found');
   } catch (error) {
-    console.error('Serv
+    console.error('Server error:', error);
+    jsonRes(res, { error: error.message }, 500);
+  }
+});
+
+// === Client Auth ===
+const CLIENT_TOKENS = new Map();
+function genToken() {
+  let t = ''; const ch = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  for (let i = 0; i < 32; i++) t += ch[Math.floor(Math.random() * ch.length)];
+  return t;
+}
+function verifyToken(req) {
+  const a = req.headers['authorization'];
+  if (!a) return false;
+  return CLIENT_TOKENS.has(a.replace('Bearer ', ''));
+}
+
+function jsonRes(res, data, status = 200) {
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.end(JSON.stringify(data, null, 2));
+}
+
+server.listen(PORT, () => {
+  console.log(`\n[Server] 화접몽 GEO Auto-Publisher 실행 중 (Supabase DB)`);
+  console.log(`[Server] 대시보드: http://localhost:${PORT}/dashboard`);
+  console.log(`[Server] 광고주: http://localhost:${PORT}/client`);
+  console.log(`[Server] API: http://localhost:${PORT}/api/status\n`);
+});
