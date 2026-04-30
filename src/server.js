@@ -107,13 +107,45 @@ async function autoPublish() {
   } catch (e) { console.error('autoPublish error:', e); }
 }
 
-// ─── Cron 스케줄 (09:00, 11:00, 13:00, 15:00, 17:00 KST) ───
-cron.schedule('0 9 * * *', autoPublish, { timezone: 'Asia/Seoul' });
-cron.schedule('0 11 * * *', autoPublish, { timezone: 'Asia/Seoul' });
-cron.schedule('0 13 * * *', autoPublish, { timezone: 'Asia/Seoul' });
-cron.schedule('0 15 * * *', autoPublish, { timezone: 'Asia/Seoul' });
-cron.schedule('0 17 * * *', autoPublish, { timezone: 'Asia/Seoul' });
-console.log('[Server] Cron 스케줄 등록: 매일 09:00, 11:00, 13:00, 15:00, 17:00 KST (5건/일)');
+// ─── 발행 주기 프리셋 ───
+const FREQUENCY_PRESETS = {
+  '1': ['0 9 * * *'],
+  '2': ['0 9 * * *', '0 15 * * *'],
+  '3': ['0 9 * * *', '0 13 * * *', '0 17 * * *'],
+  '5': ['0 9 * * *', '0 11 * * *', '0 13 * * *', '0 15 * * *', '0 17 * * *'],
+};
+const FREQUENCY_LABELS = {
+  '1': '09:00 (1회/일)',
+  '2': '09:00, 15:00 (2회/일)',
+  '3': '09:00, 13:00, 17:00 (3회/일)',
+  '5': '09:00, 11:00, 13:00, 15:00, 17:00 (5회/일)',
+};
+
+let activeCronJobs = [];
+
+async function setupCronSchedule() {
+  // 기존 cron 중지
+  activeCronJobs.forEach(job => job.stop());
+  activeCronJobs = [];
+
+  const publishSettings = await settings.get('publish') || {};
+  const frequency = publishSettings.publishFrequency || '5';
+  const days = publishSettings.publishDays || 'everyday';
+
+  const crons = FREQUENCY_PRESETS[frequency] || FREQUENCY_PRESETS['5'];
+
+  crons.forEach(cronExpr => {
+    // 평일만이면 cron 요일 부분을 1-5로 변경
+    const finalExpr = days === 'weekdays' ? cronExpr.replace(/\*$/, '1-5') : cronExpr;
+    const job = cron.schedule(finalExpr, autoPublish, { timezone: 'Asia/Seoul' });
+    activeCronJobs.push(job);
+  });
+
+  const daysLabel = days === 'weekdays' ? '평일만' : '매일';
+  console.log(`[Server] Cron 스케줄 등록: ${daysLabel} ${FREQUENCY_LABELS[frequency] || FREQUENCY_LABELS['5']}`);
+}
+
+setupCronSchedule();
 
 // ─── HTTP 서버 ───
 const server = http.createServer(async (req, res) => {
@@ -216,7 +248,7 @@ const server = http.createServer(async (req, res) => {
     // API: Get Settings
     if (pathname === '/api/settings' && method === 'GET') {
       const publishData = await settings.get('publish') || {};
-      const defaultPublish = { postsPerDay: 5, postsPerSlot: 1, defaultStatus: 'draft', totalTarget: 50, nextTopic: 'auto', imagesPerContent: 3 };
+      const defaultPublish = { publishFrequency: '5', publishDays: 'everyday', totalTarget: 50, nextTopic: 'auto', imagesPerContent: 3 };
       const publish = { ...defaultPublish, ...publishData };
 
       const topicsData = await settings.get('topics');
@@ -237,7 +269,11 @@ const server = http.createServer(async (req, res) => {
       req.on('end', async () => {
         try {
           const data = JSON.parse(body);
-          if (data.publish) await settings.set('publish', data.publish);
+          if (data.publish) {
+            await settings.set('publish', data.publish);
+            // 발행 주기가 변경되면 cron 재설정
+            await setupCronSchedule();
+          }
           if (data.topics) await settings.set('topics', data.topics);
           return jsonRes(res, { success: true });
         } catch (e) {
@@ -436,32 +472,4 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(404);
     res.end('Not Found');
   } catch (error) {
-    console.error('Server error:', error);
-    jsonRes(res, { error: error.message }, 500);
-  }
-});
-
-// === Client Auth ===
-const CLIENT_TOKENS = new Map();
-function genToken() {
-  let t = ''; const ch = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  for (let i = 0; i < 32; i++) t += ch[Math.floor(Math.random() * ch.length)];
-  return t;
-}
-function verifyToken(req) {
-  const a = req.headers['authorization'];
-  if (!a) return false;
-  return CLIENT_TOKENS.has(a.replace('Bearer ', ''));
-}
-
-function jsonRes(res, data, status = 200) {
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
-  res.end(JSON.stringify(data, null, 2));
-}
-
-server.listen(PORT, () => {
-  console.log(`\n[Server] 화접몽 GEO Auto-Publisher 실행 중 (Supabase DB)`);
-  console.log(`[Server] 대시보드: http://localhost:${PORT}/dashboard`);
-  console.log(`[Server] 광고주: http://localhost:${PORT}/client`);
-  console.log(`[Server] API: http://localhost:${PORT}/api/status\n`);
-});
+    console.error('Serv
