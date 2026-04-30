@@ -289,11 +289,13 @@ export async function generateContent(env, topic, contentType) {
   // JSON-LD 스키마 생성
   const schemas = generateSchemas(topic, production);
 
-  // 스키마를 HTML에 삽입
-  const schemaScript = schemas
-    .map((s) => `<script type="application/ld+json">\n${JSON.stringify(s, null, 2)}\n</script>`)
-    .join('\n');
-  finalContent = schemaScript + '\n' + finalContent;
+  // NOTE: WordPress.com 호스팅형은 <script> 태그를 자동 제거하므로
+  // 본문에 JSON-LD를 삽입하지 않음. schemas 필드에 데이터 보존.
+  // 자체 호스팅(WordPress.org) 전환 시 아래 코드 활성화:
+  // const schemaScript = schemas
+  //   .map((s) => `<script type="application/ld+json">\n${JSON.stringify(s, null, 2)}\n</script>`)
+  //   .join('\n');
+  // finalContent = schemaScript + '\n' + finalContent;
 
   return {
     title: production.title,
