@@ -441,6 +441,7 @@ function optimizeImageAlt(originalAlt, topic, index) {
   return altTemplates[index] || `${topic.name} ê´ë ¨ í¼ë¶ ê±´ê° ì´ë¯¸ì§`;
 }
 
+// ─── 이미지를 HTML에 삽입 ───
 function insertInlineImages(html, images, topic) {
   if (!images || images.length === 0) return html;
 
@@ -556,16 +557,15 @@ export async function generateContent(env, topic, contentType) {
   // 가짜 인용 제거
   const cleanedProduction = removeFakeReferences(production);
 
-  // 이미지 가져오기 (검색很다.</p>
-</div>`;
-}
+  // 이미지 가져오기 (검색어 다양화 적용)
+  const diversifiedQuery = diversifyPexelsQuery(topic.pexelsQuery);
+  console.log(`[이미지] Pexels 이미지 가져오기: ${diversifiedQuery} (원본: ${topic.pexelsQuery})`);
+  const images = await fetchPexelsImages(pexelsKey, diversifiedQuery, 3);
 
-// ─── 의료 면책 조항 HTML ───
-function generateMedicalDisclaimer() {
-  return `
-<div class="medical-disclaimer" style="background:#fff3cd; border:1px solid #ffc107; border-radius:8px; padding:15px; margin:30px 0; font-size:0.9em; color:#664d03;">
-  <p><strong>※ 의료법에 따른 안내</strong></p>
-  <p>본 콘텐츠는 건강 정보 제공터 잭기 치환)
+  // 콘텐츠 조립
+  let finalContent = cleanedProduction.content;
+
+  // HTML 후처리 (의료법 위반 표현 자동 치환)
   finalContent = postProcessHtml(finalContent);
 
   // 인라인 이미지 삽입 (SEO 최적화된 alt 텍스트)
@@ -583,7 +583,7 @@ function generateMedicalDisclaimer() {
   // JSON-LD 스키마 생성
   const schemas = generateSchemas(topic, cleanedProduction);
 
-  // NOTE: WordPress.com 호스팅형은 <script> 태그를 자동 제거하므로
+  // NOTE: WordPress.com 호스팅형은 <script> 태그른 자동 제거하므로
   // 본문에 JSON-LD를 삽입하지 않음. schemas 필드에 데이터 보존.
   // 자체 호스팅(WordPress.org) 전환 시 아래 코드 활성화:
   // const schemaScript = schemas
