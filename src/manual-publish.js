@@ -34,7 +34,7 @@ const getArg = (name) => {
 const hasFlag = (name) => args.includes(`--${name}`);
 
 const env = {
-  OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY,
   WP_SITE_ID: process.env.WP_SITE_ID || 'mongclinictest.wordpress.com',
   WP_ACCESS_TOKEN: process.env.WP_ACCESS_TOKEN,
   PEXELS_API_KEY: process.env.PEXELS_API_KEY,
@@ -47,8 +47,8 @@ async function main() {
   console.log('═══════════════════════════════════════════\n');
 
   // API 키 체크
-  if (!env.OPENAI_API_KEY) {
-    console.error('❌ OPENAI_API_KEY 환경변수가 설정되지 않았습니다.');
+  if (!env.GEMINI_API_KEY) {
+    console.error('❌ GEMINI_API_KEY 환경변수가 설정되지 않았습니다.');
     process.exit(1);
   }
   if (!env.WP_ACCESS_TOKEN) {

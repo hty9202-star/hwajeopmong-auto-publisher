@@ -2,8 +2,9 @@
   "name": "hwajeopmong-auto-publisher",
   "version": "1.0.0",
   "description": "화접몽 한의원 GEO 최적화 콘텐츠 자동 발행 시스템",
-  "main": "src/worker.js",
+  "main": "src/server.js",
   "scripts": {
+    "start": "node src/server.js",
     "dev": "node src/server.js",
     "deploy": "wrangler deploy",
     "publish-now": "node src/manual-publish.js"

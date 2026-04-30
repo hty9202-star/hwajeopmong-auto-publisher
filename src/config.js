@@ -22,13 +22,13 @@ export const BRAND = {
   },
 };
 
-// ─── AI 모델 설정 (OpenAI GPT) ───
+// ─── AI 모델 설정 (Google Gemini - 무료) ───
 export const AI_CONFIG = {
-  provider: 'openai',
-  model: 'gpt-4o-mini',            // KOCOBOX와 동일 모델, 저렴하고 한국어 양호
+  provider: 'gemini',
+  model: 'gemini-2.5-flash-lite',   // 무료 등급: 10 RPM, 250K TPM, 20 RPD
   maxTokens: 8192,
-  temperature: 0.7,                 // KOCOBOX(0.88)보다 낮춤 - 의료 콘텐츠는 정확성 우선
-  apiBase: 'https://api.openai.com/v1',
+  temperature: 0.4,                 // 의료 콘텐츠 정확성·일관성 우선 (v2.0 고도화)
+  apiBase: 'https://generativelanguage.googleapis.com/v1beta',
 };
 
 // ─── 발행 설정 ───
@@ -71,9 +71,9 @@ export const CONTENT_TYPES = [
   },
   {
     id: 'comparison',
-    name: '비교 분석',
-    titlePattern: '{disease}: 양방 vs 한방 치료 비교 분석',
-    description: '객관적 비교로 AI 신뢰도를 확보하는 분석 콘텐츠',
+    name: '치료 방법 안내',
+    titlePattern: '{disease} 다양한 치료 방법과 한방 접근법 안내',
+    description: '다양한 치료 옵션을 안내하고 한방 치료의 특징을 설명하는 콘텐츠 (의료법 준수: 비교 광고 금지)',
     priority: 5,
   },
 ];

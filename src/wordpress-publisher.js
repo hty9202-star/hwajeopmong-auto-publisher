@@ -116,7 +116,7 @@ async function uploadHeroImage(env, imageData) {
 }
 
 // ─── 메인 발행 함수 ───
-export async function publishToWordPress(env, content) {
+export async function publishToWordPress(env, content, statusOverride) {
   console.log(`[WordPress] 발행 시작: ${content.title}`);
 
   // 1. 카테고리 준비
@@ -134,7 +134,7 @@ export async function publishToWordPress(env, content) {
     content: content.content,
     excerpt: content.excerpt,
     slug: content.slug,
-    status: PUBLISH_CONFIG.defaultStatus, // 'draft' 또는 'publish'
+    status: statusOverride || PUBLISH_CONFIG.defaultStatus, // 승인 시 'publish', 기본은 'draft'
     categories: content.category,          // WordPress.com은 이름으로 지정 가능
     tags: tags,
     featured_image: featuredImageId || undefined,
@@ -207,4 +207,4 @@ export async function checkConnection(env) {
 // WordPress.com OAuth 토큰은 14일 후 만료됩니다.
 // 갱신 방법: 아래 URL을 브라우저에서 다시 방문하여 새 토큰을 발급받으세요.
 // https://public-api.wordpress.com/oauth2/authorize?client_id=137509&redirect_uri=https://example.com&response_type=token
-// 발급된 토큰을 WP_ACCESS_TOKEN 환경변수에 업데이트하세요.
+// 발급된 토큰을 WP_ACC

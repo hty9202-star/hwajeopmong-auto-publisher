@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>화접몽 한의원 | 설정</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f7fa;color:#1a1a2e;line-height:1.6}
+.header{background:linear-gradient(135deg,#1B4F72 0%,#2E75B6 100%);color:#fff;padding:20px 32px;display:flex;justify-content:space-between;align-items:center}
+.header h1{font-size:20px;font-weight:700}
+.header .subtitle{font-size:13px;opacity:.85;margin-top:2px}
+.header-nav a{color:#fff;text-decoration:none;padding:8px 16px;border-radius:8px;font-size:14px;font-weight:500;background:rgba(255,255,255,.15)}
+.header-nav a:hover{background:rgba(255,255,255,.3)}
+.main{max-width:900px;margin:0 auto;padding:28px 24px}
+.section{background:#fff;border-radius:12px;padding:28px 24px;margin-bottom:20px;box-shadow:0 1px 3px rgba(0,0,0,.08);border:1px solid #e8ecf1}
+.section-title{font-size:16px;font-weight:700;color:#1B4F72;margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid #e8ecf1}
+.setting-row{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid #f0f0f0}
+.setting-row:last-child{border-bottom:none}
+.setting-label{font-size:14px;color:#374151;font-weight:500}
+.setting-desc{font-size:12px;color:#9ca3af;margin-top:2px}
+.num-input{width:70px;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:15px;font-weight:600;text-align:center;color:#1B4F72;outline:none}
+.num-input:focus{border-color:#2E75B6;box-shadow:0 0 0 3px rgba(46,117,182,.1)}
+.unit{font-size:13px;color:#6b7280}
+.topic-card{border:1px solid #e8ecf1;border-radius:10px;padding:18px;margin-bottom:14px}
+.topic-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.topic-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.topic-name{font-size:15px;font-weight:600;color:#1a1a2e}
+.topic-category{font-size:11px;padding:3px 10px;border-radius:12px;background:#EBF5FB;color:#1B4F72;font-weight:500}
+.keywords-list{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.keyword-tag{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:#f3f4f6;border-radius:16px;font-size:13px;color:#374151}
+.keyword-remove{cursor:pointer;color:#9ca3af;font-size:16px;line-height:1;border:none;background:none;padding:0;font-weight:700}
+.keyword-remove:hover{color:#ef4444}
+.keyword-add-row{display:flex;gap:8px}
+.keyword-input{flex:1;padding:7px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;outline:none}
+.keyword-input:focus{border-color:#2E75B6}
+.keyword-input::placeholder{color:#c0c0c0}
+.btn-add{padding:7px 16px;background:#1B4F72;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
+.btn-add:hover{background:#2E75B6}
+.save-area{display:flex;justify-content:flex-end;gap:12px;padding-top:8px}
+.btn-save{padding:12px 32px;background:#1B4F72;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer}
+.btn-save:hover{background:#2E75B6}
+.btn-save:disabled{background:#9ca3af;cursor:not-allowed}
+.btn-reset{padding:12px 24px;background:#fff;color:#6b7280;border:1px solid #d1d5db;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer}
+.btn-reset:hover{background:#f9fafb;color:#374151}
+.toast{position:fixed;bottom:30px;right:30px;padding:14px 24px;border-radius:10px;font-size:14px;font-weight:600;color:#fff;z-index:999;transform:translateY(100px);opacity:0;transition:all .3s ease}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.success{background:#10b981}
+.toast.error{background:#ef4444}
+@media(max-width:768px){.header{padding:16px 20px;flex-direction:column;gap:12px}.main{padding:20px 16px}.setting-row{flex-direction:column;align-items:flex-start;gap:8px}.keyword-add-row{flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="header"><div><h1>화접몽 한의원 GEO Auto-Publisher</h1><div class="subtitle">시스템 설정</div></div><div class="header-nav"><a href="/dashboard">← 대시보드</a></div></div>
+<div class="main">
+<div class="section">
+<div class="section-title">📋 발행 설정</div>
+<div class="setting-row"><div><div class="setting-label">일일 총 발행 수</div><div class="setting-desc">하루에 자동 발행할 최대 콘텐츠 수</div></div><div style="display:flex;align-items:center;gap:8px"><input type="number" class="num-input" id="postsPerDay" min="1" max="20" value="5"><span class="unit">건 / 일</span></div></div>
+<div class="setting-row"><div><div class="setting-label">1회 발행 수</div><div class="setting-desc">스케줄 1회 실행 시 발행할 콘텐츠 수</div></div><div style="display:flex;align-items:center;gap:8px"><input type="number" class="num-input" id="postsPerSlot" min="1" max="5" value="1"><span class="unit">건 / 회</span></div></div>
+<div class="setting-row"><div><div class="setting-label">발행 상태</div><div class="setting-desc">WordPress에 발행 시 기본 상태</div></div><div style="display:flex;align-items:center;gap:8px"><select id="defaultStatus" style="padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;color:#1B4F72;font-weight:600;outline:none"><option value="draft">초안 (draft)</option><option value="publish">즉시발행 (publish)</option></select></div></div>
+<div class="setting-row"><div><div class="setting-label">총 발행 목표</div><div class="setting-desc">전체 콘텐츠 발행 목표 건수 (진행률 계산 기준)</div></div><div class="setting-control"><input type="number" class="num-input" id="totalTarget" min="1" max="500" value="50"><span class="unit">건</span></div></div>
+<div class="setting-row"><div class="setting-label">🖼️ 콘텐츠당 이미지 수</div><div class="setting-desc">Pexels에서 검색할 이미지 개수</div><div class="setting-control"><input type="number" class="num-input" id="imagesPerContent" min="0" max="10" value="3"><span class="unit">개</span></div></div>
+</div>
+<div class="section">
+<div class="section-title">📋 다음 발행 토픽</div>
+<div class="setting-row"><div class="setting-label">다음 토픽</div><div class="setting-control"><select id="nextTopic" style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;width:100%"><option value="auto">자동 (순서대로)</option><option value="flat-warts">편평사마귀</option><option value="keratosis-pilaris">모공각화증</option><option value="folliculitis">모낭염</option><option value="acne">여드름</option><option value="atopic-dermatitis">아토피</option><option value="acne-scars">여드름흉터</option><option value="psoriasis">건선</option><option value="dyshidrosis">한포진</option><option value="diet">다이어트</option><option value="seborrheic-dermatitis">지루성피부염</option></select></div></div>
+</div>
+<div class="save-area"><button class="btn-reset" onclick="loadSettings()">초기화</button><button class="btn-save" id="btnSave" onclick="saveSettings()">설정 저장</button></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+let currentSettings=null;
+window.addEventListener('DOMContentLoaded',()=>{loadSettings()});
+async function loadSettings(){
+fetch('/api/settings').then(r=>r.json()).then(d=>{
+window._data=d;
+renderPublish(d.publish);
+if(document.getElementById('nextTopic')){
+document.getElementById('nextTopic').value=d.publish.nextTopic||'auto';
+}
+});
+}
+function renderPublish(p){
+document.getElementById('postsPerDay').value=p.postsPerDay||5;
+document.getElementById('postsPerSlot').value=p.postsPerSlot||1;
+document.getElementById('defaultStatus').value=p.defaultStatus||'draft';
+document.getElementById('totalTarget').value=p.totalTarget||50;
+document.getElementById('imagesPerContent').value=p.imagesPerContent||3;
+if(document.getElementById('nextTopic'))document.getElementById('nextTopic').value=p.nextTopic||'auto';
+}
+function saveSettings(){
+const publish={
+postsPerDay:parseInt(document.getElementById('postsPerDay').value)||5,
+postsPerSlot:parseInt(document.getElementById('postsPerSlot').value)||1,
+defaultStatus:document.getElementById('defaultStatus').value||'draft',
+totalTarget:parseInt(document.getElementById('totalTarget').value)||50,
+imagesPerContent:parseInt(document.getElementById('imagesPerContent').value)||3,
+nextTopic:document.getElementById('nextTopic').value||'auto'
+};
+fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({publish})})
+.then(r=>r.json()).then(d=>{if(d.success)showToast('저장 완료!','success');else showToast('저장 실패','error');}).catch(()=>showToast('저장 실패','error'));
+}
+function showToast(m,t){const el=document.getElementById('toast');el.textContent=m;el.className='toast '+t+' show';setTimeout(()=>{el.className='toast'},2500)}
+</script>
+</body>
+</html>

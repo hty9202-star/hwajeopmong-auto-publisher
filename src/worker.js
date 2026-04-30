@@ -105,7 +105,7 @@ async function handleFetch(request, env, ctx) {
       return jsonResponse({
         brand: BRAND.name,
         wordpress: wp,
-        ai: { model: 'gpt-4o-mini', status: env.OPENAI_API_KEY ? 'configured' : 'missing' },
+        ai: { model: 'gemini-2.5-flash-lite', status: env.GEMINI_API_KEY ? 'configured' : 'missing' },
         pexels: { status: env.PEXELS_API_KEY ? 'configured' : 'missing' },
         content: {
           totalTopics: TOPICS.length,

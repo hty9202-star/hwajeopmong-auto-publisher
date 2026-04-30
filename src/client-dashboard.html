@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>화접몽 콘텐츠 관리</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f5f7f5;
+    min-height: 100vh;
+    color: #1a1a1a;
+  }
+
+  /* Header */
+  .header {
+    background: #fff;
+    border-bottom: 1px solid #e5e7e5;
+    padding: 0 24px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header h1 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #2D5A27;
+    letter-spacing: -0.5px;
+  }
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .client-name {
+    font-size: 13px;
+    color: #666;
+  }
+  .logout-btn {
+    padding: 7px 16px;
+    background: none;
+    border: 1.5px solid #ddd;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    color: #555;
+    transition: all 0.2s;
+  }
+  .logout-btn:hover { border-color: #b91c1c; color: #b91c1c; }
+
+  /* Main container */
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 24px 20px;
+  }
+
+  /* Stats bar */
+  .stats-bar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .stat-card {
+    flex: 1;
+    min-width: 120px;
+    background: #fff;
+    border-radius: 12px;
+    padding: 16px 20px;
+    border: 1px solid #e5e7e5;
+  }
+  .stat-card .label {
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 4px;
+  }
+  .stat-card .value {
+    font-size: 24px;
+    font-weight: 700;
+  }
+  .stat-card.pending .value { color: #d97706; }
+  .stat-card.approved .value { color: #2D5A27; }
+  .stat-card.rejected .value { color: #b91c1c; }
+
+  /* Filter tabs */
+  .filter-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .filter-tab {
+    padding: 8px 18px;
+    border-radius: 20px;
+    border: 1.5px solid #ddd;
+    background: #fff;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #555;
+  }
+  .filter-tab:hover { border-color: #2D5A27; color: #2D5A27; }
+  .filter-tab.active {
+    background: #2D5A27;
+    color: #fff;
+    border-color: #2D5A27;
+  }
+
+  /* Content cards */
+  .content-list { display: flex; flex-direction: column; gap: 16px; }
+  .content-card {
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #e5e7e5;
+    overflow: hidden;
+    transition: box-shadow 0.2s;
+  }
+  .content-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+  .card-main {
+    padding: 20px 24px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .card-info { flex: 1; min-width: 200px; }
+  .card-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    line-height: 1.4;
+  }
+  .card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 12px;
+    color: #888;
+  }
+  .card-meta span {
+    background: #f5f5f5;
+    padding: 3px 10px;
+    border-radius: 6px;
+  }
+  .card-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  /* Status badge */
+  .badge {
+    display: inline-block;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge-pending { background: #fef3c7; color: #92400e; }
+  .badge-approved { background: #dcfce7; color: #166534; }
+  .badge-rejected { background: #fee2e2; color: #991b1b; }
+
+  /* Buttons */
+  .btn {
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+  }
+  .btn-preview {
+    background: #f0f0f0;
+    color: #333;
+  }
+  .btn-preview:hover { background: #e0e0e0; }
+  .btn-approve {
+    background: #2D5A27;
+    color: #fff;
+  }
+  .btn-approve:hover { background: #224a1e; }
+  .btn-reject {
+    background: #fff;
+    color: #b91c1c;
+    border: 1.5px solid #fca5a5;
+  }
+  .btn-reject:hover { background: #fef2f2; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Preview panel */
+  .preview-panel {
+    display: none;
+    border-top: 1px solid #eee;
+    padding: 16px 24px;
+    background: #fafafa;
+  }
+  .preview-panel.open { display: block; }
+  .preview-frame {
+    width: 100%;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: #fff;
+    min-height: 300px;
+  }
+
+  /* Toast */
+  .toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .toast {
+    padding: 14px 22px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    animation: slideIn 0.3s ease;
+    max-width: 360px;
+  }
+  .toast.success { background: #2D5A27; }
+  .toast.error { background: #b91c1c; }
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  /* Confirm modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: #fff;
+    border-radius: 16px;
+    padding: 32px;
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+  }
+  .modal-box h3 {
+    font-size: 17px;
+    margin-bottom: 10px;
+  }
+  .modal-box p {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 24px;
+    line-height: 1.5;
+  }
+  .modal-btns {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+  }
+  .modal-btns .btn { min-width: 100px; padding: 10px 20px; }
+  .btn-cancel {
+    background: #f0f0f0;
+    color: #333;
+  }
+
+  /* Loading */
+  .loading {
+    text-align: center;
+    padding: 60px 20px;
+    color: #888;
+    font-size: 15px;
+  }
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #aaa;
+  }
+  .empty-state p { font-size: 15px; }
+
+  @media (max-width: 600px) {
+    .card-main { padding: 16px; }
+    .card-actions { width: 100%; justify-content: flex-end; }
+    .container { padding: 16px 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>화접몽 콘텐츠 관리</h1>
+  <div class="header-right">
+    <span class="client-name" id="clientName"></span>
+    <button class="logout-btn" onclick="handleLogout()">로그아웃</button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="stats-bar">
+    <div class="stat-card pending">
+      <div class="label">대기중</div>
+      <div class="value" id="statPending">-</div>
+    </div>
+    <div class="stat-card approved">
+      <div class="label">승인완료</div>
+      <div class="value" id="statApproved">-</div>
+    </div>
+    <div class="stat-card rejected">
+      <div class="label">반려</div>
+      <div class="value" id="statRejected">-</div>
+    </div>
+  </div>
+
+  <div class="filter-tabs">
+    <button class="filter-tab active" data-filter="all" onclick="setFilter('all', this)">전체</button>
+    <button class="filter-tab" data-filter="pending" onclick="setFilter('pending', this)">대기중</button>
+    <button class="filter-tab" data-filter="approved" onclick="setFilter('approved', this)">승인완료</button>
+    <button class="filter-tab" data-filter="rejected" onclick="setFilter('rejected', this)">반려</button>
+  </div>
+
+  <div id="contentList" class="content-list">
+    <div class="loading">콘텐츠를 불러오는 중...</div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Confirm modal -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal-box">
+    <h3 id="modalTitle"></h3>
+    <p id="modalMessage"></p>
+    <div class="modal-btns">
+      <button class="btn btn-cancel" onclick="closeModal()">취소</button>
+      <button class="btn" id="modalConfirmBtn" onclick="confirmAction()">확인</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const token = sessionStorage.getItem('token');
+if (!token) {
+  window.location.href = '/client/login';
+}
+
+let allContents = [];
+let currentFilter = 'all';
+let pendingAction = null;
+
+// Display client name
+const clientName = sessionStorage.getItem('clientName');
+if (clientName) {
+  document.getElementById('clientName').textContent = clientName;
+}
+
+// Auth headers
+function authHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer ' + token
+  };
+}
+
+// Toast
+function showToast(message, type = 'success') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = 'toast ' + type;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.transition = 'opacity 0.3s';
+    toast.style.opacity = '0';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+// Modal
+function openModal(title, message, confirmLabel, confirmClass, onConfirm) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalMessage').textContent = message;
+  const btn = document.getElementById('modalConfirmBtn');
+  btn.textContent = confirmLabel;
+  btn.className = 'btn ' + confirmClass;
+  pendingAction = onConfirm;
+  document.getElementById('confirmModal').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('confirmModal').classList.remove('open');
+  pendingAction = null;
+}
+function confirmAction() {
+  if (pendingAction) pendingAction();
+  closeModal();
+}
+
+// Logout
+function handleLogout() {
+  sessionStorage.removeItem('token');
+  sessionStorage.removeItem('clientName');
+  window.location.href = '/client/login';
+}
+
+// Filter
+function setFilter(filter, el) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderContents();
+}
+
+// Format date
+function formatDate(dateStr) {
+  if (!dateStr) return '-';
+  const d = new Date(dateStr);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return y + '.' + m + '.' + day;
+}
+
+// Status helpers
+function statusLabel(status) {
+  const map = { pending: '대기중', approved: '승인완료', rejected: '반려' };
+  return map[status] || status;
+}
+function statusBadgeClass(status) {
+  const map = { pending: 'badge-pending', approved: 'badge-approved', rejected: 'badge-rejected' };
+  return map[status] || 'badge-pending';
+}
+
+// Toggle preview
+function togglePreview(id) {
+  const panel = document.getElementById('preview-' + id);
+  if (panel) {
+    panel.classList.toggle('open');
+  }
+}
+
+// Approve
+function approveContent(id, title) {
+  openModal(
+    '콘텐츠 승인',
+    '"' + title + '" 콘텐츠를 승인한시겠습니까?',
+    '승인',
+    'btn-approve',
+    async () => {
+      try {
+        const res = await fetch('/api/client/contents/' + id + '/approve', {
+          method: 'POST',
+          headers: authHeaders()
+        });
+        if (res.status === 401) { handleLogout(); return; }
+        if (!res.ok) throw new Error();
+        showToast('콘텐츠가 승인되었습니다.');
+        loadContents();
+      } catch {
+        showToast('승인 처리 중 오류가 발생했습니다.', 'error');
+      }
+    }
+  );
+}
+
+// Reject
+function rejectContent(id, title) {
+  openModal(
+    '콘텐츠 반려',
+    '"' + title + '" 콘텐츠를 반려하시겠습니까?',
+    '반려',
+    'btn-reject',
+    async () => {
+      try {
+        const res = await fetch('/api/client/contents/' + id + '/reject', {
+          method: 'POST',
+          headers: authHeaders()
+        });
+        if (res.status === 401) { handleLogout(); return; }
+        if (!res.ok) throw new Error();
+        showToast('콘텐츠가 반려되었습니다.');
+        loadContents();
+      } catch {
+        showToast('반려 처리 중 오류가 발생했습니다.', 'error');
+      }
+    }
+  );
+}
+
+// Render
+function renderContents() {
+  const list = document.getElementById('contentList');
+  const filtered = currentFilter === 'all'
+    ? allContents
+    : allContents.filter(c => c.status === currentFilter);
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty-state"><p>' +
+      (currentFilter === 'all' ? '등록된 콘텐츠가 없습니다.' : statusLabel(currentFilter) + ' 상태의 콘텐츠가 없습니다.') +
+      '</p></div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(c => {
+    const id = c.id || c._id;
+    const title = c.title || '제목 없음';
+    const topic = c.topic || c.diseaseName || c.disease_name || '';
+    const contentType = c.contentType || c.content_type || c.type || '';
+    const created = formatDate(c.createdAt || c.created_at || c.date);
+    const status = c.status || 'pending';
+    const htmlContent = c.htmlContent || c.html_content || c.content || '';
+    const isPending = status === 'pending';
+
+    return '<div class="content-card">' +
+      '<div class="card-main">' +
+        '<div class="card-info">' +
+          '<div class="card-title">' + escapeHtml(title) + '</div>' +
+          '<div class="card-meta">' +
+            (topic ? '<span>' + escapeHtml(topic) + '</span>' : '') +
+            (contentType ? '<span>' + escapeHtml(contentType) + '</span>' : '') +
+            '<span>' + created + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="card-actions">' +
+          '<span class="badge ' + statusBadgeClass(status) + '">' + statusLabel(status) + '</span>' +
+          '<button class="btn btn-preview" onclick="togglePreview(\'' + id + '\')">미리보기</button>' +
+          (isPending ? '<button class="btn btn-approve" onclick="approveContent(\'' + id + '\', \'' + escapeAttr(title) + '\')">승인</button>' : '') +
+          (isPending ? '<button class="btn btn-reject" onclick="rejectContent(\'' + id + '\', \'' + escapeAttr(title) + '\')">반려</button>' : '') +
+        '</div>' +
+      '</div>' +
+      '<div class="preview-panel" id="preview-' + id + '">' +
+        '<iframe class="preview-frame" srcdoc="' + escapeAttr(htmlContent) + '" sandbox="allow-same-origin" frameborder="0"></iframe>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+function escapeAttr(str) {
+  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Update stats
+function updateStats() {
+  const pending = allContents.filter(c => c.status === 'pending').length;
+  const approved = allContents.filter(c => c.status === 'approved').length;
+  const rejected = allContents.filter(c => c.status === 'rejected').length;
+  document.getElementById('statPending').textContent = pending + '건';
+  document.getElementById('statApproved').textContent = approved + '건';
+  document.getElementById('statRejected').textContent = rejected + '건';
+}
+
+// Load contents
+async function loadContents() {
+  try {
+    const res = await fetch('/api/client/contents', {
+      headers: authHeaders()
+    });
+    if (res.status === 401) { handleLogout(); return; }
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    allContents = Array.isArray(data) ? data : (data.contents || data.data || []);
+    updateStats();
+    renderContents();
+  } catch {
+    document.getElementById('contentList').innerHTML =
+      '<div class="empty-state"><p>콘텐츠를 불러오지 못했습니다. 새로고침 해주세요.</p></div>';
+  }
+}
+
+// Init
+loadContents();
+</script>
+
+</body>
+</html>

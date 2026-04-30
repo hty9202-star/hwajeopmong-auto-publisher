@@ -81,6 +81,25 @@
       transition: width 0.5s ease;
     }
 
+    /* ─── GEO Citation Tracking ─── */
+    .citation-section { margin-bottom: 24px; }
+    .citation-section > h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; margin-bottom: 14px; }
+    .citation-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .citation-card { background: white; border-radius: 12px; padding: 22px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border: 1px solid #e8ecf1; }
+    .citation-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+    .citation-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .citation-dot.chatgpt { background: #10b981; }
+    .citation-dot.gemini { background: #3b82f6; }
+    .citation-dot.claude { background: #f59e0b; }
+    .citation-card-header span { font-size: 15px; font-weight: 600; color: #1a1a2e; }
+    .citation-score { font-size: 42px; font-weight: 700; color: #1B4F72; line-height: 1; }
+    .citation-score-label { font-size: 12px; color: #9ca3af; margin-top: 4px; margin-bottom: 16px; }
+    .citation-divider { height: 1px; background: #e8ecf1; margin-bottom: 14px; }
+    .citation-metric { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 14px; }
+    .citation-metric-label { color: #6b7280; }
+    .citation-metric-value { font-weight: 600; color: #1a1a2e; }
+    .citation-updated { text-align: right; font-size: 11px; color: #9ca3af; margin-top: 12px; }
+
     /* ─── Connection Status ─── */
     .connection-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
     .conn-item {
@@ -122,8 +141,49 @@
       font-size: 12px;
       font-weight: 600;
     }
-    .status-tag.publish { background: #dcfce7; color: #166534; }
+    .status-tag.publish, .status-tag.published { background: #dcfce7; color: #166534; }
     .status-tag.draft { background: #fef3c7; color: #92400e; }
+    .status-tag.queued { background: #dbeafe; color: #1e40af; }
+    .status-tag.pending { background: #fef3c7; color: #92400e; }
+
+    /* ─── Preview Modal ─── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-content {
+      background: white;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 800px;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #e8ecf1;
+    }
+    .modal-header h2 { font-size: 18px; color: #1B4F72; }
+    .modal-close {
+      background: none; border: none;
+      font-size: 24px; cursor: pointer;
+      color: #9ca3af; padding: 4px 8px;
+    }
+    .modal-close:hover { color: #374151; }
+    .modal-body { font-size: 14px; line-height: 1.8; color: #374151; }
+    .modal-body img { max-width: 100%; border-radius: 8px; margin: 12px 0; }
 
     /* ─── Topic Matrix ─── */
     .matrix-table th, .matrix-table td { text-align: center; padding: 8px; font-size: 12px; }
@@ -164,6 +224,7 @@
     @media (max-width: 768px) {
       .connection-grid { grid-template-columns: 1fr; }
       .grid { grid-template-columns: 1fr; }
+            .citation-grid { grid-template-columns: 1fr; }
       .actions { flex-direction: column; }
     }
   </style>
@@ -174,7 +235,7 @@
       <h1>화접몽 한의원 GEO Auto-Publisher</h1>
       <div class="subtitle">피부질환 콘텐츠 자동 생성 · 발행 대시보드</div>
     </div>
-    <div class="status-badge online" id="serverStatus">시스템 정상</div>
+    <div style="display:flex;align-items:center;gap:12px;"><a href="/settings" style="color:white;text-decoration:none;padding:8px 16px;border-radius:8px;font-size:14px;font-weight:500;background:rgba(255,255,255,0.15);transition:background 0.2s;">설정</a><div class="status-badge online" id="serverStatus">시스템 정상</div></div>
   </div>
 
   <div class="container">
@@ -202,6 +263,43 @@
         <div class="value" id="nextTopic" style="font-size:18px">--</div>
         <div class="sub" id="nextType">--</div>
       </div>
+      <div class="card" id="publishSettingsCard">
+        <h3>발행 설정</h3>
+        <div class="value" id="publishPerDay" style="font-size:24px">--</div>
+        <div class="sub" id="publishDetail">--</div>
+      </div>
+    </div>
+
+    <!-- GEO AI Citation Tracking -->
+    <div class="citation-section">
+      <h3>GEO AI 인용 추적</h3>
+      <div class="citation-grid">
+        <div class="citation-card">
+          <div class="citation-card-header"><div class="citation-dot chatgpt"></div><span>ChatGPT</span></div>
+          <div class="citation-score" id="chatgptScore">8</div>
+          <div class="citation-score-label">AI Visibility Score</div>
+          <div class="citation-divider"></div>
+          <div class="citation-metric"><span class="citation-metric-label">브랜드 언급</span><span class="citation-metric-value" id="chatgptMentions">0회</span></div>
+          <div class="citation-metric"><span class="citation-metric-label">인용 횟수</span><span class="citation-metric-value" id="chatgptCitations">0건</span></div>
+        </div>
+        <div class="citation-card">
+          <div class="citation-card-header"><div class="citation-dot gemini"></div><span>Gemini</span></div>
+          <div class="citation-score" id="geminiScore">15</div>
+          <div class="citation-score-label">AI Visibility Score</div>
+          <div class="citation-divider"></div>
+          <div class="citation-metric"><span class="citation-metric-label">브랜드 언급</span><span class="citation-metric-value" id="geminiMentions">2회</span></div>
+          <div class="citation-metric"><span class="citation-metric-label">인용 횟수</span><span class="citation-metric-value" id="geminiCitations">8건</span></div>
+        </div>
+        <div class="citation-card">
+          <div class="citation-card-header"><div class="citation-dot claude"></div><span>Claude</span></div>
+          <div class="citation-score" id="claudeScore">22</div>
+          <div class="citation-score-label">AI Visibility Score</div>
+          <div class="citation-divider"></div>
+          <div class="citation-metric"><span class="citation-metric-label">브랜드 언급</span><span class="citation-metric-value" id="claudeMentions">5회</span></div>
+          <div class="citation-metric"><span class="citation-metric-label">인용 횟수</span><span class="citation-metric-value" id="claudeCitations">37건</span></div>
+        </div>
+      </div>
+      <div class="citation-updated" id="citationUpdated">마지막 업데이트: 데이터 연동 대기 중</div>
     </div>
 
     <!-- Connection Status -->
@@ -215,7 +313,7 @@
         </div>
         <div class="conn-item">
           <div class="conn-dot" id="aiDot"></div>
-          <span>OpenAI GPT</span>
+          <span>Gemini AI</span>
           <span id="aiStatus" style="margin-left:auto; font-size:12px; color:#9ca3af">확인 중...</span>
         </div>
         <div class="conn-item">
@@ -276,53 +374,72 @@
     </div>
   </div>
 
+  <!-- Preview Modal -->
+  <div class="modal-overlay" id="previewModal" onclick="if(event.target===this)closePreview()">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="previewTitle">콘텐츠 미리보기</h2>
+        <button class="modal-close" onclick="closePreview()">&times;</button>
+      </div>
+      <div class="modal-body" id="previewBody">로딩 중...</div>
+    </div>
+  </div>
+
   <script>
     const API_BASE = window.location.origin;
 
     async function loadData() {
       try {
-        // Load status
         const statusRes = await fetch(`${API_BASE}/api/status`);
         const status = await statusRes.json();
 
-        // Progress
         document.getElementById('progressPercent').textContent = status.content.progress;
         document.getElementById('progressDetail').textContent =
-          `${status.content.published} / ${status.content.totalCombinations} 발행 완료`;
+          `${status.content.published} / ${status.content.totalTarget} 발행 완료`;
         document.getElementById('progressFill').style.width = status.content.progress;
         document.getElementById('topicCount').textContent = status.content.totalTopics;
 
-        // Next topic
         if (status.nextTopic) {
           document.getElementById('nextTopic').textContent = status.nextTopic.topic.name;
           document.getElementById('nextType').textContent = status.nextTopic.contentType.name;
         }
 
-        // Connections
         setConnectionStatus('wp', status.wordpress.connected, status.wordpress.connected ? '연결됨' : '미연결');
         setConnectionStatus('ai', status.ai.status === 'configured', status.ai.status === 'configured' ? '설정됨' : '미설정');
         setConnectionStatus('pexels', status.pexels.status === 'configured', status.pexels.status === 'configured' ? '설정됨' : '미설정');
 
-        // Load topics
         const topicsRes = await fetch(`${API_BASE}/api/topics`);
         const topics = await topicsRes.json();
         renderMatrix(topics);
 
-        // Load recent posts
         const postsRes = await fetch(`${API_BASE}/api/recent-posts`);
         const posts = await postsRes.json();
         renderRecentPosts(posts);
 
-        // Load errors
         const errorsRes = await fetch(`${API_BASE}/api/errors`);
         const errors = await errorsRes.json();
         renderErrors(errors);
+        loadCitationData();
 
       } catch (e) {
         document.getElementById('serverStatus').textContent = '연결 실패';
         document.getElementById('serverStatus').classList.remove('online');
         console.error('데이터 로딩 실패:', e);
       }
+    }
+
+    function loadCitationData() {
+        const mockData = { chatgpt:{score:8,mentions:0,citations:0}, gemini:{score:15,mentions:2,citations:8}, claude:{score:22,mentions:5,citations:37}, lastUpdated:null };
+        document.getElementById('chatgptScore').textContent = mockData.chatgpt.score;
+        document.getElementById('chatgptMentions').textContent = mockData.chatgpt.mentions + '회';
+        document.getElementById('chatgptCitations').textContent = mockData.chatgpt.citations + '건';
+        document.getElementById('geminiScore').textContent = mockData.gemini.score;
+        document.getElementById('geminiMentions').textContent = mockData.gemini.mentions + '회';
+        document.getElementById('geminiCitations').textContent = mockData.gemini.citations + '건';
+        document.getElementById('claudeScore').textContent = mockData.claude.score;
+        document.getElementById('claudeMentions').textContent = mockData.claude.mentions + '회';
+        document.getElementById('claudeCitations').textContent = mockData.claude.citations + '건';
+        document.getElementById('citationUpdated').textContent = mockData.lastUpdated ? '마지막 업데이트: ' + new Date(mockData.lastUpdated).toLocaleString('ko-KR') : '마지막 업데이트: 데이터 연동 대기 중';
     }
 
     function setConnectionStatus(prefix, isOk, label) {
@@ -344,21 +461,47 @@
       }).join('');
     }
 
+    function getStatusLabel(status) {
+      const map = { 'published': '발행됨', 'publish': '발행됨', 'queued': '대기중', 'pending': '대기중', 'draft': '초안', 'approved': '발행됨', 'rejected': '반려' };
+      return map[status] || status;
+    }
+    function getStatusClass(status) {
+      const map = { 'published': 'published', 'publish': 'publish', 'queued': 'queued', 'pending': 'pending', 'draft': 'draft', 'approved': 'published', 'rejected': 'draft' };
+      return map[status] || 'draft';
+    }
+    function formatDate(dateStr) {
+      if (!dateStr) return '-';
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return '-';
+      return d.toLocaleString('ko-KR');
+    }
+
     function renderRecentPosts(posts) {
       const tbody = document.getElementById('recentPostsBody');
       if (!posts.length) {
         tbody.innerHTML = '<tr><td colspan="5" class="empty-state">발행된 콘텐츠가 없습니다</td></tr>';
         return;
       }
-      tbody.innerHTML = posts.slice(0, 20).map(post => `
-        <tr>
-          <td><a href="${post.wpLink || '#'}" target="_blank" style="color:#2E75B6; text-decoration:none;">${post.title}</a></td>
-          <td>${post.topicName}</td>
-          <td>${post.contentType}</td>
-          <td><span class="status-tag ${post.status}">${post.status === 'publish' ? '발행됨' : '초안'}</span></td>
-          <td style="color:#9ca3af; font-size:13px;">${new Date(post.publishedAt).toLocaleString('ko-KR')}</td>
-        </tr>
-      `).join('');
+      tbody.innerHTML = posts.slice(0, 20).map(post => {
+        const dateStr = formatDate(post.publishedAt || post.createdAt);
+        const statusClass = getStatusClass(post.status);
+        const statusLabel = getStatusLabel(post.status);
+        let titleHtml;
+        if (post.wpLink) {
+          titleHtml = `<a href="${post.wpLink}" target="_blank" style="color:#2E75B6; text-decoration:none;">${post.title}</a>`;
+        } else if (post.queueId) {
+          titleHtml = `<a href="#" onclick="showPreview('${post.queueId}');return false;" style="color:#2E75B6; text-decoration:none;">${post.title}</a>`;
+        } else {
+          titleHtml = `<a href="#" onclick="showPreviewByTitle('${encodeURIComponent(post.title)}');return false;" style="color:#2E75B6; text-decoration:none;">${post.title}</a>`;
+        }
+        return `<tr>
+          <td>${titleHtml}</td>
+          <td>${post.topicName || '-'}</td>
+          <td>${post.contentType || '-'}</td>
+          <td><span class="status-tag ${statusClass}">${statusLabel}</span></td>
+          <td style="color:#9ca3af; font-size:13px;">${dateStr}</td>
+        </tr>`;
+      }).join('');
     }
 
     function renderErrors(errors) {
@@ -393,8 +536,60 @@
 
     // Initial load
     loadData();
+    loadPublishSettings();
     // Auto-refresh every 60s
     setInterval(loadData, 60000);
+
+  async function showPreview(queueId) {
+    const modal = document.getElementById('previewModal');
+    const title = document.getElementById('previewTitle');
+    const body = document.getElementById('previewBody');
+    modal.classList.add('active');
+    title.textContent = '콘텐츠 미리보기';
+    body.innerHTML = '로딩 중...';
+    try {
+      const res = await fetch(`${API_BASE}/api/content-preview?id=${encodeURIComponent(queueId)}`);
+      const data = await res.json();
+      if (data.error) { body.innerHTML = '<p style="color:#f87171;">콘텐츠를 찾을 수 없습니다.</p>'; return; }
+      title.textContent = data.title || '콘텐츠 미리보기';
+      body.innerHTML = data.content || '<p>내용 없음</p>';
+    } catch(e) { body.innerHTML = '<p style="color:#f87171;">로딩 실패: ' + e.message + '</p>'; }
+  }
+  async function showPreviewByTitle(encodedTitle) {
+    const modal = document.getElementById('previewModal');
+    const titleEl = document.getElementById('previewTitle');
+    const body = document.getElementById('previewBody');
+    modal.classList.add('active');
+    titleEl.textContent = '콘텐츠 미리보기';
+    body.innerHTML = '로딩 중...';
+    try {
+      const res = await fetch(`${API_BASE}/api/content-preview?title=${encodedTitle}`);
+      const data = await res.json();
+      if (data.error) { body.innerHTML = '<p style="color:#f87171;">콘텐츠를 찾을 수 없습니다.</p>'; return; }
+      titleEl.textContent = data.title || '콘텐츠 미리보기';
+      body.innerHTML = data.content || '<p>내용 없음</p>';
+    } catch(e) { body.innerHTML = '<p style="color:#f87171;">로딩 실패: ' + e.message + '</p>'; }
+  }
+  function closePreview() {
+    document.getElementById('previewModal').classList.remove('active');
+  }
+
+  async function loadPublishSettings(){
+    fetch('/api/settings').then(r=>r.json()).then(d=>{
+      var p=d.publish||{};
+      var el=document.getElementById('publishSettingsCard');
+      if(el){
+        var v=document.getElementById('publishPerDay');
+        var s=document.getElementById('publishDetail');
+        if(v)v.textContent='하루 '+(p.postsPerDay||5)+'건 발행';
+        if(s)s.textContent=(p.postsPerSlot||1)+'회/슬롯 \xB7 '+(p.defaultStatus||'draft');
+      }
+      var topicMap={'flat-warts':'편평사마귀','keratosis-pilaris':'모공각화증','folliculitis':'모낭염','acne':'여드름','atopic-dermatitis':'아토피','acne-scars':'여드름흉터','psoriasis':'건선','dyshidrosis':'한포진','diet':'다이어트','seborrheic-dermatitis':'지루성피부염'};
+      var nt=p.nextTopic||'auto';
+      var ntEl=document.getElementById('nextTopic');
+      if(ntEl)ntEl.textContent=nt==='auto'?'자동 (순서대로)':topicMap[nt]||nt;
+    });
+  }
   </script>
 </body>
 </html>
