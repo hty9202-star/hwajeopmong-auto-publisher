@@ -191,8 +191,8 @@
     /* ─── Topic Matrix ─── */
     .matrix-table th, .matrix-table td { text-align: center; padding: 8px; font-size: 12px; }
     .matrix-table td:first-child { text-align: left; font-weight: 600; }
-    .check { color: #4ade80; font-size: 16px; }
-    .pending { color: #d1d5db; font-size: 16px; }
+    .matrix-table .check { color: #4ade80; font-size: 16px; }
+    .matrix-table .pending-icon { color: #d1d5db; font-size: 16px; }
 
     /* ─── Actions ─── */
     .actions { display: flex; gap: 12px; margin-bottom: 24px; }
@@ -552,7 +552,7 @@
       tbody.innerHTML = topics.map(topic => {
         const cells = typeOrder.map(typeId => {
           const ct = topic.contentStatus.find(cs => cs.comboId.endsWith(`__${typeId}`));
-          return `<td>${ct && ct.published ? '<span class="check">✓</span>' : '<span class="pending">○</span>'}</td>`;
+          return `<td>${ct && ct.published ? '<span class="check">✓</span>' : '<span class="pending-icon">○</span>'}</td>`;
         }).join('');
         return `<tr><td>${topic.name}</td>${cells}</tr>`;
       }).join('');
