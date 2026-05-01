@@ -448,15 +448,16 @@
       <table>
         <thead>
           <tr>
-            <th style="width:40%">제목</th>
-            <th style="width:12%">질환</th>
-            <th style="width:14%">유형</th>
+            <th style="width:36%">제목</th>
+            <th style="width:11%">질환</th>
+            <th style="width:12%">유형</th>
             <th style="width:8%">상태</th>
-            <th style="width:26%">발행일</th>
+            <th style="width:10%">검수상태</th>
+            <th style="width:23%">발행일</th>
           </tr>
         </thead>
         <tbody id="recentPostsBody">
-          <tr><td colspan="5" class="empty-state">발행된 콘텐츠가 없습니다</td></tr>
+          <tr><td colspan="6" class="empty-state">발행된 콘텐츠가 없습니다</td></tr>
         </tbody>
       </table>
       <div class="pagination" id="postsPagination"></div>
@@ -609,7 +610,8 @@
           <td>${titleHtml}</td>
           <td>${post.topic_name || '-'}</td>
           <td>${post.content_type_name || '-'}</td>
-          <td><span class="status-tag ${statusClass}">${statusLabel}</span>${post.review_status && post.review_status !== 'clean' ? '<span class="review-badge ' + post.review_status + '">' + (post.review_fixes || 0) + '건 검수</span>' : ''}</td>
+          <td><span class="status-tag ${statusClass}">${statusLabel}</span></td>
+          <td>${post.review_status === 'fixed-critical' ? '<span class="review-badge fixed-critical">' + (post.review_fixes || 0) + '건 치환</span>' : post.review_status === 'fixed-minor' ? '<span class="review-badge fixed-minor">' + (post.review_fixes || 0) + '건 치환</span>' : '<span style="color:#22c55e;font-size:12px;">정상</span>'}</td>
           <td style="color:#9ca3af; font-size:13px;">${dateStr}</td>
         </tr>`;
       }).join('');
@@ -755,7 +757,7 @@
       var topicMap={'flat-warts':'편평사마귀','keratosis-pilaris':'모공각화증','folliculitis':'모낭염','acne':'여드름','atopic-dermatitis':'아토피','acne-scars':'여드름흉터','psoriasis':'건선','dyshidrosis':'한포진','diet':'다이어트','seborrheic-dermatitis':'지루성피부염'};
       var nt=p.nextTopic||'auto';
       var ntEl=document.getElementById('nextTopic');
-      if(ntEl){var ml2={'auto':'자동','random':'랜덤','balanced':'균등분배','sequential':'질환별순서'};ntEl.textContent=['auto','random','balanced','sequential'].includes(nt)?ml2[p.publishMode||'auto']:topicMap[nt]||nt;}
+if(ntEl){var ml2={'auto':'자동','random':'랜덤','balanced':'균등분배','sequential':'질환별순서'};ntEl.textContent=['auto','random','balanced','sequential'].includes(nt)?ml2[p.publishMode||'auto']:topicMap[nt]||nt;}
     });
   }
   </script>

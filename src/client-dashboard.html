@@ -166,11 +166,6 @@
   .badge-pending { background: #fef3c7; color: #92400e; }
   .badge-approved { background: #dcfce7; color: #166534; }
   .badge-rejected { background: #fee2e2; color: #991b1b; }
-  .review-badge { display:inline-block; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:600; margin-left:6px; }
-  .review-badge.clean { background:#dcfce7; color:#166534; }
-  .review-badge.fixed-critical { background:#fee2e2; color:#991b1b; }
-  .review-badge.fixed-minor { background:#fef3c7; color:#92400e; }
-
   /* Buttons */
   .btn {
     padding: 8px 18px;
@@ -828,7 +823,7 @@ function renderContents() {
           '</div>' +
         '</div>' +
         '<div class="card-actions">' +
-          '<span class="badge ' + statusBadgeClass(status) + '">' + statusLabel(status) + '</span>' + (c.review_status && c.review_status !== 'clean' ? '<span class="review-badge ' + c.review_status + '">' + (c.review_fixes||0) + '건 검수</span>' : '') +
+          '<span class="badge ' + statusBadgeClass(status) + '">' + statusLabel(status) + '</span>' +
           '<button class="btn btn-preview" onclick="togglePreview(\'' + id + '\')">미리보기</button>' +
           (isPending ? '<button class="btn btn-approve" onclick="approveContent(\'' + id + '\', \'' + escapeAttr(title) + '\')">승인</button>' : '') +
           (isPending ? '<button class="btn btn-reject" onclick="rejectContent(\'' + id + '\', \'' + escapeAttr(title) + '\')">반려</button>' : '') +
