@@ -123,7 +123,14 @@ async function autoPublish() {
         console.log(`[검수 완료] ${review.total}건 자동 치환 (의료법: ${review.high}, 과장광고: ${review.medium})`);
       }
 
-      // Supabase에 콘텐츠 추가 (검수 결과 포함)
+      // GEO / E-E-A-T 품질 점수
+      const geo = result.geoScore || { score: 0, details: {} };
+      const eeat = result.eeatScore || { score: 0, details: {} };
+      if (geo.score || eeat.score) {
+        console.log(`[품질] GEO: ${geo.score}/100, E-E-A-T: ${eeat.score}/100`);
+      }
+
+      // Supabase에 콘텐츠 추가 (검수 결과 + 품질 점수 포함)
       const inserted = await contentQueue.add({
         combo_id: comboId,
         topic_id: topic.id,
@@ -142,6 +149,10 @@ async function autoPublish() {
         faq: result.faq || null,
         review_status: review.status,
         review_fixes: review.total,
+        geo_score: geo.score || 0,
+        eeat_score: eeat.score || 0,
+        geo_details: geo.details || {},
+        eeat_details: eeat.details || {},
         status: 'pending',
       });
 
@@ -693,6 +704,25 @@ const server = http.createServer(async (req, res) => {
       }
       await contentQueue.delete(itemId);
       jsonRes(res, { success: true });
+      return;
+    }
+
+    // --- 품질 점수 API ---
+    if (pathname === '/api/quality-scores' && method === 'GET') {
+      const all = await contentQueue.getAll();
+      const scored = (all || []).map(item => ({
+        id: item.id,
+        title: item.title,
+        topic_name: item.topic_name,
+        content_type_name: item.content_type_name,
+        status: item.status,
+        geo_score: item.geo_score || 0,
+        eeat_score: item.eeat_score || 0,
+        geo_details: item.geo_details || {},
+        eeat_details: item.eeat_details || {},
+        created_at: item.created_at,
+      }));
+      jsonRes(res, scored);
       return;
     }
 

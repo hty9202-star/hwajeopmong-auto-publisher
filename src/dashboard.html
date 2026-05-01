@@ -296,11 +296,128 @@
 
     .empty-state { text-align: center; color: #9ca3af; padding: 40px; font-size: 14px; }
 
+    /* ─── Tab Navigation ─── */
+    .tab-nav {
+      display: flex;
+      gap: 0;
+      background: white;
+      border-bottom: 2px solid #e8ecf1;
+      padding: 0 32px;
+    }
+    .tab-btn {
+      padding: 14px 24px;
+      border: none;
+      background: none;
+      font-size: 14px;
+      font-weight: 600;
+      color: #9ca3af;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: all 0.2s;
+    }
+    .tab-btn:hover { color: #374151; }
+    .tab-btn.active {
+      color: #1B4F72;
+      border-bottom-color: #2E75B6;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* ─── Quality Tab Styles ─── */
+    .quality-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .gauge-card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      border: 1px solid #e8ecf1;
+      text-align: center;
+    }
+    .gauge-ring {
+      position: relative;
+      width: 120px;
+      height: 120px;
+      margin: 0 auto 12px;
+    }
+    .gauge-ring svg { width: 120px; height: 120px; transform: rotate(-90deg); }
+    .gauge-ring .bg { fill: none; stroke: #e5e7eb; stroke-width: 10; }
+    .gauge-ring .fg { fill: none; stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 0.8s ease; }
+    .gauge-ring .score-text {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 28px;
+      font-weight: 700;
+      color: #1B4F72;
+    }
+    .gauge-label { font-size: 14px; font-weight: 600; color: #374151; }
+    .gauge-sub { font-size: 12px; color: #9ca3af; margin-top: 2px; }
+
+    .detail-breakdown {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      border: 1px solid #e8ecf1;
+      margin-bottom: 24px;
+    }
+    .detail-breakdown h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; margin-bottom: 16px; }
+    .detail-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-label { flex: 1; font-size: 13px; color: #374151; }
+    .detail-bar-wrap { flex: 2; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; }
+    .detail-bar { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+    .detail-score { width: 50px; text-align: right; font-size: 13px; font-weight: 600; color: #1B4F72; }
+
+    .topic-compare {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      border: 1px solid #e8ecf1;
+      margin-bottom: 24px;
+    }
+    .topic-compare h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; margin-bottom: 16px; }
+    .topic-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 6px 0;
+    }
+    .topic-bar-label { width: 100px; font-size: 12px; color: #374151; text-align: right; }
+    .topic-bar-wrap { flex: 1; display: flex; gap: 4px; height: 20px; }
+    .topic-bar-geo, .topic-bar-eeat { height: 100%; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: white; min-width: 28px; transition: width 0.6s ease; }
+    .topic-bar-geo { background: #3b82f6; }
+    .topic-bar-eeat { background: #8b5cf6; }
+
+    .quality-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .quality-table th { text-align: left; padding: 10px 14px; background: #f3f4f6; color: #6b7280; font-weight: 600; font-size: 12px; }
+    .quality-table td { padding: 10px 14px; border-bottom: 1px solid #f3f4f6; }
+    .quality-table tr:hover td { background: #f9fafb; }
+    .score-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+    .score-high { background: #dcfce7; color: #166534; }
+    .score-mid { background: #fef3c7; color: #92400e; }
+    .score-low { background: #fee2e2; color: #991b1b; }
+
     @media (max-width: 768px) {
       .connection-grid { grid-template-columns: 1fr; }
       .grid { grid-template-columns: 1fr; }
-            .citation-grid { grid-template-columns: 1fr; }
+      .citation-grid { grid-template-columns: 1fr; }
       .actions { flex-direction: column; }
+      .tab-nav { padding: 0 16px; }
+      .tab-btn { padding: 12px 16px; font-size: 13px; }
     }
   </style>
 </head>
@@ -313,6 +430,14 @@
     <div style="display:flex;align-items:center;gap:12px;"><a href="/settings" style="color:white;text-decoration:none;padding:8px 16px;border-radius:8px;font-size:14px;font-weight:500;background:rgba(255,255,255,0.15);transition:background 0.2s;">설정</a><div class="status-badge online" id="serverStatus">시스템 정상</div></div>
   </div>
 
+  <!-- Tab Navigation -->
+  <div class="tab-nav">
+    <button class="tab-btn active" onclick="switchTab('dashboard')">대시보드</button>
+    <button class="tab-btn" onclick="switchTab('quality')">콘텐츠 품질</button>
+  </div>
+
+  <!-- Tab 1: Dashboard -->
+  <div class="tab-content active" id="tab-dashboard">
   <div class="container">
     <!-- Actions -->
     <div class="actions">
@@ -471,6 +596,102 @@
       </div>
     </div>
   </div>
+  </div><!-- end tab-dashboard -->
+
+  <!-- Tab 2: Quality -->
+  <div class="tab-content" id="tab-quality">
+  <div class="container">
+    <!-- Average Score Gauges -->
+    <div class="quality-summary">
+      <div class="gauge-card">
+        <div class="gauge-ring">
+          <svg viewBox="0 0 120 120">
+            <circle class="bg" cx="60" cy="60" r="50"/>
+            <circle class="fg" id="geoGaugeFg" cx="60" cy="60" r="50" stroke="#3b82f6" stroke-dasharray="314" stroke-dashoffset="314"/>
+          </svg>
+          <div class="score-text" id="geoAvgScore">--</div>
+        </div>
+        <div class="gauge-label">GEO 최적화</div>
+        <div class="gauge-sub">평균 점수</div>
+      </div>
+      <div class="gauge-card">
+        <div class="gauge-ring">
+          <svg viewBox="0 0 120 120">
+            <circle class="bg" cx="60" cy="60" r="50"/>
+            <circle class="fg" id="eeatGaugeFg" cx="60" cy="60" r="50" stroke="#8b5cf6" stroke-dasharray="314" stroke-dashoffset="314"/>
+          </svg>
+          <div class="score-text" id="eeatAvgScore">--</div>
+        </div>
+        <div class="gauge-label">E-E-A-T</div>
+        <div class="gauge-sub">평균 점수</div>
+      </div>
+      <div class="gauge-card">
+        <div class="gauge-ring">
+          <svg viewBox="0 0 120 120">
+            <circle class="bg" cx="60" cy="60" r="50"/>
+            <circle class="fg" id="totalGaugeFg" cx="60" cy="60" r="50" stroke="#10b981" stroke-dasharray="314" stroke-dashoffset="314"/>
+          </svg>
+          <div class="score-text" id="totalAvgScore">--</div>
+        </div>
+        <div class="gauge-label">종합 품질</div>
+        <div class="gauge-sub">평균 점수</div>
+      </div>
+      <div class="gauge-card" style="display:flex;flex-direction:column;justify-content:center;">
+        <div style="font-size:42px;font-weight:700;color:#1B4F72;" id="qualityContentCount">0</div>
+        <div class="gauge-label">분석된 콘텐츠</div>
+        <div class="gauge-sub" id="qualityHighCount">우수(80+): 0건</div>
+      </div>
+    </div>
+
+    <!-- GEO Detail Breakdown -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+      <div class="detail-breakdown">
+        <h3>GEO 세부 점수</h3>
+        <div id="geoDetailRows">
+          <div class="empty-state">데이터 로딩 중...</div>
+        </div>
+      </div>
+      <div class="detail-breakdown">
+        <h3>E-E-A-T 세부 점수</h3>
+        <div id="eeatDetailRows">
+          <div class="empty-state">데이터 로딩 중...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Topic Comparison -->
+    <div class="topic-compare">
+      <h3>질환별 품질 비교</h3>
+      <div style="display:flex;gap:16px;margin-bottom:12px;">
+        <span style="font-size:12px;color:#6b7280;display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;background:#3b82f6;border-radius:2px;display:inline-block;"></span> GEO</span>
+        <span style="font-size:12px;color:#6b7280;display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;background:#8b5cf6;border-radius:2px;display:inline-block;"></span> E-E-A-T</span>
+      </div>
+      <div id="topicCompareRows">
+        <div class="empty-state">데이터 로딩 중...</div>
+      </div>
+    </div>
+
+    <!-- Per-Content Score Table -->
+    <div class="card table-card">
+      <h3>콘텐츠별 품질 점수</h3>
+      <table class="quality-table">
+        <thead>
+          <tr>
+            <th style="width:35%">제목</th>
+            <th style="width:15%">질환</th>
+            <th style="width:12%">GEO</th>
+            <th style="width:12%">E-E-A-T</th>
+            <th style="width:12%">종합</th>
+            <th style="width:14%">발행일</th>
+          </tr>
+        </thead>
+        <tbody id="qualityTableBody">
+          <tr><td colspan="6" class="empty-state">데이터 로딩 중...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  </div><!-- end tab-quality -->
 
   <!-- Preview Modal -->
   <div class="modal-overlay" id="previewModal" onclick="if(event.target===this)closePreview()">
@@ -686,7 +907,7 @@
 
       const { page, totalPages, total } = result;
       let html = '';
-      html += `<button ${page <= 1 ? 'disabled' : ''} onclick="${loadFn.name}(${page - 1})">‹</button>`;
+      html += `<button ${page <= 1 ? 'disabled' : ''} onclick="${loadFn.name}(${page - 1})">\u2039</button>`;
 
       const start = Math.max(1, page - 2);
       const end = Math.min(totalPages, page + 2);
@@ -697,7 +918,7 @@
       }
       if (end < totalPages) { if (end < totalPages - 1) html += '<span class="page-info">...</span>'; html += `<button onclick="${loadFn.name}(${totalPages})">${totalPages}</button>`; }
 
-      html += `<button ${page >= totalPages ? 'disabled' : ''} onclick="${loadFn.name}(${page + 1})">›</button>`;
+      html += `<button ${page >= totalPages ? 'disabled' : ''} onclick="${loadFn.name}(${page + 1})">\u203a</button>`;
       html += `<span class="page-info">${total}건</span>`;
       container.innerHTML = html;
     }
@@ -742,6 +963,162 @@
     document.getElementById('previewModal').classList.remove('active');
   }
 
+  // ─── Tab Switching ───
+  function switchTab(tabId) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+    document.getElementById('tab-' + tabId).classList.add('active');
+    event.target.classList.add('active');
+    if (tabId === 'quality' && !qualityLoaded) loadQualityData();
+  }
+
+  // ─── Quality Tab Data ───
+  let qualityLoaded = false;
+
+  function setGauge(id, score, max) {
+    const circ = 314;
+    const offset = circ - (score / max) * circ;
+    const el = document.getElementById(id);
+    if (el) el.setAttribute('stroke-dashoffset', offset);
+  }
+
+  function scoreBadgeClass(score) {
+    if (score >= 80) return 'score-high';
+    if (score >= 50) return 'score-mid';
+    return 'score-low';
+  }
+
+  function renderDetailRows(containerId, details, color) {
+    const container = document.getElementById(containerId);
+    if (!details || Object.keys(details).length === 0) {
+      container.innerHTML = '<div class="empty-state">점수 데이터 없음</div>';
+      return;
+    }
+    container.innerHTML = Object.values(details).map(d => {
+      const pct = d.max > 0 ? (d.score / d.max) * 100 : 0;
+      return '<div class="detail-row">' +
+        '<div class="detail-label">' + d.label + '</div>' +
+        '<div class="detail-bar-wrap"><div class="detail-bar" style="width:' + pct + '%;background:' + color + ';"></div></div>' +
+        '<div class="detail-score">' + d.score + '/' + d.max + '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  async function loadQualityData() {
+    try {
+      const res = await fetch(API_BASE + '/api/quality-scores');
+      const data = await res.json();
+
+      if (!data || data.length === 0) {
+        document.getElementById('geoAvgScore').textContent = '0';
+        document.getElementById('eeatAvgScore').textContent = '0';
+        document.getElementById('totalAvgScore').textContent = '0';
+        document.getElementById('qualityContentCount').textContent = '0';
+        document.getElementById('qualityHighCount').textContent = '우수(80+): 0건';
+        document.getElementById('geoDetailRows').innerHTML = '<div class="empty-state">발행된 콘텐츠가 없습니다</div>';
+        document.getElementById('eeatDetailRows').innerHTML = '<div class="empty-state">발행된 콘텐츠가 없습니다</div>';
+        document.getElementById('topicCompareRows').innerHTML = '<div class="empty-state">발행된 콘텐츠가 없습니다</div>';
+        document.getElementById('qualityTableBody').innerHTML = '<tr><td colspan="6" class="empty-state">발행된 콘텐츠가 없습니다</td></tr>';
+        qualityLoaded = true;
+        return;
+      }
+
+      // Filter items with scores
+      const scored = data.filter(d => d.geo_score > 0 || d.eeat_score > 0);
+      const all = scored.length > 0 ? scored : data;
+
+      // Calculate averages
+      const avgGeo = Math.round(all.reduce((s, d) => s + (d.geo_score || 0), 0) / all.length);
+      const avgEeat = Math.round(all.reduce((s, d) => s + (d.eeat_score || 0), 0) / all.length);
+      const avgTotal = Math.round((avgGeo + avgEeat) / 2);
+      const highCount = all.filter(d => ((d.geo_score || 0) + (d.eeat_score || 0)) / 2 >= 80).length;
+
+      document.getElementById('geoAvgScore').textContent = avgGeo;
+      document.getElementById('eeatAvgScore').textContent = avgEeat;
+      document.getElementById('totalAvgScore').textContent = avgTotal;
+      document.getElementById('qualityContentCount').textContent = all.length;
+      document.getElementById('qualityHighCount').textContent = '우수(80+): ' + highCount + '건';
+
+      setGauge('geoGaugeFg', avgGeo, 100);
+      setGauge('eeatGaugeFg', avgEeat, 100);
+      setGauge('totalGaugeFg', avgTotal, 100);
+
+      const withGeoDetails = all.filter(d => d.geo_details && Object.keys(d.geo_details).length > 0);
+      const withEeatDetails = all.filter(d => d.eeat_details && Object.keys(d.eeat_details).length > 0);
+
+      if (withGeoDetails.length > 0) {
+        const keys = Object.keys(withGeoDetails[0].geo_details);
+        const avgDetails = {};
+        for (const k of keys) {
+          const vals = withGeoDetails.map(d => d.geo_details[k]);
+          avgDetails[k] = {
+            label: vals[0]?.label || k,
+            score: Math.round(vals.reduce((s, v) => s + (v?.score || 0), 0) / vals.length),
+            max: vals[0]?.max || 15,
+          };
+        }
+        renderDetailRows('geoDetailRows', avgDetails, '#3b82f6');
+      }
+
+      if (withEeatDetails.length > 0) {
+        const keys = Object.keys(withEeatDetails[0].eeat_details);
+        const avgDetails = {};
+        for (const k of keys) {
+          const vals = withEeatDetails.map(d => d.eeat_details[k]);
+          avgDetails[k] = {
+            label: vals[0]?.label || k,
+            score: Math.round(vals.reduce((s, v) => s + (v?.score || 0), 0) / vals.length),
+            max: vals[0]?.max || 25,
+          };
+        }
+        renderDetailRows('eeatDetailRows', avgDetails, '#8b5cf6');
+      }
+
+      // Topic comparison
+      const topicMap = {};
+      for (const item of all) {
+        const tn = item.topic_name || '기타';
+        if (!topicMap[tn]) topicMap[tn] = { geoSum: 0, eeatSum: 0, count: 0 };
+        topicMap[tn].geoSum += (item.geo_score || 0);
+        topicMap[tn].eeatSum += (item.eeat_score || 0);
+        topicMap[tn].count++;
+      }
+      const topicRows = Object.entries(topicMap).map(([name, v]) => {
+        const avgG = Math.round(v.geoSum / v.count);
+        const avgE = Math.round(v.eeatSum / v.count);
+        return '<div class="topic-bar-row">' +
+          '<div class="topic-bar-label">' + name + '</div>' +
+          '<div class="topic-bar-wrap">' +
+            '<div class="topic-bar-geo" style="width:' + avgG + '%;">' + avgG + '</div>' +
+            '<div class="topic-bar-eeat" style="width:' + avgE + '%;">' + avgE + '</div>' +
+          '</div>' +
+        '</div>';
+      });
+      document.getElementById('topicCompareRows').innerHTML = topicRows.join('');
+
+      // Per-content table
+      const tableHtml = all.slice(0, 50).map(item => {
+        const geo = item.geo_score || 0;
+        const eeat = item.eeat_score || 0;
+        const total = Math.round((geo + eeat) / 2);
+        const dateStr = item.created_at ? new Date(item.created_at).toLocaleDateString('ko-KR') : '-';
+        return '<tr>' +
+          '<td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (item.title || '-') + '</td>' +
+          '<td>' + (item.topic_name || '-') + '</td>' +
+          '<td><span class="score-badge ' + scoreBadgeClass(geo) + '">' + geo + '</span></td>' +
+          '<td><span class="score-badge ' + scoreBadgeClass(eeat) + '">' + eeat + '</span></td>' +
+          '<td><span class="score-badge ' + scoreBadgeClass(total) + '">' + total + '</span></td>' +
+          '<td style="color:#9ca3af;font-size:12px;">' + dateStr + '</td>' +
+        '</tr>';
+      });
+      document.getElementById('qualityTableBody').innerHTML = tableHtml.join('') || '<tr><td colspan="6" class="empty-state">데이터 없음</td></tr>';
+
+      qualityLoaded = true;
+    } catch (e) {
+      console.error('Quality data load error:', e);
+      document.getElementById('qualityTableBody').innerHTML = '<tr><td colspan="6" class="empty-state">로딩 실패: ' + e.message + '</td></tr>';
+    }
+  }
   async function loadPublishSettings(){
     fetch('/api/settings').then(r=>r.json()).then(d=>{
       var p=d.publish||{};
@@ -751,8 +1128,8 @@
       if(el){
         var v=document.getElementById('publishPerDay');
         var s=document.getElementById('publishDetail');
-        if(v)v.textContent=freqLabels[p.publishFrequency]||'하��� 5회';
-        if(s){var ml={'auto':'자동','random':'랜덤','balanced':'균등분배','sequential':'질환별순서'};s.textContent=(daysLabels[p.publishDays]||'매일')+' · '+(ml[p.publishMode]||'자동');}
+        if(v)v.textContent=freqLabels[p.publishFrequency]||'하루 5회';
+        if(s){var ml={'auto':'자동','random':'랜덤','balanced':'균등분배','sequential':'질환별순서'};s.textContent=(daysLabels[p.publishDays]||'매일')+' \u00b7 '+(ml[p.publishMode]||'자동');}
       }
       var topicMap={'flat-warts':'편평사마귀','keratosis-pilaris':'모공각화증','folliculitis':'모낭염','acne':'여드름','atopic-dermatitis':'아토피','acne-scars':'여드름흉터','psoriasis':'건선','dyshidrosis':'한포진','diet':'다이어트','seborrheic-dermatitis':'지루성피부염'};
       var nt=p.nextTopic||'auto';

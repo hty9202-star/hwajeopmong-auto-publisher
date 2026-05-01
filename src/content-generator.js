@@ -565,6 +565,103 @@ function generateMedicalDisclaimer() {
 </div>`;
 }
 
+// ─── GEO 최적화 점수 계산 ───
+function calculateGeoScore(content, title, metaDescription, faq, schemas) {
+  const details = {};
+  let total = 0;
+
+  // 1. FAQ 포함 여부 (15점)
+  const hasFaq = faq && faq.length > 0;
+  details.faq = { score: hasFaq ? 15 : 0, max: 15, label: 'FAQ 포함' };
+  total += details.faq.score;
+
+  // 2. JSON-LD 스키마 (15점)
+  const hasSchema = schemas && Object.keys(schemas).length > 0;
+  details.schema = { score: hasSchema ? 15 : 0, max: 15, label: 'JSON-LD 스키마' };
+  total += details.schema.score;
+
+  // 3. 메타 디스크립션 (10점)
+  const metaLen = (metaDescription || '').length;
+  const metaScore = metaLen >= 80 && metaLen <= 160 ? 10 : metaLen > 0 ? 5 : 0;
+  details.meta = { score: metaScore, max: 10, label: '메타 디스크립션' };
+  total += metaScore;
+
+  // 4. 구조화된 헤딩 (15점) - h2, h3 태그 사용
+  const h2Count = (content.match(/<h2/g) || []).length;
+  const h3Count = (content.match(/<h3/g) || []).length;
+  const headingScore = h2Count >= 3 && h3Count >= 2 ? 15 : h2Count >= 2 ? 10 : h2Count >= 1 ? 5 : 0;
+  details.headings = { score: headingScore, max: 15, label: '구조화된 헤딩', h2: h2Count, h3: h3Count };
+  total += headingScore;
+
+  // 5. 콘텐츠 길이 (15점) - 1500자 이상
+  const textOnly = content.replace(/<[^>]+>/g, '').replace(/\s+/g, '');
+  const lenScore = textOnly.length >= 2000 ? 15 : textOnly.length >= 1500 ? 12 : textOnly.length >= 1000 ? 8 : 3;
+  details.length = { score: lenScore, max: 15, label: '콘텐츠 길이', chars: textOnly.length };
+  total += lenScore;
+
+  // 6. 키워드 밀도 (15점) - 제목 핵심 키워드가 본문에 적절히 등장
+  const titleKeywords = title.replace(/[^가-힣a-zA-Z\s]/g, '').split(/\s+/).filter(k => k.length >= 2);
+  let keywordHits = 0;
+  for (const kw of titleKeywords) {
+    const regex = new RegExp(kw, 'gi');
+    const count = (content.match(regex) || []).length;
+    if (count >= 2) keywordHits++;
+  }
+  const kwScore = titleKeywords.length > 0 ? Math.min(15, Math.round((keywordHits / titleKeywords.length) * 15)) : 7;
+  details.keywords = { score: kwScore, max: 15, label: '키워드 밀도' };
+  total += kwScore;
+
+  // 7. 통계/숫자 포함 (15점)
+  const statsPattern = /\d+(%|명|건|배|세|년|개월|주|일|시간|cm|mg|ml)/g;
+  const statsCount = (content.match(statsPattern) || []).length;
+  const statsScore = statsCount >= 5 ? 15 : statsCount >= 3 ? 10 : statsCount >= 1 ? 5 : 0;
+  details.stats = { score: statsScore, max: 15, label: '통계/숫자 데이터', count: statsCount };
+  total += statsScore;
+
+  return { score: total, max: 100, details };
+}
+
+// ─── E-E-A-T 점수 계산 ───
+function calculateEeatScore(content, title) {
+  const details = {};
+  let total = 0;
+
+  // 1. Experience - 치료 사례/경험 언급 (25점)
+  const expPatterns = [/치료\s*사례/g, /임상/g, /진료\s*경험/g, /환자/g, /치료\s*경과/g, /치료\s*후/g, /치료\s*과정/g, /치료\s*결과/g];
+  let expHits = 0;
+  for (const p of expPatterns) { expHits += (content.match(p) || []).length; }
+  const expScore = expHits >= 5 ? 25 : expHits >= 3 ? 20 : expHits >= 1 ? 12 : 0;
+  details.experience = { score: expScore, max: 25, label: 'Experience (경험)', hits: expHits };
+  total += expScore;
+
+  // 2. Expertise - 의학 용어 정확성 (25점)
+  const medTerms = [/한약/g, /처방/g, /체질/g, /변증/g, /면역/g, /염증/g, /피지/g, /각질/g, /장벽/g, /재생/g, /진단/g, /증상/g, /병변/g, /외용/g, /한의학/g];
+  let termHits = 0;
+  for (const p of medTerms) { termHits += (content.match(p) || []).length; }
+  const exprtScore = termHits >= 10 ? 25 : termHits >= 6 ? 20 : termHits >= 3 ? 12 : 3;
+  details.expertise = { score: exprtScore, max: 25, label: 'Expertise (전문성)', hits: termHits };
+  total += exprtScore;
+
+  // 3. Authoritativeness - 브랜드 CTA / 의료기관 정보 (25점)
+  const hasClinicName = /화접몽/g.test(content);
+  const hasHomepage = /mongclinic\.com/g.test(content);
+  const hasCta = /<div class="brand-cta"/.test(content);
+  const authScore = (hasClinicName ? 10 : 0) + (hasHomepage ? 8 : 0) + (hasCta ? 7 : 0);
+  details.authoritativeness = { score: authScore, max: 25, label: 'Authoritativeness (권위성)', clinicName: hasClinicName, homepage: hasHomepage, cta: hasCta };
+  total += authScore;
+
+  // 4. Trustworthiness - 면책조항 + 과장 표현 부재 (25점)
+  const hasDisclaimer = /의료법에 따른 안내/.test(content) || /의학적 진단이나 치료를 대체/.test(content);
+  const exaggerations = [/완치/g, /100%/g, /기적/g, /최고의/g, /완벽/g];
+  let exagCount = 0;
+  for (const p of exaggerations) { exagCount += (content.match(p) || []).length; }
+  const trustScore = (hasDisclaimer ? 15 : 0) + (exagCount === 0 ? 10 : exagCount <= 2 ? 5 : 0);
+  details.trustworthiness = { score: trustScore, max: 25, label: 'Trustworthiness (신뢰성)', disclaimer: hasDisclaimer, exaggerations: exagCount };
+  total += trustScore;
+
+  return { score: total, max: 100, details };
+}
+
 // ─── AI 콘텐츠 자동 검수 시스템 ───
 const REVIEW_RULES = {
   // 의료법 56조 위반 표현 (절대 금지)
@@ -743,6 +840,11 @@ export async function generateContent(env, topic, contentType, options = {}) {
   // NOTE: WordPress.com 호스팅형은 <script> 태그를 자동 제거하므로
   // 본문에 JSON-LD를 삽입하지 않음. schemas 필드에 데이터 보존.
 
+  // GEO / E-E-A-T 품질 점수 계산
+  const geoResult = calculateGeoScore(finalContent, cleanedProduction.title, cleanedProduction.metaDescription, cleanedProduction.faq, schemas);
+  const eeatResult = calculateEeatScore(finalContent, cleanedProduction.title);
+  console.log(`[품질] GEO: ${geoResult.score}/100, E-E-A-T: ${eeatResult.score}/100`);
+
   return {
     title: cleanedProduction.title,
     slug: cleanedProduction.slug || strategy.slug,
@@ -755,6 +857,8 @@ export async function generateContent(env, topic, contentType, options = {}) {
     heroImage: images[0] || null,
     schemas,
     review: reviewResult.summary,
+    geoScore: geoResult,
+    eeatScore: eeatResult,
     _meta: {
       topic: topic.id,
       contentType: contentType.id,
