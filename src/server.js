@@ -227,10 +227,36 @@ const server = http.createServer(async (req, res) => {
       return jsonRes(res, topicStatus);
     }
 
-    // API: Recent Posts
+    // API: Recent Posts (with pagination)
     if (pathname === '/api/recent-posts') {
+      const params = Object.fromEntries(url.searchParams);
+      if (params.page) {
+        const result = await publishLogs.search({
+          page: parseInt(params.page) || 1,
+          limit: parseInt(params.limit) || 10,
+          search: params.search || '',
+          status: params.status || '',
+          sort: params.sort || 'latest',
+        });
+        return jsonRes(res, result);
+      }
       const logs = await publishLogs.getRecent(100);
       return jsonRes(res, logs || []);
+    }
+
+    // API: Content Queue (with pagination)
+    if (pathname === '/api/contents') {
+      const params = Object.fromEntries(url.searchParams);
+      const result = await contentQueue.search({
+        page: parseInt(params.page) || 1,
+        limit: parseInt(params.limit) || 10,
+        search: params.search || '',
+        status: params.status || '',
+        topic: params.topic || '',
+        sort: params.sort || 'latest',
+      });
+      const counts = await contentQueue.getCounts();
+      return jsonRes(res, { ...result, counts });
     }
 
     // API: Errors
@@ -375,16 +401,19 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // --- Client API: Contents List ---
+    // --- Client API: Contents List (with pagination) ---
     if (pathname === '/api/client/contents' && method === 'GET') {
       if (!verifyToken(req)) { jsonRes(res, { error: 'Unauthorized' }, 401); return; }
-      const queue = await contentQueue.getAll();
-      const stats = {
-        pending: queue.filter(i => i.status === 'pending').length,
-        approved: queue.filter(i => i.status === 'approved').length,
-        rejected: queue.filter(i => i.status === 'rejected').length,
-      };
-      jsonRes(res, { contents: queue, stats });
+      const params = Object.fromEntries(url.searchParams);
+      const result = await contentQueue.search({
+        page: parseInt(params.page) || 1,
+        limit: parseInt(params.limit) || 10,
+        search: params.search || '',
+        status: params.status || '',
+        sort: params.sort || 'latest',
+      });
+      const counts = await contentQueue.getCounts();
+      jsonRes(res, { ...result, counts });
       return;
     }
 

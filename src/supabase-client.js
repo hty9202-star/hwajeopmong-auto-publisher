@@ -12,7 +12,7 @@ const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || '';
 
 // ─── Supabase REST API 헬퍼 ───
 async function supabaseRequest(table, options = {}) {
-  const { method = 'GET', query = '', body = null, headers: extraHeaders = {}, single = false } = options;
+  const { method = 'GET', query = '', body = null, headers: extraHeaders = {}, single = false, countOnly = false } = options;
 
   const url = `${SUPABASE_URL}/rest/v1/${table}${query}`;
   const headers = {
@@ -25,6 +25,11 @@ async function supabaseRequest(table, options = {}) {
   if (single) {
     headers['Accept'] = 'application/vnd.pgrst.object+json';
   }
+  if (countOnly) {
+    headers['Prefer'] = 'count=exact';
+    headers['Range-Unit'] = 'items';
+    headers['Range'] = '0-0';
+  }
 
   const fetchOptions = { method, headers };
   if (body) fetchOptions.body = JSON.stringify(body);
@@ -34,6 +39,12 @@ async function supabaseRequest(table, options = {}) {
   if (!response.ok) {
     const error = await response.text();
     throw new Error(`Supabase error [${response.status}]: ${error}`);
+  }
+
+  if (countOnly) {
+    const contentRange = response.headers.get('content-range');
+    const total = contentRange ? parseInt(contentRange.split('/')[1]) : 0;
+    return total;
   }
 
   // DELETE나 204 응답은 빈 결과
@@ -95,6 +106,54 @@ export const contentQueue = {
     });
   },
 
+  // 페이지네이션 + 검색 + 필터 조회
+  async search({ page = 1, limit = 10, search = '', status = '', topic = '', sort = 'latest' } = {}) {
+    const filters = [];
+    if (status) filters.push(`status=eq.${status}`);
+    if (topic) filters.push(`topic_id=eq.${topic}`);
+    if (search) filters.push(`title=ilike.*${encodeURIComponent(search)}*`);
+
+    const order = sort === 'oldest' ? 'created_at.asc' : 'created_at.desc';
+    filters.push(`order=${order}`);
+
+    const offset = (page - 1) * limit;
+    filters.push(`offset=${offset}`);
+    filters.push(`limit=${limit}`);
+
+    const query = '?' + filters.join('&');
+
+    // 데이터 조회
+    const data = await supabaseRequest('content_queue', { query });
+
+    // 전체 개수 조회 (페이지네이션용)
+    const countFilters = [];
+    if (status) countFilters.push(`status=eq.${status}`);
+    if (topic) countFilters.push(`topic_id=eq.${topic}`);
+    if (search) countFilters.push(`title=ilike.*${encodeURIComponent(search)}*`);
+    const countQuery = countFilters.length > 0 ? '?' + countFilters.join('&') : '';
+
+    const total = await supabaseRequest('content_queue', { query: countQuery, countOnly: true });
+
+    return {
+      data: data || [],
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  },
+
+  // 상태별 카운트 (통계용)
+  async getCounts() {
+    const all = await supabaseRequest('content_queue', { query: '?select=status' });
+    const counts = { pending: 0, approved: 0, rejected: 0, published: 0, total: 0 };
+    for (const item of (all || [])) {
+      counts[item.status] = (counts[item.status] || 0) + 1;
+      counts.total++;
+    }
+    return counts;
+  },
+
   // 삭제
   async delete(id) {
     return supabaseRequest('content_queue', {
@@ -112,6 +171,38 @@ export const publishLogs = {
       query: `?order=created_at.desc&limit=${limit}`,
     });
   },
+
+  // 페이지네이션 + 검색 조회
+  async search({ page = 1, limit = 10, search = '', status = '', sort = 'latest' } = {}) {
+    const filters = [];
+    if (status) filters.push(`status=eq.${status}`);
+    if (search) filters.push(`title=ilike.*${encodeURIComponent(search)}*`);
+
+    const order = sort === 'oldest' ? 'created_at.asc' : 'created_at.desc';
+    filters.push(`order=${order}`);
+
+    const offset = (page - 1) * limit;
+    filters.push(`offset=${offset}`);
+    filters.push(`limit=${limit}`);
+
+    const query = '?' + filters.join('&');
+    const data = await supabaseRequest('publish_logs', { query });
+
+    const countFilters = [];
+    if (status) countFilters.push(`status=eq.${status}`);
+    if (search) countFilters.push(`title=ilike.*${encodeURIComponent(search)}*`);
+    const countQuery = countFilters.length > 0 ? '?' + countFilters.join('&') : '';
+    const total = await supabaseRequest('publish_logs', { query: countQuery, countOnly: true });
+
+    return {
+      data: data || [],
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  },
+
 
   // 로그 추가
   async add(log) {

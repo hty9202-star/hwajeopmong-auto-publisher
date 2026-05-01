@@ -279,6 +279,74 @@
     color: #333;
   }
 
+  /* Search bar */
+  .search-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .search-input {
+    flex: 1;
+    min-width: 180px;
+    padding: 9px 14px;
+    border: 1.5px solid #ddd;
+    border-radius: 10px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .search-input:focus { border-color: #2D5A27; }
+  .sort-select {
+    padding: 9px 14px;
+    border: 1.5px solid #ddd;
+    border-radius: 10px;
+    font-size: 13px;
+    background: #fff;
+    cursor: pointer;
+    outline: none;
+  }
+  .sort-select:focus { border-color: #2D5A27; }
+
+  /* Pagination */
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    margin-top: 20px;
+    padding-top: 16px;
+  }
+  .pagination button {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: 1.5px solid #ddd;
+    background: #fff;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #333;
+    transition: all 0.2s;
+  }
+  .pagination button:hover { background: #f5f5f5; }
+  .pagination button.active {
+    background: #2D5A27;
+    color: #fff;
+    border-color: #2D5A27;
+  }
+  .pagination button:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+  .pagination .page-info {
+    font-size: 13px;
+    color: #999;
+    margin: 0 8px;
+  }
+
   /* Loading */
   .loading {
     text-align: center;
@@ -326,6 +394,14 @@
     </div>
   </div>
 
+  <div class="search-bar">
+    <input type="text" class="search-input" id="clientSearch" placeholder="제목으로 검색..." oninput="debounceClientSearch()">
+    <select class="sort-select" id="clientSort" onchange="loadContents()">
+      <option value="latest">최신순</option>
+      <option value="oldest">오래된순</option>
+    </select>
+  </div>
+
   <div class="filter-tabs">
     <button class="filter-tab active" data-filter="all" onclick="setFilter('all', this)">전체</button>
     <button class="filter-tab" data-filter="pending" onclick="setFilter('pending', this)">대기중</button>
@@ -336,6 +412,7 @@
   <div id="contentList" class="content-list">
     <div class="loading">콘텐츠를 불러오는 중...</div>
   </div>
+  <div class="pagination" id="clientPagination"></div>
 </div>
 
 <!-- Toast container -->
@@ -361,6 +438,8 @@ if (!token) {
 
 let allContents = [];
 let currentFilter = 'all';
+let currentClientPage = 1;
+let clientSearchTimer = null;
 let pendingAction = null;
 
 // Display client name
@@ -417,12 +496,19 @@ function handleLogout() {
   window.location.href = '/client/login';
 }
 
+// Search debounce
+function debounceClientSearch() {
+  clearTimeout(clientSearchTimer);
+  clientSearchTimer = setTimeout(() => { currentClientPage = 1; loadContents(); }, 400);
+}
+
 // Filter
 function setFilter(filter, el) {
   currentFilter = filter;
+  currentClientPage = 1;
   document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
-  renderContents();
+  loadContents();
 }
 
 // Format date
@@ -504,18 +590,15 @@ function rejectContent(id, title) {
 // Render
 function renderContents() {
   const list = document.getElementById('contentList');
-  const filtered = currentFilter === 'all'
-    ? allContents
-    : allContents.filter(c => c.status === currentFilter);
 
-  if (filtered.length === 0) {
+  if (allContents.length === 0) {
     list.innerHTML = '<div class="empty-state"><p>' +
       (currentFilter === 'all' ? '등록된 콘텐츠가 없습니다.' : statusLabel(currentFilter) + ' 상태의 콘텐츠가 없습니다.') +
       '</p></div>';
     return;
   }
 
-  list.innerHTML = filtered.map(c => {
+  list.innerHTML = allContents.map(c => {
     const id = c.id || c._id;
     const title = c.title || '제목 없음';
     const topic = c.topic || c.diseaseName || c.disease_name || '';
@@ -558,28 +641,64 @@ function escapeAttr(str) {
   return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// Update stats
-function updateStats() {
-  const pending = allContents.filter(c => c.status === 'pending').length;
-  const approved = allContents.filter(c => c.status === 'approved').length;
-  const rejected = allContents.filter(c => c.status === 'rejected').length;
-  document.getElementById('statPending').textContent = pending + '건';
-  document.getElementById('statApproved').textContent = approved + '건';
-  document.getElementById('statRejected').textContent = rejected + '건';
+// Update stats from counts
+function updateStats(counts) {
+  if (!counts) return;
+  document.getElementById('statPending').textContent = (counts.pending || 0) + '건';
+  document.getElementById('statApproved').textContent = (counts.approved || 0) + '건';
+  document.getElementById('statRejected').textContent = (counts.rejected || 0) + '건';
 }
 
-// Load contents
+// Pagination renderer
+function renderClientPagination(result) {
+  const container = document.getElementById('clientPagination');
+  if (!result || result.totalPages <= 1) { container.innerHTML = ''; return; }
+
+  const { page, totalPages, total } = result;
+  let html = '';
+  html += '<button ' + (page <= 1 ? 'disabled' : '') + ' onclick="goClientPage(' + (page - 1) + ')">&#8249;</button>';
+
+  const start = Math.max(1, page - 2);
+  const end = Math.min(totalPages, page + 2);
+
+  if (start > 1) { html += '<button onclick="goClientPage(1)">1</button>'; if (start > 2) html += '<span class="page-info">...</span>'; }
+  for (let i = start; i <= end; i++) {
+    html += '<button class="' + (i === page ? 'active' : '') + '" onclick="goClientPage(' + i + ')">' + i + '</button>';
+  }
+  if (end < totalPages) { if (end < totalPages - 1) html += '<span class="page-info">...</span>'; html += '<button onclick="goClientPage(' + totalPages + ')">' + totalPages + '</button>'; }
+
+  html += '<button ' + (page >= totalPages ? 'disabled' : '') + ' onclick="goClientPage(' + (page + 1) + ')">&#8250;</button>';
+  html += '<span class="page-info">' + total + '건</span>';
+  container.innerHTML = html;
+}
+
+function goClientPage(page) {
+  currentClientPage = page;
+  loadContents();
+}
+
+// Load contents (paginated)
 async function loadContents() {
+  const search = document.getElementById('clientSearch').value;
+  const sort = document.getElementById('clientSort').value;
+  const status = currentFilter === 'all' ? '' : currentFilter;
+
+  const params = new URLSearchParams({
+    page: currentClientPage, limit: 10,
+    search, status, sort,
+  });
+
   try {
-    const res = await fetch('/api/client/contents', {
+    const res = await fetch('/api/client/contents?' + params, {
       headers: authHeaders()
     });
     if (res.status === 401) { handleLogout(); return; }
     if (!res.ok) throw new Error();
-    const data = await res.json();
-    allContents = Array.isArray(data) ? data : (data.contents || data.data || []);
-    updateStats();
+    const result = await res.json();
+    allContents = result.data || [];
+    updateStats(result.counts);
     renderContents();
+    renderClientPagination(result);
   } catch {
     document.getElementById('contentList').innerHTML =
       '<div class="empty-state"><p>콘텐츠를 불러오지 못했습니다. 새로고침 해주세요.</p></div>';

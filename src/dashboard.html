@@ -208,6 +208,74 @@
     .btn-secondary:hover { background: #f3f4f6; }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+    /* ─── Search & Filter Bar ─── */
+    .search-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .search-input {
+      flex: 1;
+      min-width: 180px;
+      padding: 8px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+    }
+    .search-input:focus { border-color: #2E75B6; }
+    .filter-select {
+      padding: 8px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 13px;
+      background: white;
+      cursor: pointer;
+      outline: none;
+    }
+    .filter-select:focus { border-color: #2E75B6; }
+
+    /* ─── Pagination ─── */
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #f3f4f6;
+    }
+    .pagination button {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      border: 1px solid #d1d5db;
+      background: white;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #374151;
+    }
+    .pagination button:hover { background: #f3f4f6; }
+    .pagination button.active {
+      background: #2E75B6;
+      color: white;
+      border-color: #2E75B6;
+    }
+    .pagination button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .pagination .page-info {
+      font-size: 13px;
+      color: #9ca3af;
+      margin: 0 8px;
+    }
+
     /* ─── Error Log ─── */
     .error-item {
       padding: 10px 14px;
@@ -349,6 +417,33 @@
     <!-- Recent Posts -->
     <div class="card table-card" style="margin-bottom: 24px;">
       <h3>최근 발행 목록</h3>
+      <div class="search-bar">
+        <input type="text" class="search-input" id="postSearch" placeholder="제목, 질환명으로 검색..." oninput="debouncePostSearch()">
+        <select class="filter-select" id="postTopicFilter" onchange="loadPaginatedPosts()">
+          <option value="">질환 전체</option>
+          <option value="flat-warts">편평사마귀</option>
+          <option value="keratosis-pilaris">모공각화증</option>
+          <option value="acne">여드름</option>
+          <option value="acne-scars">여드름흉터</option>
+          <option value="folliculitis">모낭염</option>
+          <option value="atopic-dermatitis">아토피</option>
+          <option value="psoriasis">건선</option>
+          <option value="dyshidrosis">한포진</option>
+          <option value="diet">다이어트</option>
+          <option value="seborrheic-dermatitis">지루성피부염</option>
+        </select>
+        <select class="filter-select" id="postStatusFilter" onchange="loadPaginatedPosts()">
+          <option value="">상태 전체</option>
+          <option value="pending">대기</option>
+          <option value="approved">승인</option>
+          <option value="rejected">반려</option>
+          <option value="published">발행</option>
+        </select>
+        <select class="filter-select" id="postSortFilter" onchange="loadPaginatedPosts()">
+          <option value="latest">최신순</option>
+          <option value="oldest">오래된순</option>
+        </select>
+      </div>
       <table>
         <thead>
           <tr>
@@ -363,6 +458,7 @@
           <tr><td colspan="5" class="empty-state">발행된 콘텐츠가 없습니다</td></tr>
         </tbody>
       </table>
+      <div class="pagination" id="postsPagination"></div>
     </div>
 
     <!-- Error Log -->
@@ -412,9 +508,7 @@
         const topics = await topicsRes.json();
         renderMatrix(topics);
 
-        const postsRes = await fetch(`${API_BASE}/api/recent-posts`);
-        const posts = await postsRes.json();
-        renderRecentPosts(posts);
+        loadPaginatedPosts();
 
         const errorsRes = await fetch(`${API_BASE}/api/errors`);
         const errors = await errorsRes.json();
@@ -532,6 +626,61 @@
         btn.disabled = false;
         btn.textContent = '지금 발행하기';
       }
+    }
+
+    // ─── Paginated Posts ───
+    let currentPostPage = 1;
+    let postSearchTimer = null;
+
+    function debouncePostSearch() {
+      clearTimeout(postSearchTimer);
+      postSearchTimer = setTimeout(() => { currentPostPage = 1; loadPaginatedPosts(); }, 400);
+    }
+
+    async function loadPaginatedPosts(page) {
+      if (page) currentPostPage = page;
+      const search = document.getElementById('postSearch').value;
+      const topic = document.getElementById('postTopicFilter').value;
+      const status = document.getElementById('postStatusFilter').value;
+      const sort = document.getElementById('postSortFilter').value;
+
+      const params = new URLSearchParams({
+        page: currentPostPage, limit: 10,
+        search, status, sort,
+      });
+      if (topic) params.set('topic', topic);
+
+      try {
+        const res = await fetch(`${API_BASE}/api/contents?${params}`);
+        const result = await res.json();
+
+        renderRecentPosts(result.data || []);
+        renderPagination('postsPagination', result, loadPaginatedPosts);
+      } catch (e) {
+        console.error('Posts load error:', e);
+      }
+    }
+
+    function renderPagination(containerId, result, loadFn) {
+      const container = document.getElementById(containerId);
+      if (!result || result.totalPages <= 1) { container.innerHTML = ''; return; }
+
+      const { page, totalPages, total } = result;
+      let html = '';
+      html += `<button ${page <= 1 ? 'disabled' : ''} onclick="${loadFn.name}(${page - 1})">‹</button>`;
+
+      const start = Math.max(1, page - 2);
+      const end = Math.min(totalPages, page + 2);
+
+      if (start > 1) { html += `<button onclick="${loadFn.name}(1)">1</button>`; if (start > 2) html += '<span class="page-info">...</span>'; }
+      for (let i = start; i <= end; i++) {
+        html += `<button class="${i === page ? 'active' : ''}" onclick="${loadFn.name}(${i})">${i}</button>`;
+      }
+      if (end < totalPages) { if (end < totalPages - 1) html += '<span class="page-info">...</span>'; html += `<button onclick="${loadFn.name}(${totalPages})">${totalPages}</button>`; }
+
+      html += `<button ${page >= totalPages ? 'disabled' : ''} onclick="${loadFn.name}(${page + 1})">›</button>`;
+      html += `<span class="page-info">${total}건</span>`;
+      container.innerHTML = html;
     }
 
     // Initial load
