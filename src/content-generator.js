@@ -139,16 +139,16 @@ const GEO_OPTIMIZATION_RULES = `
 
 // ─── 치료법 매핑 (질환별 화접몽 고유 치료법) ───
 const TREATMENT_MAP = {
-  'flat-warts': { name: '거우침', desc: '화접몽한의원 자체 개발 약침 한방 침 시술로, 비화학성 병변을 피부 손상 없이 정밀하게 제거하는 치료법' },
-  'keratosis-pilaris': { name: '하니케어', desc: '한약 추출물을 활용한 미세침 기반 한약팩을 피부에 도포해 각질 탈락을 유도하고 피부 재생을 촉진하는 치료법' },
-  'acne': { name: '하니케어', desc: '한약 추출물을 이용한 미세침 치료로 피지선 활동을 줄이고 염증을 완화하며 피부 재생을 돕는 치료법' },
-  'acne-scars': { name: '리싱크테라피', desc: '한약 도포 후 하니케어와 고밀도 AMTS를 통해 피부 재생을 유도하고 흉터를 완화하는 한방 재생 시술' },
-  'folliculitis': { name: '한방 복합 치료', desc: '한약 치료와 외용제를 병행하여 모낭 염증을 완화하고 피부 장벽을 회복하는 치료법' },
-  'atopic-dermatitis': { name: '한방 체질 치료', desc: '체질 진단을 기반으로 한약 처방과 외용제 치료를 병행하여 면역 균형을 회복하는 치료법' },
-  'psoriasis': { name: '약이팩 + 한약 치료', desc: '피부를 직접 안정시키는 약이팩과 한약 치료를 병행하여 면역 균형을 조절하고 재발을 줄이는 치료법' },
-  'dyshidrosis': { name: '한방 체질 치료', desc: '체질에 맞는 한약 처방으로 체내 습열을 제거하고 피부 장벽을 회복하는 치료법' },
-  'diet': { name: '맞춤 한약 처방', desc: '체질 진단을 기반으로 한 맞춤형 한약 처방과 식이 관리를 병행하는 체중 관리 프로그램' },
-  'seborrheic-dermatitis': { name: '한방 복합 치료', desc: '한약 치료로 체내 열과 습을 조절하고 외용제로 피부 염증을 완화하는 치료법' },
+  'flat-warts': { name: '한방 사마귀 치료', desc: '화접몽한의원의 한방 치료로 편평사마귀 병변을 피부 손상 최소화하며 제거하고 재발을 방지하는 치료법' },
+  'keratosis-pilaris': { name: '한방 모공각화증 치료', desc: '한약 치료와 외용 관리를 병행하여 각질 정상화를 유도하고 피부결을 개선하는 치료법' },
+  'acne': { name: '한방 여드름 치료', desc: '한약 처방과 외용 치료를 병행하여 피지 조절, 염증 완화, 피부 재생을 돕는 한방 치료법' },
+  'acne-scars': { name: '한방 여드름흉터 치료', desc: '한약 치료와 외용 관리를 통해 피부 재생을 유도하고 흉터를 완화하는 한방 치료법' },
+  'folliculitis': { name: '한방 모낭염 치료', desc: '한약 치료와 외용제를 병행하여 모낭 염증을 완화하고 피부 장벽을 회복하는 치료법' },
+  'atopic-dermatitis': { name: '한방 아토피 치료', desc: '체질 진단을 기반으로 한약 처방과 외용제 치료를 병행하여 면역 균형을 회복하는 치료법' },
+  'psoriasis': { name: '한방 건선 치료', desc: '한약 치료를 통해 면역 균형을 조절하고 피부 염증을 완화하여 재발을 줄이는 치료법' },
+  'dyshidrosis': { name: '한방 습진/한포진 치료', desc: '체질에 맞는 한약 처방으로 체내 습열을 제거하고 피부 장벽을 회복하는 치료법' },
+  'diet': { name: '감비환 다이어트', desc: '화접몽한의원의 체질 맞춤 한약 처방과 식이 관리를 병행하는 한방 체중 관리 프로그램' },
+  'seborrheic-dermatitis': { name: '한방 지루성피부염 치료', desc: '한약 치료로 체내 열과 습을 조절하고 외용제로 피부 염증을 완화하는 치료법' },
 };
 
 // ─── Google Gemini API 호출 헬퍼 ───
@@ -551,7 +551,7 @@ function generateBrandCta(topic) {
 <div class="brand-cta" style="background:#f8f9fa; border-left:4px solid #2E75B6; padding:20px; margin:30px 0;">
   <h3>${BRAND.name} - ${topic.name} ${treatment.name}</h3>
   <p>${BRAND.name}에서는 ${topic.name} 치료를 위해 개인별 체질과 증상을 정밀하게 분석한 후 맞춤형 치료를 진행합니다.</p>
-  <p><strong>온라인 상담:</strong> <a href="${BRAND.url}">${BRAND.url}</a></p>
+  <p><strong>화접몽 홈페이지 바로가기:</strong> <a href="https://www.mongclinic.com/" target="_blank">https://www.mongclinic.com/</a></p>
 </div>`;
 }
 
