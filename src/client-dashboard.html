@@ -828,7 +828,7 @@ function renderContents() {
           '</div>' +
         '</div>' +
         '<div class="card-actions">' +
-          '<span class="badge ' + statusBadgeClass(status) + '">' + statusLabel(status) + '</span>' + (item.review_status && item.review_status !== 'clean' ? '<span class="review-badge ' + item.review_status + '">' + (item.review_fixes||0) + '건 검수</span>' : '') +
+          '<span class="badge ' + statusBadgeClass(status) + '">' + statusLabel(status) + '</span>' + (c.review_status && c.review_status !== 'clean' ? '<span class="review-badge ' + c.review_status + '">' + (c.review_fixes||0) + '건 검수</span>' : '') +
           '<button class="btn btn-preview" onclick="togglePreview(\'' + id + '\')">미리보기</button>' +
           (isPending ? '<button class="btn btn-approve" onclick="approveContent(\'' + id + '\', \'' + escapeAttr(title) + '\')">승인</button>' : '') +
           (isPending ? '<button class="btn btn-reject" onclick="rejectContent(\'' + id + '\', \'' + escapeAttr(title) + '\')">반려</button>' : '') +
