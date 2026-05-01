@@ -67,20 +67,45 @@ async function autoPublish() {
     const savedSettings = await settings.get('publish') || {};
     const publish = savedSettings;
 
-    // 토픽 인덱스
+    // 발행 모드에 따른 토픽/콘텐츠유형 선택
+    const publishMode = publish.publishMode || 'auto';
     const idxData = await settings.get('topicIndex');
     let topicIdx = idxData ? parseInt(idxData) : 0;
-
-    let topic;
-    if (publish.nextTopic && publish.nextTopic !== 'auto') {
-      topic = allTopics.find(t => t.id === publish.nextTopic) || allTopics[topicIdx % allTopics.length];
-    } else {
-      topic = allTopics[topicIdx % allTopics.length];
-    }
-
     const ctIdxData = await settings.get('contentTypeIndex');
     let ctIdx = ctIdxData ? parseInt(ctIdxData) : 0;
-    const contentType = CONTENT_TYPES[ctIdx % CONTENT_TYPES.length];
+
+    let topic, contentType;
+
+    // 개별 질환 지정 (기존 nextTopic 호환)
+    if (publish.nextTopic && !['auto','random','balanced','sequential'].includes(publish.nextTopic)) {
+      topic = allTopics.find(t => t.id === publish.nextTopic) || allTopics[topicIdx % allTopics.length];
+      contentType = CONTENT_TYPES[ctIdx % CONTENT_TYPES.length];
+    } else if (publishMode === 'random') {
+      // 랜덤 발행: 무작위 질환 + 무작위 콘텐츠 유형
+      topic = allTopics[Math.floor(Math.random() * allTopics.length)];
+      contentType = CONTENT_TYPES[Math.floor(Math.random() * CONTENT_TYPES.length)];
+    } else if (publishMode === 'balanced') {
+      // 균등 분배: 발행 콘텐츠가 가장 적은 질환 우선
+      const counts = {};
+      for (const t of allTopics) counts[t.id] = 0;
+      const allQueue = await contentQueue.getAll();
+      for (const item of (allQueue || [])) {
+        if (counts[item.topic_id] !== undefined) counts[item.topic_id]++;
+      }
+      const sorted = [...allTopics].sort((a, b) => (counts[a.id] || 0) - (counts[b.id] || 0));
+      topic = sorted[0];
+      contentType = CONTENT_TYPES[ctIdx % CONTENT_TYPES.length];
+    } else if (publishMode === 'sequential') {
+      // 질환별 순서 발행: 같은 콘텐츠 유형으로 모든 질환을 순서대로 돈 후 다음 유형
+      // topicIdx가 질환 순서, ctIdx가 콘텐츠 유형 순서
+      // 질환을 다 돌면 ctIdx++
+      contentType = CONTENT_TYPES[ctIdx % CONTENT_TYPES.length];
+      topic = allTopics[topicIdx % allTopics.length];
+    } else {
+      // 자동 (기존): 질환과 콘텐츠 유형 인덱스 동시 순환
+      topic = allTopics[topicIdx % allTopics.length];
+      contentType = CONTENT_TYPES[ctIdx % CONTENT_TYPES.length];
+    }
 
     console.log('Generating: ' + topic.name + ' / ' + contentType.name);
     const comboId = `${topic.id}__${contentType.id}`;
@@ -126,14 +151,31 @@ async function autoPublish() {
         created_at: new Date().toISOString(),
       });
 
-      // 인덱스 업데이트
-      topicIdx = (topicIdx + 1) % allTopics.length;
-      ctIdx = (ctIdx + 1) % CONTENT_TYPES.length;
+      // 인덱스 업데이트 (발행 모드에 따라 다름)
+      if (publishMode === 'sequential') {
+        // 질환별 순서: 질환 인덱스 먼저 증가, 한 바퀴 돌면 콘텐츠 유형 증가
+        topicIdx = topicIdx + 1;
+        if (topicIdx >= allTopics.length) {
+          topicIdx = 0;
+          ctIdx = (ctIdx + 1) % CONTENT_TYPES.length;
+        }
+      } else if (publishMode === 'random') {
+        // 랜덤: 인덱스 불필요하지만 호환성 유지
+        topicIdx = (topicIdx + 1) % allTopics.length;
+        ctIdx = (ctIdx + 1) % CONTENT_TYPES.length;
+      } else if (publishMode === 'balanced') {
+        // 균등 분배: 콘텐츠 유형만 순환
+        ctIdx = (ctIdx + 1) % CONTENT_TYPES.length;
+      } else {
+        // 자동: 기존 방식
+        topicIdx = (topicIdx + 1) % allTopics.length;
+        ctIdx = (ctIdx + 1) % CONTENT_TYPES.length;
+      }
       await settings.set('topicIndex', topicIdx);
       await settings.set('contentTypeIndex', ctIdx);
 
-      // nextTopic 리셋
-      if (publish.nextTopic && publish.nextTopic !== 'auto') {
+      // 개별 질환 지정이었으면 리셋
+      if (publish.nextTopic && !['auto','random','balanced','sequential'].includes(publish.nextTopic)) {
         publish.nextTopic = 'auto';
         await settings.set('publish', publish);
       }
@@ -381,7 +423,7 @@ const server = http.createServer(async (req, res) => {
     // API: Get Settings
     if (pathname === '/api/settings' && method === 'GET') {
       const publishData = await settings.get('publish') || {};
-      const defaultPublish = { publishFrequency: '5', publishDays: 'everyday', totalTarget: 50, nextTopic: 'auto', imagesPerContent: 3 };
+      const defaultPublish = { publishFrequency: '5', publishDays: 'everyday', publishMode: 'auto', totalTarget: 50, nextTopic: 'auto', imagesPerContent: 3 };
       const publish = { ...defaultPublish, ...publishData };
 
       const allTopics = await topicsDB.getAll();

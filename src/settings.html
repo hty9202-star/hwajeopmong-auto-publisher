@@ -82,8 +82,10 @@ body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-s
 <div class="setting-row"><div><div class="setting-label">콘텐츠당 이미지 수</div><div class="setting-desc">Pexels에서 검색할 이미지 개수</div></div><div style="display:flex;align-items:center;gap:8px"><input type="number" class="num-input" id="imagesPerContent" min="0" max="10" value="3"><span class="unit">개</span></div></div>
 </div>
 <div class="section">
-<div class="section-title">📋 다음 발행 토픽</div>
-<div class="setting-row"><div class="setting-label">다음 토픽</div><div class="setting-control"><select id="nextTopic" style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;width:100%"><option value="auto">자동 (순서대로)</option></select></div></div>
+<div class="section-title">📋 발행 모드 & 토픽 설정</div>
+<div class="setting-row"><div><div class="setting-label">발행 모드</div><div class="setting-desc">토픽과 콘텐츠 유형을 어떤 방식으로 선택할지 설정</div></div><div style="display:flex;align-items:center;gap:8px"><select id="publishMode" style="padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;color:#1B4F72;font-weight:600;outline:none;min-width:200px"><option value="auto">자동 (기존 순서)</option><option value="random">랜덤 발행</option><option value="balanced">균등 분배</option><option value="sequential">질환별 순서 발행</option></select></div></div>
+<div id="modeDesc" style="padding:0 20px 12px;font-size:13px;color:#64748b;line-height:1.5"></div>
+<div class="setting-row"><div class="setting-label">다음 토픽 지정</div><div class="setting-control"><select id="nextTopic" style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;width:100%"><option value="auto">발행 모드에 따라 자동</option></select><div style="font-size:12px;color:#94a3b8;margin-top:4px">특정 질환을 선택하면 다음 1회만 해당 질환으로 발행됩니다</div></div></div>
 </div>
 <div class="save-area"><button class="btn-reset" onclick="loadSettings()">초기화</button><button class="btn-save" id="btnSave" onclick="saveSettings()">설정 저장</button></div>
 
@@ -131,7 +133,7 @@ async function loadSettings(){
 
 function populateNextTopicSelect(topics, selected){
   const sel=document.getElementById('nextTopic');
-  sel.innerHTML='<option value="auto">자동 (순서대로)</option>';
+  sel.innerHTML='<option value="auto">발행 모드에 따라 자동</option>';
   (topics||[]).forEach(t=>{
     const opt=document.createElement('option');
     opt.value=t.id; opt.textContent=t.name;
@@ -140,17 +142,35 @@ function populateNextTopicSelect(topics, selected){
   sel.value=selected;
 }
 
+const MODE_DESCS={
+  auto:'질환과 콘텐츠 유형 인덱스가 동시에 순환합니다.',
+  random:'매번 무작위 질환 + 무작위 콘텐츠 유형으로 발행합니다.',
+  balanced:'발행된 콘텐츠가 가장 적은 질환부터 우선 발행합니다.',
+  sequential:'같은 콘텐츠 유형으로 모든 질환을 순서대로 발행한 후 다음 유형으로 넘어갑니다.'
+};
+function updateModeDesc(){
+  const m=document.getElementById('publishMode').value;
+  document.getElementById('modeDesc').textContent=MODE_DESCS[m]||'';
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  const pm=document.getElementById('publishMode');
+  if(pm) pm.addEventListener('change',updateModeDesc);
+});
+
 function renderPublish(p){
   document.getElementById('publishFrequency').value=p.publishFrequency||'5';
   document.getElementById('publishDays').value=p.publishDays||'everyday';
+  document.getElementById('publishMode').value=p.publishMode||'auto';
   document.getElementById('totalTarget').value=p.totalTarget||50;
   document.getElementById('imagesPerContent').value=p.imagesPerContent||3;
+  updateModeDesc();
 }
 
 function saveSettings(){
   const publish={
     publishFrequency:document.getElementById('publishFrequency').value||'5',
     publishDays:document.getElementById('publishDays').value||'everyday',
+    publishMode:document.getElementById('publishMode').value||'auto',
     totalTarget:parseInt(document.getElementById('totalTarget').value)||50,
     imagesPerContent:parseInt(document.getElementById('imagesPerContent').value)||3,
     nextTopic:document.getElementById('nextTopic').value||'auto'

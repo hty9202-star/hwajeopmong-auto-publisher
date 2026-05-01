@@ -739,12 +739,15 @@
         var v=document.getElementById('publishPerDay');
         var s=document.getElementById('publishDetail');
         if(v)v.textContent=freqLabels[p.publishFrequency]||'하��� 5회';
-        if(s)s.textContent=daysLabels[p.publishDays]||'매일';
+        if(s){
+        var modeLabels={'auto':'자동','random':'랜덤','balanced':'균등분배','sequential':'질환별순서'};
+        var modeText=modeLabels[p.publishMode]||'자동';
+        s.textContent=(daysLabels[p.publishDays]||'매일')+' · '+modeText;
       }
-      var topicMap={'flat-warts':'편평사마귀','keratosis-pilaris':'모공각화증','folliculitis':'모낭염','acne':'여드름','atopic-dermatitis':'아토피','acne-scars':'여드름흉터','psoriasis':'건선','dyshidrosis':'한포진','diet':'다이어트','seborrheic-dermatitis':'지루성피부염'};
       var nt=p.nextTopic||'auto';
       var ntEl=document.getElementById('nextTopic');
-      if(ntEl)ntEl.textContent=nt==='auto'?'자동 (순서대로)':topicMap[nt]||nt;
+      var modeLabels2={'auto':'자동','random':'랜덤','balanced':'균등분배','sequential':'질환별순서'};
+      if(ntEl)ntEl.textContent=['auto','random','balanced','sequential'].includes(nt)?modeLabels2[p.publishMode||'auto']:nt;
     });
   }
   </script>
