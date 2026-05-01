@@ -458,7 +458,7 @@
   }
   .cal-cell {
     background: #fff;
-    min-height: 76px;
+    min-height: 110px;
     padding: 5px;
     vertical-align: top;
   }
@@ -994,7 +994,7 @@ function renderCalendar() {
     html += '<div class="cal-date">' + d + '</div>';
 
     const items = byDate[d] || [];
-    const maxShow = 2;
+    const maxShow = 5;
     items.slice(0, maxShow).forEach(c => {
       const st = c.status || 'pending';
       const stClass = (st === 'approved' || st === 'published') ? 'st-approved' : (st === 'rejected' ? 'st-rejected' : 'st-pending');
