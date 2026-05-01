@@ -154,34 +154,61 @@ const TREATMENT_MAP = {
 
 // âââ Google Gemini API í¸ì¶ ì¬í¼ âââ
 async function callGemini(apiKey, systemPrompt, userPrompt, options = {}) {
-  const model = options.model || AI_CONFIG.model;
-  const url = `${AI_CONFIG.apiBase}/models/${model}:generateContent?key=${apiKey}`;
+  const FALLBACK_MODELS = [AI_CONFIG.model, 'gemini-2.0-flash'];
+  const MAX_RETRIES = 3;
+  const RETRY_DELAYS = [5000, 15000, 30000];
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-      generationConfig: {
-        temperature: options.temperature || 0.4,
-        maxOutputTokens: options.maxTokens || AI_CONFIG.maxTokens,
-        responseMimeType: 'application/json',
-      },
-    }),
-  });
+  for (const model of FALLBACK_MODELS) {
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        const url = `${AI_CONFIG.apiBase}/models/${model}:generateContent?key=${apiKey}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+            generationConfig: {
+              temperature: options.temperature || 0.4,
+              maxOutputTokens: options.maxTokens || AI_CONFIG.maxTokens,
+              responseMimeType: 'application/json',
+            },
+          }),
+        });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Gemini API error: ${response.status} - ${error}`);
+        if (response.ok) {
+          const data = await response.json();
+          const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (!text) throw new Error('Gemini: ìëµìì íì¤í¸ë¥¼ ì°¾ì ì ììµëë¤');
+          if (model !== AI_CONFIG.model) console.log(`[Gemini] fallback model used: ${model}`);
+          return text;
+        }
+
+        if (response.status === 503 || response.status === 429) {
+          const delay = RETRY_DELAYS[attempt] || 30000;
+          console.log(`[Gemini] ${response.status} error (model: ${model}, attempt ${attempt + 1}/${MAX_RETRIES}) - retry in ${delay/1000}s`);
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+
+        const errText = await response.text();
+        throw new Error(`Gemini API error: ${response.status} - ${errText}`);
+      } catch (err) {
+        if (attempt < MAX_RETRIES - 1 && !err.message.includes('Gemini API error:')) {
+          const delay = RETRY_DELAYS[attempt] || 30000;
+          console.log(`[Gemini] network error (attempt ${attempt + 1}) - retry in ${delay/1000}s`);
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+        if (attempt === MAX_RETRIES - 1) {
+          console.log(`[Gemini] model ${model} failed, trying next model...`);
+          break;
+        }
+        throw err;
+      }
+    }
   }
-
-  const data = await response.json();
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) {
-    throw new Error('Gemini API: ìëµìì íì¤í¸ë¥¼ ì°¾ì ì ììµëë¤');
-  }
-  return text;
+  throw new Error('Gemini API: all models and retries exhausted');
 }
 
 // âââ Stage 1: ë¦¬ìì¹ AI âââ
