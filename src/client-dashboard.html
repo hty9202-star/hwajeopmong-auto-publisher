@@ -361,10 +361,185 @@
   }
   .empty-state p { font-size: 15px; }
 
+  /* View tabs */
+  .view-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 20px;
+    border-bottom: 1.5px solid #e5e7e5;
+  }
+  .view-tab {
+    padding: 10px 24px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #888;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    transition: all 0.2s;
+  }
+  .view-tab:hover { color: #2D5A27; }
+  .view-tab.active {
+    color: #2D5A27;
+    border-bottom-color: #2D5A27;
+  }
+
+  /* Calendar */
+  .calendar-section { display: none; }
+  .calendar-section.active { display: block; }
+  .list-section { display: none; }
+  .list-section.active { display: block; }
+
+  .cal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .cal-nav {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .cal-nav-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1.5px solid #ddd;
+    background: #fff;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #555;
+    transition: all 0.2s;
+  }
+  .cal-nav-btn:hover { background: #f5f5f5; border-color: #2D5A27; color: #2D5A27; }
+  .cal-month-label {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1a1a1a;
+    min-width: 120px;
+    text-align: center;
+  }
+  .cal-today-btn {
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: 1.5px solid #ddd;
+    background: #fff;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    color: #555;
+    transition: all 0.2s;
+  }
+  .cal-today-btn:hover { border-color: #2D5A27; color: #2D5A27; }
+
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background: #e5e7e5;
+    border: 1px solid #e5e7e5;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .cal-dow {
+    background: #f5f7f5;
+    padding: 8px 4px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: #888;
+  }
+  .cal-cell {
+    background: #fff;
+    min-height: 76px;
+    padding: 5px;
+    vertical-align: top;
+  }
+  .cal-cell.other-month {
+    background: #fafbfa;
+  }
+  .cal-cell.other-month .cal-date { color: #ccc; }
+  .cal-cell.today {
+    background: #f0f7ef;
+  }
+  .cal-date {
+    font-size: 11px;
+    font-weight: 600;
+    color: #999;
+    margin-bottom: 3px;
+    line-height: 1;
+  }
+  .cal-cell.today .cal-date {
+    color: #2D5A27;
+    font-weight: 700;
+  }
+  .cal-item {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 500;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.4;
+  }
+  .cal-item.st-approved,.cal-item.st-published { background: #dcfce7; color: #166534; }
+  .cal-item.st-pending { background: #fef3c7; color: #92400e; }
+  .cal-item.st-rejected { background: #fee2e2; color: #991b1b; }
+  .cal-item-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .cal-item.st-approved .cal-item-dot,.cal-item.st-published .cal-item-dot { background: #166534; }
+  .cal-item.st-pending .cal-item-dot { background: #92400e; }
+  .cal-item.st-rejected .cal-item-dot { background: #991b1b; }
+  .cal-more {
+    font-size: 10px;
+    color: #888;
+    padding: 1px 5px;
+    cursor: pointer;
+  }
+  .cal-more:hover { color: #2D5A27; }
+  .cal-legend {
+    display: flex;
+    gap: 14px;
+    margin-top: 12px;
+    justify-content: flex-end;
+  }
+  .cal-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: #888;
+  }
+  .cal-legend-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+  }
+
   @media (max-width: 600px) {
     .card-main { padding: 16px; }
     .card-actions { width: 100%; justify-content: flex-end; }
     .container { padding: 16px 12px; }
+    .cal-cell { min-height: 60px; padding: 3px; }
+    .cal-item { font-size: 9px; padding: 1px 3px; }
+    .cal-date { font-size: 10px; }
+    .view-tab { padding: 8px 16px; font-size: 13px; }
   }
 </style>
 </head>
@@ -394,25 +569,51 @@
     </div>
   </div>
 
-  <div class="search-bar">
-    <input type="text" class="search-input" id="clientSearch" placeholder="제목으로 검색..." oninput="debounceClientSearch()">
-    <select class="sort-select" id="clientSort" onchange="loadContents()">
-      <option value="latest">최신순</option>
-      <option value="oldest">오래된순</option>
-    </select>
+  <div class="view-tabs">
+    <button class="view-tab active" onclick="switchView('calendar', this)">캘린더</button>
+    <button class="view-tab" onclick="switchView('list', this)">목록</button>
   </div>
 
-  <div class="filter-tabs">
-    <button class="filter-tab active" data-filter="all" onclick="setFilter('all', this)">전체</button>
-    <button class="filter-tab" data-filter="pending" onclick="setFilter('pending', this)">대기중</button>
-    <button class="filter-tab" data-filter="approved" onclick="setFilter('approved', this)">승인완료</button>
-    <button class="filter-tab" data-filter="rejected" onclick="setFilter('rejected', this)">반려</button>
+  <!-- Calendar View -->
+  <div class="calendar-section active" id="calendarView">
+    <div class="cal-header">
+      <div class="cal-nav">
+        <button class="cal-nav-btn" onclick="changeMonth(-1)">&lsaquo;</button>
+        <div class="cal-month-label" id="calMonthLabel">2026년 5월</div>
+        <button class="cal-nav-btn" onclick="changeMonth(1)">&rsaquo;</button>
+      </div>
+      <button class="cal-today-btn" onclick="goToday()">오늘</button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="cal-legend">
+      <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#166534"></div>발행됨</div>
+      <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#92400e"></div>대기중</div>
+      <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#991b1b"></div>반려</div>
+    </div>
   </div>
 
-  <div id="contentList" class="content-list">
-    <div class="loading">콘텐츠를 불러오는 중...</div>
+  <!-- List View -->
+  <div class="list-section" id="listView">
+    <div class="search-bar">
+      <input type="text" class="search-input" id="clientSearch" placeholder="제목으로 검색..." oninput="debounceClientSearch()">
+      <select class="sort-select" id="clientSort" onchange="loadContents()">
+        <option value="latest">최신순</option>
+        <option value="oldest">오래된순</option>
+      </select>
+    </div>
+
+    <div class="filter-tabs">
+      <button class="filter-tab active" data-filter="all" onclick="setFilter('all', this)">전체</button>
+      <button class="filter-tab" data-filter="pending" onclick="setFilter('pending', this)">대기중</button>
+      <button class="filter-tab" data-filter="approved" onclick="setFilter('approved', this)">승인완료</button>
+      <button class="filter-tab" data-filter="rejected" onclick="setFilter('rejected', this)">반려</button>
+    </div>
+
+    <div id="contentList" class="content-list">
+      <div class="loading">콘텐츠를 불러오는 중...</div>
+    </div>
+    <div class="pagination" id="clientPagination"></div>
   </div>
-  <div class="pagination" id="clientPagination"></div>
 </div>
 
 <!-- Toast container -->
@@ -705,7 +906,120 @@ async function loadContents() {
   }
 }
 
+// ─── View Tab Switch ───
+function switchView(view, el) {
+  document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('calendarView').classList.toggle('active', view === 'calendar');
+  document.getElementById('listView').classList.toggle('active', view === 'list');
+  if (view === 'calendar') loadCalendar();
+  if (view === 'list') loadContents();
+}
+
+// ─── Calendar Logic ───
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth(); // 0-indexed
+let calData = [];
+
+function changeMonth(delta) {
+  calMonth += delta;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  loadCalendar();
+}
+
+function goToday() {
+  calYear = new Date().getFullYear();
+  calMonth = new Date().getMonth();
+  loadCalendar();
+}
+
+async function loadCalendar() {
+  document.getElementById('calMonthLabel').textContent = calYear + '년 ' + (calMonth + 1) + '월';
+
+  try {
+    const res = await fetch('/api/client/contents?page=1&limit=200&search=&status=&sort=latest', {
+      headers: authHeaders()
+    });
+    if (res.status === 401) { handleLogout(); return; }
+    if (!res.ok) throw new Error();
+    const result = await res.json();
+    calData = result.data || [];
+    renderCalendar();
+  } catch {
+    document.getElementById('calGrid').innerHTML = '<div style="grid-column:1/-1;padding:40px;text-align:center;color:#aaa;font-size:14px">캘린더를 불러오지 못했습니다.</div>';
+  }
+}
+
+function renderCalendar() {
+  const grid = document.getElementById('calGrid');
+  const dows = ['일','월','화','수','목','금','토'];
+
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const prevMonthDays = new Date(calYear, calMonth, 0).getDate();
+
+  const today = new Date();
+  const isCurrentMonth = today.getFullYear() === calYear && today.getMonth() === calMonth;
+  const todayDate = today.getDate();
+
+  // Group contents by date
+  const byDate = {};
+  calData.forEach(c => {
+    const d = new Date(c.created_at || c.createdAt || c.date);
+    if (isNaN(d.getTime())) return;
+    if (d.getFullYear() === calYear && d.getMonth() === calMonth) {
+      const day = d.getDate();
+      if (!byDate[day]) byDate[day] = [];
+      byDate[day].push(c);
+    }
+  });
+
+  let html = '';
+  // Day of week headers
+  dows.forEach(d => {
+    html += '<div class="cal-dow">' + d + '</div>';
+  });
+
+  // Previous month fill
+  for (let i = firstDay - 1; i >= 0; i--) {
+    const d = prevMonthDays - i;
+    html += '<div class="cal-cell other-month"><div class="cal-date">' + d + '</div></div>';
+  }
+
+  // Current month
+  for (let d = 1; d <= daysInMonth; d++) {
+    const isToday = isCurrentMonth && d === todayDate;
+    html += '<div class="cal-cell' + (isToday ? ' today' : '') + '">';
+    html += '<div class="cal-date">' + d + '</div>';
+
+    const items = byDate[d] || [];
+    const maxShow = 2;
+    items.slice(0, maxShow).forEach(c => {
+      const st = c.status || 'pending';
+      const stClass = (st === 'approved' || st === 'published') ? 'st-approved' : (st === 'rejected' ? 'st-rejected' : 'st-pending');
+      const title = (c.title || '').length > 12 ? (c.title || '').substring(0, 12) + '..' : (c.title || '');
+      html += '<div class="cal-item ' + stClass + '"><div class="cal-item-dot"></div>' + escapeHtml(title) + '</div>';
+    });
+    if (items.length > maxShow) {
+      html += '<div class="cal-more">+' + (items.length - maxShow) + '건 더</div>';
+    }
+
+    html += '</div>';
+  }
+
+  // Next month fill
+  const totalCells = firstDay + daysInMonth;
+  const remaining = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+  for (let d = 1; d <= remaining; d++) {
+    html += '<div class="cal-cell other-month"><div class="cal-date">' + d + '</div></div>';
+  }
+
+  grid.innerHTML = html;
+}
+
 // Init
+loadCalendar();
 loadContents();
 </script>
 
