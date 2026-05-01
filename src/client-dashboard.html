@@ -601,8 +601,8 @@ function renderContents() {
   list.innerHTML = allContents.map(c => {
     const id = c.id || c._id;
     const title = c.title || '제목 없음';
-    const topic = c.topic || c.diseaseName || c.disease_name || '';
-    const contentType = c.contentType || c.content_type || c.type || '';
+    const topic = c.topic_name || c.topic || c.diseaseName || c.disease_name || '';
+    const contentType = c.content_type_name || c.contentType || c.content_type || c.type || '';
     const created = formatDate(c.createdAt || c.created_at || c.date);
     const status = c.status || 'pending';
     const htmlContent = c.htmlContent || c.html_content || c.content || '';
@@ -613,9 +613,9 @@ function renderContents() {
         '<div class="card-info">' +
           '<div class="card-title">' + escapeHtml(title) + '</div>' +
           '<div class="card-meta">' +
+            '<span>' + created + '</span>' +
             (topic ? '<span>' + escapeHtml(topic) + '</span>' : '') +
             (contentType ? '<span>' + escapeHtml(contentType) + '</span>' : '') +
-            '<span>' + created + '</span>' +
           '</div>' +
         '</div>' +
         '<div class="card-actions">' +

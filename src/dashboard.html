@@ -138,8 +138,9 @@
       display: inline-block;
       padding: 2px 10px;
       border-radius: 10px;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
+      white-space: nowrap;
     }
     .status-tag.publish, .status-tag.published { background: #dcfce7; color: #166534; }
     .status-tag.draft { background: #fef3c7; color: #92400e; }
@@ -447,11 +448,11 @@
       <table>
         <thead>
           <tr>
-            <th>제목</th>
-            <th>질환</th>
-            <th>유형</th>
-            <th>상태</th>
-            <th>발행일</th>
+            <th style="width:40%">제목</th>
+            <th style="width:12%">질환</th>
+            <th style="width:14%">유형</th>
+            <th style="width:8%">상태</th>
+            <th style="width:26%">발행일</th>
           </tr>
         </thead>
         <tbody id="recentPostsBody">
