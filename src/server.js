@@ -223,6 +223,55 @@ async function setupCronSchedule() {
 
 setupCronSchedule();
 
+// ─── 다음 발행 예정 시간 계산 ───
+async function getNextPublishTime() {
+  const publishSettings = await settings.get('publish') || {};
+  const frequency = publishSettings.publishFrequency || '5';
+  const days = publishSettings.publishDays || 'everyday';
+  const crons = FREQUENCY_PRESETS[frequency] || FREQUENCY_PRESETS['5'];
+
+  // 각 cron에서 시간 추출 (형식: '0 9 * * *' → 9시)
+  const hours = crons.map(c => parseInt(c.split(' ')[1]));
+  hours.sort((a, b) => a - b);
+
+  const now = new Date();
+  // 한국 시간 기준
+  const kst = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+  const currentHour = kst.getHours();
+  const currentMin = kst.getMinutes();
+  const currentDay = kst.getDay(); // 0=일, 1=월...6=토
+
+  const isWeekday = currentDay >= 1 && currentDay <= 5;
+  const weekdaysOnly = days === 'weekdays';
+
+  // 오늘 남은 발행 시간 찾기
+  let nextHour = null;
+  for (const h of hours) {
+    if (h > currentHour || (h === currentHour && currentMin < 0)) {
+      nextHour = h;
+      break;
+    }
+  }
+
+  let nextDate = new Date(kst);
+  if (nextHour !== null && (!weekdaysOnly || isWeekday)) {
+    // 오늘 중 다음 시간
+    nextDate.setHours(nextHour, 0, 0, 0);
+  } else {
+    // 내일 이후 첫 발행 시간
+    nextDate.setDate(nextDate.getDate() + 1);
+    nextDate.setHours(hours[0], 0, 0, 0);
+    // 평일만이면 주말 건너뛰기
+    if (weekdaysOnly) {
+      while (nextDate.getDay() === 0 || nextDate.getDay() === 6) {
+        nextDate.setDate(nextDate.getDate() + 1);
+      }
+    }
+  }
+
+  return nextDate.toISOString();
+}
+
 // ─── HTTP 서버 ───
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
@@ -276,10 +325,13 @@ const server = http.createServer(async (req, res) => {
         nextTopic = await getNextTopicFromDB(publishedComboIds);
       }
 
+      const nextPublishTime = await getNextPublishTime();
+
       return jsonRes(res, {
         brand: BRAND.name,
         wordpress: wp,
         supabase: sb,
+        nextPublishTime,
         ai: { model: 'gemini-2.5-flash-lite', status: env.GEMINI_API_KEY ? 'configured' : 'missing' },
         pexels: { status: env.PEXELS_API_KEY ? 'configured' : 'missing' },
         content: {
