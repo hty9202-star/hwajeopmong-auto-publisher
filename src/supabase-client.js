@@ -154,6 +154,14 @@ export const contentQueue = {
     return counts;
   },
 
+  // combo_id로 기존 제목 조회 (중복 방지용)
+  async getTitlesByComboId(comboId) {
+    const data = await supabaseRequest('content_queue', {
+      query: `?combo_id=eq.${encodeURIComponent(comboId)}&select=title`,
+    });
+    return (data || []).map(d => d.title).filter(Boolean);
+  },
+
   // 삭제
   async delete(id) {
     return supabaseRequest('content_queue', {
