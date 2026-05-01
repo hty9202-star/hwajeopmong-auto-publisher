@@ -566,7 +566,7 @@ function generateMedicalDisclaimer() {
 }
 
 // ─── GEO 최적화 점수 계산 ───
-function calculateGeoScore(content, title, metaDescription, faq, schemas) {
+export function calculateGeoScore(content, title, metaDescription, faq, schemas) {
   const details = {};
   let total = 0;
 
@@ -622,7 +622,7 @@ function calculateGeoScore(content, title, metaDescription, faq, schemas) {
 }
 
 // ─── E-E-A-T 점수 계산 ───
-function calculateEeatScore(content, title) {
+export function calculateEeatScore(content, title) {
   const details = {};
   let total = 0;
 

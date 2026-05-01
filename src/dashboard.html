@@ -601,6 +601,11 @@
   <!-- Tab 2: Quality -->
   <div class="tab-content" id="tab-quality">
   <div class="container">
+    <div class="actions">
+      <button class="btn btn-primary" id="recalcBtn" onclick="recalculateScores()">기존 콘텐츠 점수 재계산</button>
+      <button class="btn btn-secondary" onclick="qualityLoaded=false;loadQualityData()">새로고침</button>
+    </div>
+
     <!-- Average Score Gauges -->
     <div class="quality-summary">
       <div class="gauge-card">
@@ -1119,6 +1124,24 @@
       document.getElementById('qualityTableBody').innerHTML = '<tr><td colspan="6" class="empty-state">로딩 실패: ' + e.message + '</td></tr>';
     }
   }
+  async function recalculateScores() {
+    const btn = document.getElementById('recalcBtn');
+    btn.disabled = true;
+    btn.textContent = '재계산 중...';
+    try {
+      const res = await fetch(API_BASE + '/api/recalculate-scores', { method: 'POST' });
+      const data = await res.json();
+      alert(data.message || '재계산 완료');
+      qualityLoaded = false;
+      loadQualityData();
+    } catch (e) {
+      alert('재계산 실패: ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '기존 콘텐츠 점수 재계산';
+    }
+  }
+
   async function loadPublishSettings(){
     fetch('/api/settings').then(r=>r.json()).then(d=>{
       var p=d.publish||{};

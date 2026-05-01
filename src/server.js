@@ -12,7 +12,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import cron from 'node-cron';
 import { CONTENT_TYPES, BRAND } from './config.js';
-import { generateContent } from './content-generator.js';
+import { generateContent, calculateGeoScore, calculateEeatScore } from './content-generator.js';
 import { publishToWordPress, getRecentPosts, checkConnection } from './wordpress-publisher.js';
 import { contentQueue, publishLogs, publishedTopics, settings, topics as topicsDB, testConnection as testSupabase } from './supabase-client.js';
 
@@ -339,16 +339,34 @@ const server = http.createServer(async (req, res) => {
       const publishSettings = await settings.get('publish') || {};
       const totalTarget = publishSettings.totalTarget || total;
 
-      // nextTopic 계산
+      // nextTopic 계산 (autoPublish와 동일한 로직)
       let nextTopic = null;
-      if (publishSettings.nextTopic && publishSettings.nextTopic !== 'auto') {
+      const publishMode = publishSettings.publishMode || 'auto';
+      const idxData = await settings.get('topicIndex');
+      const topicIdx = idxData ? parseInt(idxData) : 0;
+      const ctIdxData = await settings.get('contentTypeIndex');
+      const ctIdx = ctIdxData ? parseInt(ctIdxData) : 0;
+
+      if (publishSettings.nextTopic && !['auto','random','balanced','sequential'].includes(publishSettings.nextTopic)) {
+        // 개별 질환 지정
         const selectedTopic = allTopics ? allTopics.find(t => t.id === publishSettings.nextTopic) : null;
         if (selectedTopic) {
-          nextTopic = { topic: selectedTopic, contentType: CONTENT_TYPES[0], comboId: selectedTopic.id + '__' + CONTENT_TYPES[0].id };
+          nextTopic = { topic: selectedTopic, contentType: CONTENT_TYPES[ctIdx % CONTENT_TYPES.length] };
         }
-      }
-      if (!nextTopic) {
-        nextTopic = await getNextTopicFromDB(publishedComboIds);
+      } else if (publishMode === 'random' && allTopics && allTopics.length > 0) {
+        nextTopic = { topic: allTopics[topicIdx % allTopics.length], contentType: CONTENT_TYPES[ctIdx % CONTENT_TYPES.length], note: '랜덤 (예상)' };
+      } else if (publishMode === 'balanced' && allTopics && allTopics.length > 0) {
+        const counts = {};
+        for (const t of allTopics) counts[t.id] = 0;
+        const allQueue = await contentQueue.getAll();
+        for (const item of (allQueue || [])) {
+          if (counts[item.topic_id] !== undefined) counts[item.topic_id]++;
+        }
+        const sorted = [...allTopics].sort((a, b) => (counts[a.id] || 0) - (counts[b.id] || 0));
+        nextTopic = { topic: sorted[0], contentType: CONTENT_TYPES[ctIdx % CONTENT_TYPES.length] };
+      } else if (allTopics && allTopics.length > 0) {
+        // auto 또는 sequential: 인덱스 기반
+        nextTopic = { topic: allTopics[topicIdx % allTopics.length], contentType: CONTENT_TYPES[ctIdx % CONTENT_TYPES.length] };
       }
 
       const nextPublishTime = await getNextPublishTime();
@@ -704,6 +722,26 @@ const server = http.createServer(async (req, res) => {
       }
       await contentQueue.delete(itemId);
       jsonRes(res, { success: true });
+      return;
+    }
+
+    // --- 품질 점수 재계산 API ---
+    if (pathname === '/api/recalculate-scores' && method === 'POST') {
+      const all = await contentQueue.getAll();
+      let updated = 0;
+      for (const item of (all || [])) {
+        if (!item.content) continue;
+        const geo = calculateGeoScore(item.content, item.title || '', item.meta_description || '', item.faq || [], item.schemas || {});
+        const eeat = calculateEeatScore(item.content, item.title || '');
+        await contentQueue.updateStatus(item.id, item.status, {
+          geo_score: geo.score,
+          eeat_score: eeat.score,
+          geo_details: geo.details,
+          eeat_details: eeat.details,
+        });
+        updated++;
+      }
+      jsonRes(res, { success: true, updated, message: `${updated}건 점수 재계산 완료` });
       return;
     }
 
