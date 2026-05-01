@@ -148,6 +148,10 @@
     .status-tag.queued { background: #dbeafe; color: #1e40af; }
     .status-tag.pending { background: #fef3c7; color: #92400e; }
     .status-tag.rejected { background: #fee2e2; color: #991b1b; }
+    .review-badge { display:inline-block; font-size:11px; padding:1px 6px; border-radius:4px; margin-left:6px; }
+    .review-badge.clean { background:#dcfce7; color:#166534; }
+    .review-badge.fixed-critical { background:#fef3c7; color:#92400e; }
+    .review-badge.fixed-minor { background:#e0f2fe; color:#0369a1; }
 
     /* ─── Preview Modal ─── */
     .modal-overlay {
@@ -605,7 +609,7 @@
           <td>${titleHtml}</td>
           <td>${post.topic_name || '-'}</td>
           <td>${post.content_type_name || '-'}</td>
-          <td><span class="status-tag ${statusClass}">${statusLabel}</span></td>
+          <td><span class="status-tag ${statusClass}">${statusLabel}</span>${post.review_status && post.review_status !== 'clean' ? '<span class="review-badge ' + post.review_status + '">' + (post.review_fixes || 0) + '건 검수</span>' : ''}</td>
           <td style="color:#9ca3af; font-size:13px;">${dateStr}</td>
         </tr>`;
       }).join('');

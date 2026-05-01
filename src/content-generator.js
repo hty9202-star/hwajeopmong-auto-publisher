@@ -565,24 +565,99 @@ function generateMedicalDisclaimer() {
 </div>`;
 }
 
-// ─── HTML 후처리 (의료법 위반 표현 자동 치환) ───
-function postProcessHtml(html) {
-  const violations = [
-    { pattern: /완치/g, replacement: '개선' },
-    { pattern: /100%\s*(효과|치료|개선)/g, replacement: '효과적인 $1' },
-    { pattern: /확실한\s*치료/g, replacement: '체계적인 치료' },
-    { pattern: /최고의\s*(치료|효과|결과)/g, replacement: '전문적인 $1' },
-    { pattern: /유일한\s*(치료|방법)/g, replacement: '효과적인 $1' },
-    { pattern: /획기적인/g, replacement: '전문적인' },
-    { pattern: /놀라운\s*(효과|결과)/g, replacement: '긍정적인 $1' },
-    { pattern: /기적/g, replacement: '개선' },
-  ];
+// ─── AI 콘텐츠 자동 검수 시스템 ───
+const REVIEW_RULES = {
+  // 의료법 56조 위반 표현 (절대 금지)
+  medical: [
+    { pattern: /완치/g, replacement: '개선', category: '의료법', severity: 'high' },
+    { pattern: /100%\s*(효과|치료|개선|완치|치유)/g, replacement: '효과적인 $1', category: '의료법', severity: 'high' },
+    { pattern: /확실한\s*(치료|효과|완치)/g, replacement: '체계적인 $1', category: '의료법', severity: 'high' },
+    { pattern: /최고의\s*(치료|효과|결과|병원|한의원)/g, replacement: '전문적인 $1', category: '의료법', severity: 'high' },
+    { pattern: /유일한\s*(치료|방법|해결책)/g, replacement: '효과적인 $1', category: '의료법', severity: 'high' },
+    { pattern: /기적(적인|의|)/g, replacement: '긍정적$1', category: '의료법', severity: 'high' },
+    { pattern: /완벽(한|하게|히)\s*(치료|제거|해결)/g, replacement: '효과적$1 $2', category: '의료법', severity: 'high' },
+    { pattern: /반드시\s*(낫|치료|완치|호전)/g, replacement: '충분히 $1', category: '의료법', severity: 'high' },
+    { pattern: /무조건/g, replacement: '대체로', category: '의료법', severity: 'high' },
+    { pattern: /부작용\s*(이\s*)?없/g, replacement: '부작용이 적', category: '의료법', severity: 'high' },
+    { pattern: /안전\s*(이\s*)?(100|완벽|확실)/g, replacement: '안전성이 높', category: '의료법', severity: 'high' },
+  ],
+  // 과장 광고 표현
+  exaggeration: [
+    { pattern: /획기적인/g, replacement: '전문적인', category: '과장광고', severity: 'medium' },
+    { pattern: /놀라운\s*(효과|결과|변화)/g, replacement: '긍정적인 $1', category: '과장광고', severity: 'medium' },
+    { pattern: /압도적(인|으로)/g, replacement: '뛰어난', category: '과장광고', severity: 'medium' },
+    { pattern: /독보적(인|으로)/g, replacement: '전문적', category: '과장광고', severity: 'medium' },
+    { pattern: /경이로운/g, replacement: '주목할 만한', category: '과장광고', severity: 'medium' },
+    { pattern: /즉각적(인|으로)?\s*(효과|개선|변화)/g, replacement: '빠른 $2', category: '과장광고', severity: 'medium' },
+    { pattern: /단\s*\d+\s*(일|회|번)\s*(만에|으로)/g, replacement: '꾸준한 관리를 통해', category: '과장광고', severity: 'medium' },
+    { pattern: /마법(같은|의|처럼)/g, replacement: '효과적인', category: '과장광고', severity: 'medium' },
+    { pattern: /혁신적(인|으로)/g, replacement: '체계적', category: '과장광고', severity: 'medium' },
+    { pattern: /세계\s*(최초|유일|최고)/g, replacement: '전문', category: '과장광고', severity: 'medium' },
+    { pattern: /국내\s*(최초|유일|최고)/g, replacement: '전문', category: '과장광고', severity: 'medium' },
+  ],
+};
 
+function reviewContent(html, title) {
+  const fixes = [];
   let processed = html;
-  for (const { pattern, replacement } of violations) {
-    processed = processed.replace(pattern, replacement);
+  let processedTitle = title;
+
+  // 본문 검수
+  for (const category of Object.keys(REVIEW_RULES)) {
+    for (const rule of REVIEW_RULES[category]) {
+      const matches = processed.match(rule.pattern);
+      if (matches) {
+        fixes.push({
+          category: rule.category,
+          severity: rule.severity,
+          found: matches[0],
+          replacement: rule.replacement.replace(/\$\d/g, '...'),
+          count: matches.length,
+          location: 'content',
+        });
+        processed = processed.replace(rule.pattern, rule.replacement);
+      }
+    }
   }
-  return processed;
+
+  // 제목 검수
+  for (const category of Object.keys(REVIEW_RULES)) {
+    for (const rule of REVIEW_RULES[category]) {
+      const matches = processedTitle.match(rule.pattern);
+      if (matches) {
+        fixes.push({
+          category: rule.category,
+          severity: rule.severity,
+          found: matches[0],
+          replacement: rule.replacement.replace(/\$\d/g, '...'),
+          count: matches.length,
+          location: 'title',
+        });
+        processedTitle = processedTitle.replace(rule.pattern, rule.replacement);
+      }
+    }
+  }
+
+  const highCount = fixes.filter(f => f.severity === 'high').length;
+  const mediumCount = fixes.filter(f => f.severity === 'medium').length;
+
+  return {
+    passed: fixes.length === 0,
+    content: processed,
+    title: processedTitle,
+    fixes,
+    summary: {
+      total: fixes.length,
+      high: highCount,
+      medium: mediumCount,
+      status: fixes.length === 0 ? 'clean' : highCount > 0 ? 'fixed-critical' : 'fixed-minor',
+    },
+  };
+}
+
+// 기존 호환용 래퍼
+function postProcessHtml(html) {
+  return reviewContent(html, '').content;
 }
 
 // ─── 제목 후처리 (괄호 내용 제거) ───
@@ -637,8 +712,16 @@ export async function generateContent(env, topic, contentType, options = {}) {
   // 콘텐츠 조립
   let finalContent = cleanedProduction.content;
 
-  // HTML 후처리 (의료법 위반 표현 자동 치환)
-  finalContent = postProcessHtml(finalContent);
+  // AI 콘텐츠 자동 검수 (의료법 위반 + 과장 광고 체크 및 자동 치환)
+  const reviewResult = reviewContent(finalContent, cleanedProduction.title);
+  finalContent = reviewResult.content;
+  cleanedProduction.title = reviewResult.title;
+  if (reviewResult.fixes.length > 0) {
+    console.log(`[검수] ${reviewResult.summary.total}건 치환 완료 (의료법: ${reviewResult.summary.high}, 과장광고: ${reviewResult.summary.medium})`);
+    reviewResult.fixes.forEach(f => console.log(`  - [${f.category}] "${f.found}" → "${f.replacement}" (${f.location})`));
+  } else {
+    console.log('[검수] 위반 사항 없음 ✓');
+  }
 
   // 인라인 이미지 삽입 (SEO 최적화된 alt 텍스트)
   finalContent = insertInlineImages(finalContent, images, topic);
@@ -671,6 +754,7 @@ export async function generateContent(env, topic, contentType, options = {}) {
     faq: cleanedProduction.faq,
     heroImage: images[0] || null,
     schemas,
+    review: reviewResult.summary,
     _meta: {
       topic: topic.id,
       contentType: contentType.id,

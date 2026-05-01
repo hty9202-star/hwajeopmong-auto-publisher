@@ -117,7 +117,13 @@ async function autoPublish() {
 
     if (result && result.content) {
 
-      // Supabase에 콘텐츠 추가
+      // 검수 결과 로깅
+      const review = result.review || { total: 0, high: 0, medium: 0, status: 'clean' };
+      if (review.total > 0) {
+        console.log(`[검수 완료] ${review.total}건 자동 치환 (의료법: ${review.high}, 과장광고: ${review.medium})`);
+      }
+
+      // Supabase에 콘텐츠 추가 (검수 결과 포함)
       const inserted = await contentQueue.add({
         combo_id: comboId,
         topic_id: topic.id,
@@ -134,6 +140,8 @@ async function autoPublish() {
         hero_image_url: result.heroImage?.url || null,
         schemas: result.schemas || null,
         faq: result.faq || null,
+        review_status: review.status,
+        review_fixes: review.total,
         status: 'pending',
       });
 
