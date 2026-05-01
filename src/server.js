@@ -83,10 +83,14 @@ async function autoPublish() {
     const contentType = CONTENT_TYPES[ctIdx % CONTENT_TYPES.length];
 
     console.log('Generating: ' + topic.name + ' / ' + contentType.name);
-    const result = await generateContent(process.env, topic, contentType);
+    const comboId = `${topic.id}__${contentType.id}`;
+    const existingTitles = await contentQueue.getTitlesByComboId(comboId);
+    if (existingTitles.length > 0) {
+      console.log(`[중복 방지] 기존 ${existingTitles.length}건 제목 회피: ${existingTitles.join(', ')}`);
+    }
+    const result = await generateContent(process.env, topic, contentType, { existingTitles });
 
     if (result && result.content) {
-      const comboId = `${topic.id}__${contentType.id}`;
 
       // Supabase에 콘텐츠 추가
       const inserted = await contentQueue.add({

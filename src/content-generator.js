@@ -248,7 +248,7 @@ ${angle}
 }
 
 // ─── Stage 2: 전략 AI ───
-async function stageStrategy(apiKey, topic, contentType, research) {
+async function stageStrategy(apiKey, topic, contentType, research, existingTitles = []) {
   const structures = STRUCTURE_TEMPLATES[contentType.id] || STRUCTURE_TEMPLATES['comprehensive-guide'];
   const selectedStructure = pickRandom(structures);
   const isFaqType = contentType.id === 'faq';
@@ -309,7 +309,11 @@ ${JSON.stringify(research, null, 2)}
 - 매번 다른 제목 형식을 사용하세요
 - "~란? 원인·증상·치료법 완벽 가이드" 같은 기존 패턴을 반복하지 마세요
 - "최고", "유일", "완치" 등 의료법 위반 표현 금지
-
+${existingTitles.length > 0 ? `
+[기존 콘텐츠와 차별화 - 매우 중요]
+다음 제목의 콘텐츠가 이미 존재합니다. 반드시 다른 관점, 구조, 제목으로 작성하세요:
+${existingTitles.map(t => `- "${t}"`).join('\n')}
+` : ''}
 [소제목 작성 규칙]
 - 매번 다른 패턴(질문형, 정보 요약형, 핵심 키워드형 등)을 혼용하세요
 - ${topic.name} 토픽에 깊이 집중하는 내용으로 구성하세요`;
@@ -431,20 +435,34 @@ ${faqInstruction}
   return JSON.parse(result);
 }
 
-// ─── Pexels 검색어 다양화 ───
-const PEXELS_QUERY_MODIFIERS = [
-  'treatment', 'natural remedy', 'wellness', 'healthy lifestyle',
-  'herbal medicine', 'skin health', 'beauty care', 'clinic',
-  'patient care', 'medical consultation', 'holistic health',
-  'traditional medicine', 'skin therapy', 'dermatology clinic',
+// ─── Pexels 검색어 다양화 (질환별 쿼리 풀) ───
+const PEXELS_QUERY_POOLS = {
+  'flat-warts': ['dermatology treatment', 'skin clinic consultation', 'hand skin close up', 'korean herbal medicine', 'acupuncture therapy', 'skin examination doctor', 'natural skin remedy'],
+  'plantar-warts': ['foot care treatment', 'podiatry clinic', 'walking barefoot healthy', 'foot massage therapy', 'herbal foot soak', 'acupuncture foot treatment', 'foot skin health'],
+  'genital-warts': ['medical consultation clinic', 'immune system health', 'herbal medicine preparation', 'doctor patient trust', 'traditional medicine clinic', 'wellness lifestyle healthy', 'medical privacy care'],
+  'warts-treatment': ['skin treatment dermatology', 'herbal cream remedy', 'oriental medicine herbs', 'acupuncture session', 'healthy skin glow', 'medical treatment progress', 'natural healing process'],
+  'atopic-dermatitis': ['sensitive skin care', 'moisturizer application', 'herbal bath therapy', 'eczema treatment natural', 'skin barrier repair', 'allergy free lifestyle', 'gentle skincare routine'],
+  'acne-treatment': ['clear skin facial', 'acne skincare routine', 'herbal face mask', 'skin detox treatment', 'teenage skincare healthy', 'facial treatment spa', 'clean beauty natural'],
+  'urticaria': ['allergy relief treatment', 'immune health wellness', 'stress relief relaxation', 'herbal tea remedy', 'antihistamine natural', 'skin rash treatment', 'calming lifestyle wellness'],
+  'psoriasis': ['chronic skin condition', 'scalp treatment care', 'moisturizing therapy skin', 'autoimmune health wellness', 'herbal medicine oriental', 'skin renewal treatment', 'holistic health approach'],
+  'hair-loss': ['healthy hair growth', 'scalp massage therapy', 'hair treatment clinic', 'herbal hair remedy', 'hair care natural', 'trichology consultation', 'hair restoration treatment'],
+  'seborrheic-dermatitis': ['scalp care shampoo', 'sebum control treatment', 'dandruff remedy natural', 'scalp health examination', 'gentle cleansing routine', 'herbal scalp treatment', 'skin microbiome balance'],
+};
+
+const PEXELS_GENERAL_POOL = [
+  'korean traditional medicine', 'herbal medicine clinic', 'acupuncture treatment session',
+  'wellness health lifestyle', 'doctor consultation friendly', 'oriental medicine herbs',
+  'patient care clinic', 'holistic health approach', 'oriental medicine herbs', 'therapeutic massage treatment',
+  'healthy living nature', 'medical professional care', 'natural healing herbs',
 ];
 
-function diversifyPexelsQuery(baseQuery) {
-  const modifier = pickRandom(PEXELS_QUERY_MODIFIERS);
-  if (Math.random() > 0.5) {
-    return `${baseQuery} ${modifier}`;
+function diversifyPexelsQuery(baseQuery, topicId) {
+  const pool = PEXELS_QUERY_POOLS[topicId] || PEXELS_GENERAL_POOL;
+  // 70% 확률로 질환별 풀에서 랜덤 선택, 30%로 일반 풀
+  if (Math.random() < 0.7) {
+    return pickRandom(pool);
   }
-  return baseQuery;
+  return pickRandom(PEXELS_GENERAL_POOL);
 }
 
 // ─── 이미지 가져오기 (Pexels) ───
@@ -452,8 +470,10 @@ async function fetchPexelsImages(apiKey, query, count = 3) {
   if (!apiKey) return [];
 
   try {
+    // 랜덤 페이지로 매번 다른 이미지 세트 가져오기
+    const randomPage = Math.floor(Math.random() * 5) + 1;
     const response = await fetch(
-      `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=${count}&orientation=landscape`,
+      `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=${count}&page=${randomPage}&orientation=landscape`,
       { headers: { Authorization: apiKey } }
     );
 
@@ -587,7 +607,7 @@ function removeFakeReferences(content) {
 }
 
 // ─── 메인 생성 함수 (외부에서 호출) ───
-export async function generateContent(env, topic, contentType) {
+export async function generateContent(env, topic, contentType, options = {}) {
   const geminiKey = env.GEMINI_API_KEY;
   const pexelsKey = env.PEXELS_API_KEY;
   const isFaqType = contentType.id === 'faq';
@@ -598,7 +618,7 @@ export async function generateContent(env, topic, contentType) {
   const research = await stageResearch(geminiKey, topic, contentType);
 
   console.log(`[Stage 2] 전략 수립: ${topic.name} - ${contentType.name}`);
-  const strategy = await stageStrategy(geminiKey, topic, contentType, research);
+  const strategy = await stageStrategy(geminiKey, topic, contentType, research, options.existingTitles || []);
 
   console.log(`[Stage 3] 콘텐츠 생성: ${topic.name} - ${contentType.name}`);
   const production = await stageProduction(geminiKey, topic, contentType, strategy);
@@ -610,7 +630,7 @@ export async function generateContent(env, topic, contentType) {
   cleanedProduction.title = cleanTitle(cleanedProduction.title);
 
   // 이미지 가져오기 (검색어 다양화 적용)
-  const diversifiedQuery = diversifyPexelsQuery(topic.pexelsQuery);
+  const diversifiedQuery = diversifyPexelsQuery(topic.pexelsQuery, topic.id);
   console.log(`[이미지] Pexels 이미지 가져오기: ${diversifiedQuery} (원본: ${topic.pexelsQuery})`);
   const images = await fetchPexelsImages(pexelsKey, diversifiedQuery, 3);
 
