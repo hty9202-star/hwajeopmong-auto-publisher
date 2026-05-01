@@ -8,7 +8,9 @@
  * Railway 호환: server.js에서 동일 로직을 node-cron으로 실행 가능
  */
 
-import { TOPICS, CONTENT_TYPES, BRAND, getNextTopic } from './config.js';
+import { CONTENT_TYPES, BRAND } from './config.js';
+// NOTE: worker.js는 Cloudflare Workers용 레거시 파일입니다.
+// 현재는 server.js (Render/Node.js)에서 DB 기반으로 토픽을 관리합니다.
 import { generateContent } from './content-generator.js';
 import { publishToWordPress, getRecentPosts, checkConnection } from './wordpress-publisher.js';
 import DASHBOARD_HTML from './dashboard.html';

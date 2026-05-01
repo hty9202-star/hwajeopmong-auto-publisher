@@ -424,16 +424,6 @@
         <input type="text" class="search-input" id="postSearch" placeholder="제목, 질환명으로 검색..." oninput="debouncePostSearch()">
         <select class="filter-select" id="postTopicFilter" onchange="loadPaginatedPosts()">
           <option value="">질환 전체</option>
-          <option value="flat-warts">편평사마귀</option>
-          <option value="keratosis-pilaris">모공각화증</option>
-          <option value="acne">여드름</option>
-          <option value="acne-scars">여드름흉터</option>
-          <option value="folliculitis">모낭염</option>
-          <option value="atopic-dermatitis">아토피</option>
-          <option value="psoriasis">건선</option>
-          <option value="dyshidrosis">한포진</option>
-          <option value="diet">다이어트</option>
-          <option value="seborrheic-dermatitis">지루성피부염</option>
         </select>
         <select class="filter-select" id="postStatusFilter" onchange="loadPaginatedPosts()">
           <option value="">상태 전체</option>
@@ -510,6 +500,7 @@
         const topicsRes = await fetch(`${API_BASE}/api/topics`);
         const topics = await topicsRes.json();
         renderMatrix(topics);
+        populateTopicFilter(topics);
 
         loadPaginatedPosts();
 
@@ -544,6 +535,18 @@
       const status = document.getElementById(`${prefix}Status`);
       dot.className = `conn-dot ${isOk ? 'green' : 'red'}`;
       status.textContent = label;
+    }
+
+    function populateTopicFilter(topics) {
+      const sel = document.getElementById('postTopicFilter');
+      const current = sel.value;
+      sel.innerHTML = '<option value="">질환 전체</option>';
+      (topics || []).forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.id; opt.textContent = t.name;
+        sel.appendChild(opt);
+      });
+      if (current) sel.value = current;
     }
 
     function renderMatrix(topics) {

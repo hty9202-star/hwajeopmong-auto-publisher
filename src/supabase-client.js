@@ -265,6 +265,75 @@ export const publishedTopics = {
   },
 };
 
+// ─── Topics CRUD (질환 관리) ───
+export const topics = {
+  // 전체 조회 (활성 + 정렬순)
+  async getAll(includeInactive = false) {
+    const filter = includeInactive ? '' : '&is_active=eq.true';
+    return supabaseRequest('topics', {
+      query: `?order=sort_order.asc${filter}`,
+    });
+  },
+
+  // 단건 조회
+  async getById(id) {
+    return supabaseRequest('topics', {
+      query: `?id=eq.${id}`,
+      single: true,
+    });
+  },
+
+  // 추가
+  async add(topic) {
+    return supabaseRequest('topics', {
+      method: 'POST',
+      body: topic,
+      headers: { 'Prefer': 'return=representation' },
+    });
+  },
+
+  // 수정
+  async update(id, updates) {
+    updates.updated_at = new Date().toISOString();
+    return supabaseRequest('topics', {
+      method: 'PATCH',
+      query: `?id=eq.${id}`,
+      body: updates,
+      headers: { 'Prefer': 'return=representation' },
+    });
+  },
+
+  // 삭제 (soft delete - 비활성화)
+  async deactivate(id) {
+    return supabaseRequest('topics', {
+      method: 'PATCH',
+      query: `?id=eq.${id}`,
+      body: { is_active: false, updated_at: new Date().toISOString() },
+      headers: { 'Prefer': 'return=representation' },
+    });
+  },
+
+  // 완전 삭제
+  async delete(id) {
+    return supabaseRequest('topics', {
+      method: 'DELETE',
+      query: `?id=eq.${id}`,
+    });
+  },
+
+  // 순서 일괄 업데이트
+  async updateOrder(orderList) {
+    // orderList: [{id, sort_order}, ...]
+    for (const item of orderList) {
+      await supabaseRequest('topics', {
+        method: 'PATCH',
+        query: `?id=eq.${item.id}`,
+        body: { sort_order: item.sort_order },
+      });
+    }
+  },
+};
+
 // ─── Settings CRUD ───
 export const settings = {
   // 설정 조회

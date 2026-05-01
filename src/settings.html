@@ -47,6 +47,27 @@ body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-s
 .toast.show{transform:translateY(0);opacity:1}
 .toast.success{background:#10b981}
 .toast.error{background:#ef4444}
+.topic-actions{display:flex;gap:6px}
+.btn-sm{padding:5px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;cursor:pointer;background:#fff;color:#374151;font-weight:500}
+.btn-sm:hover{background:#f3f4f6}
+.btn-sm.danger{color:#ef4444;border-color:#fecaca}
+.btn-sm.danger:hover{background:#fef2f2}
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.4);z-index:1000;justify-content:center;align-items:center}
+.modal-overlay.active{display:flex}
+.modal{background:#fff;border-radius:14px;padding:28px;width:90%;max-width:520px;box-shadow:0 20px 40px rgba(0,0,0,.15)}
+.modal h3{font-size:17px;font-weight:700;color:#1B4F72;margin-bottom:20px}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;outline:none}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:#2E75B6;box-shadow:0 0 0 3px rgba(46,117,182,.1)}
+.form-group textarea{height:60px;resize:vertical}
+.modal-btns{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+.btn-cancel{padding:10px 20px;background:#fff;border:1px solid #d1d5db;border-radius:8px;font-size:14px;cursor:pointer;color:#6b7280}
+.btn-confirm{padding:10px 20px;background:#1B4F72;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+.btn-confirm:hover{background:#2E75B6}
+.topic-sort{cursor:grab;color:#9ca3af;font-size:18px;margin-right:8px}
+.badge-active{font-size:11px;padding:2px 8px;border-radius:10px;background:#dcfce7;color:#166534;font-weight:500}
+.badge-inactive{font-size:11px;padding:2px 8px;border-radius:10px;background:#fee2e2;color:#991b1b;font-weight:500}
 @media(max-width:768px){.header{padding:16px 20px;flex-direction:column;gap:12px}.main{padding:20px 16px}.setting-row{flex-direction:column;align-items:flex-start;gap:8px}.keyword-add-row{flex-direction:column}}
 </style>
 </head>
@@ -62,41 +83,218 @@ body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-s
 </div>
 <div class="section">
 <div class="section-title">📋 다음 발행 토픽</div>
-<div class="setting-row"><div class="setting-label">다음 토픽</div><div class="setting-control"><select id="nextTopic" style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;width:100%"><option value="auto">자동 (순서대로)</option><option value="flat-warts">편평사마귀</option><option value="keratosis-pilaris">모공각화증</option><option value="folliculitis">모낭염</option><option value="acne">여드름</option><option value="atopic-dermatitis">아토피</option><option value="acne-scars">여드름흉터</option><option value="psoriasis">건선</option><option value="dyshidrosis">하포진</option><option value="diet">다이어트</option><option value="seborrheic-dermatitis">지루성피부염</option></select></div></div>
+<div class="setting-row"><div class="setting-label">다음 토픽</div><div class="setting-control"><select id="nextTopic" style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;width:100%"><option value="auto">자동 (순서대로)</option></select></div></div>
 </div>
 <div class="save-area"><button class="btn-reset" onclick="loadSettings()">초기화</button><button class="btn-save" id="btnSave" onclick="saveSettings()">설정 저장</button></div>
+
+<div class="section" style="margin-top:20px">
+<div class="section-title" style="display:flex;justify-content:space-between;align-items:center">
+  <span>🏥 질환(토픽) 관리</span>
+  <button class="btn-add" onclick="openAddModal()">+ 질환 추가</button>
+</div>
+<div id="topicsList"></div>
+</div>
+</div>
+<div class="modal-overlay" id="topicModal">
+<div class="modal">
+<h3 id="modalTitle">질환 추가</h3>
+<div class="form-group"><label>질환 ID (영문, 고유값)</label><input type="text" id="fld_id" placeholder="예: eczema"></div>
+<div class="form-group"><label>질환명 (한글)</label><input type="text" id="fld_name" placeholder="예: 습진"></div>
+<div class="form-group"><label>영문명</label><input type="text" id="fld_nameEn" placeholder="예: Eczema"></div>
+<div class="form-group"><label>카테고리</label><select id="fld_category"><option value="피부질환">피부질환</option><option value="체형관리">체형관리</option><option value="한의학 정보">한의학 정보</option></select></div>
+<div class="form-group"><label>키워드 (쉼표 구분)</label><textarea id="fld_keywords" placeholder="예: 습진 한방치료, 습진 한의원, 습진 원인"></textarea></div>
+<div class="form-group"><label>의학 명칭</label><input type="text" id="fld_medicalName" placeholder="예: Eczema"></div>
+<div class="form-group"><label>ICD-10 코드</label><input type="text" id="fld_icd10" placeholder="예: L30"></div>
+<div class="form-group"><label>설명</label><textarea id="fld_description" placeholder="질환에 대한 간단한 설명"></textarea></div>
+<div class="modal-btns">
+  <button class="btn-cancel" onclick="closeModal()">취소</button>
+  <button class="btn-confirm" id="btnModalSave" onclick="saveTopic()">저장</button>
+</div>
+</div>
 </div>
 <div class="toast" id="toast"></div>
 <script>
 let currentSettings=null;
-window.addEventListener('DOMContentLoaded',()=>{loadSettings()});
+let allTopics=[];
+let editingTopicId=null;
+
+window.addEventListener('DOMContentLoaded',()=>{loadSettings();loadTopics()});
+
 async function loadSettings(){
-fetch('/api/settings').then(r=>r.json()).then(d=>{
-window._data=d;
-renderPublish(d.publish);
-if(document.getElementById('nextTopic')){
-document.getElementById('nextTopic').value=d.publish.nextTopic||'auto';
+  fetch('/api/settings').then(r=>r.json()).then(d=>{
+    window._data=d;
+    renderPublish(d.publish);
+    // 다음 토픽 드롭다운을 DB 기반으로 채우기
+    populateNextTopicSelect(d.topics, d.publish.nextTopic||'auto');
+  });
 }
-});
+
+function populateNextTopicSelect(topics, selected){
+  const sel=document.getElementById('nextTopic');
+  sel.innerHTML='<option value="auto">자동 (순서대로)</option>';
+  (topics||[]).forEach(t=>{
+    const opt=document.createElement('option');
+    opt.value=t.id; opt.textContent=t.name;
+    sel.appendChild(opt);
+  });
+  sel.value=selected;
 }
+
 function renderPublish(p){
-document.getElementById('publishFrequency').value=p.publishFrequency||'5';
-document.getElementById('publishDays').value=p.publishDays||'everyday';
-document.getElementById('totalTarget').value=p.totalTarget||50;
-document.getElementById('imagesPerContent').value=p.imagesPerContent||3;
-if(document.getElementById('nextTopic'))document.getElementById('nextTopic').value=p.nextTopic||'auto';
+  document.getElementById('publishFrequency').value=p.publishFrequency||'5';
+  document.getElementById('publishDays').value=p.publishDays||'everyday';
+  document.getElementById('totalTarget').value=p.totalTarget||50;
+  document.getElementById('imagesPerContent').value=p.imagesPerContent||3;
 }
+
 function saveSettings(){
-const publish={
-publishFrequency:document.getElementById('publishFrequency').value||'5',
-publishDays:document.getElementById('publishDays').value||'everyday',
-totalTarget:parseInt(document.getElementById('totalTarget').value)||50,
-imagesPerContent:parseInt(document.getElementById('imagesPerContent').value)||3,
-nextTopic:document.getElementById('nextTopic').value||'auto'
-};
-fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({publish})})
-.then(r=>r.json()).then(d=>{if(d.success)showToast('저장 완료!','success');else showToast('저장 실패','error');}).catch(()=>showToast('저장 실패','error'));
+  const publish={
+    publishFrequency:document.getElementById('publishFrequency').value||'5',
+    publishDays:document.getElementById('publishDays').value||'everyday',
+    totalTarget:parseInt(document.getElementById('totalTarget').value)||50,
+    imagesPerContent:parseInt(document.getElementById('imagesPerContent').value)||3,
+    nextTopic:document.getElementById('nextTopic').value||'auto'
+  };
+  fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({publish})})
+  .then(r=>r.json()).then(d=>{if(d.success)showToast('설정 저장 완료!','success');else showToast('저장 실패','error');}).catch(()=>showToast('저장 실패','error'));
 }
+
+// ─── 질환 관리 ───
+async function loadTopics(){
+  try{
+    const res=await fetch('/api/topics');
+    allTopics=await res.json();
+    renderTopics(allTopics);
+  }catch(e){console.error(e)}
+}
+
+function renderTopics(topics){
+  const container=document.getElementById('topicsList');
+  if(!topics||topics.length===0){
+    container.innerHTML='<div style="text-align:center;color:#9ca3af;padding:40px">등록된 질환이 없습니다</div>';
+    return;
+  }
+  container.innerHTML=topics.map((t,i)=>{
+    const kw=(t.keywords||[]).slice(0,4).map(k=>'<span class="keyword-tag">'+escapeHtml(k)+'</span>').join('');
+    const statusBadge=t.is_active!==false?'<span class="badge-active">활성</span>':'<span class="badge-inactive">비활성</span>';
+    return '<div class="topic-card">'+
+      '<div class="topic-header">'+
+        '<div style="display:flex;align-items:center;gap:10px">'+
+          '<span style="color:#9ca3af;font-size:13px;font-weight:600">'+(i+1)+'</span>'+
+          '<span class="topic-name">'+escapeHtml(t.name)+'</span>'+
+          '<span class="topic-category">'+escapeHtml(t.category)+'</span>'+
+          statusBadge+
+        '</div>'+
+        '<div class="topic-actions">'+
+          '<button class="btn-sm" onclick="openEditModal(\''+t.id+'\')">수정</button>'+
+          '<button class="btn-sm danger" onclick="deleteTopic(\''+t.id+'\',\''+escapeHtml(t.name)+'\')">삭제</button>'+
+        '</div>'+
+      '</div>'+
+      '<div class="keywords-list">'+kw+'</div>'+
+      (t.description?'<div style="font-size:12px;color:#6b7280">'+escapeHtml(t.description)+'</div>':'')+
+    '</div>';
+  }).join('');
+}
+
+function openAddModal(){
+  editingTopicId=null;
+  document.getElementById('modalTitle').textContent='질환 추가';
+  document.getElementById('fld_id').value='';
+  document.getElementById('fld_id').disabled=false;
+  document.getElementById('fld_name').value='';
+  document.getElementById('fld_nameEn').value='';
+  document.getElementById('fld_category').value='피부질환';
+  document.getElementById('fld_keywords').value='';
+  document.getElementById('fld_medicalName').value='';
+  document.getElementById('fld_icd10').value='';
+  document.getElementById('fld_description').value='';
+  document.getElementById('topicModal').classList.add('active');
+}
+
+function openEditModal(topicId){
+  const t=allTopics.find(x=>x.id===topicId);
+  if(!t)return;
+  editingTopicId=topicId;
+  document.getElementById('modalTitle').textContent='질환 수정: '+t.name;
+  document.getElementById('fld_id').value=t.id;
+  document.getElementById('fld_id').disabled=true;
+  document.getElementById('fld_name').value=t.name||'';
+  document.getElementById('fld_nameEn').value=t.name_en||t.nameEn||'';
+  document.getElementById('fld_category').value=t.category||'피부질환';
+  document.getElementById('fld_keywords').value=(t.keywords||[]).join(', ');
+  document.getElementById('fld_medicalName').value=t.medical_name||t.medicalName||'';
+  document.getElementById('fld_icd10').value=t.icd10||'';
+  document.getElementById('fld_description').value=t.description||'';
+  document.getElementById('topicModal').classList.add('active');
+}
+
+function closeModal(){
+  document.getElementById('topicModal').classList.remove('active');
+  editingTopicId=null;
+}
+
+async function saveTopic(){
+  const id=document.getElementById('fld_id').value.trim();
+  const name=document.getElementById('fld_name').value.trim();
+  if(!id||!name){showToast('ID와 질환명은 필수입니다','error');return;}
+
+  const kwText=document.getElementById('fld_keywords').value.trim();
+  const keywords=kwText?kwText.split(',').map(k=>k.trim()).filter(Boolean):[];
+
+  const data={
+    id, name,
+    name_en:document.getElementById('fld_nameEn').value.trim(),
+    slug:id,
+    category:document.getElementById('fld_category').value,
+    keywords,
+    medical_name:document.getElementById('fld_medicalName').value.trim(),
+    icd10:document.getElementById('fld_icd10').value.trim(),
+    pexels_query:'skin care dermatology',
+    description:document.getElementById('fld_description').value.trim(),
+  };
+
+  try{
+    let res;
+    if(editingTopicId){
+      // 수정
+      const {id:_,...updateData}=data;
+      res=await fetch('/api/topics/'+editingTopicId,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(updateData)});
+    }else{
+      // 추가
+      res=await fetch('/api/topics',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+    }
+    const result=await res.json();
+    if(result.success||result.data){
+      showToast(editingTopicId?'수정 완료!':'추가 완료!','success');
+      closeModal();
+      loadTopics();
+      loadSettings(); // 다음 토픽 드롭다운 갱신
+    }else{
+      showToast(result.error||'저장 실패','error');
+    }
+  }catch(e){showToast('저장 실패: '+e.message,'error')}
+}
+
+async function deleteTopic(topicId, topicName){
+  if(!confirm(topicName+' 질환을 비활성화하시겠습니까?\n(기존 콘텐츠는 유지됩니다)'))return;
+  try{
+    const res=await fetch('/api/topics/'+topicId,{method:'DELETE'});
+    const result=await res.json();
+    if(result.success){
+      showToast(topicName+' 비활성화 완료','success');
+      loadTopics();
+      loadSettings();
+    }else{
+      showToast(result.error||'실패','error');
+    }
+  }catch(e){showToast('실패: '+e.message,'error')}
+}
+
+function escapeHtml(s){
+  if(!s)return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 function showToast(m,t){const el=document.getElementById('toast');el.textContent=m;el.className='toast '+t+' show';setTimeout(()=>{el.className='toast'},2500)}
 </script>
 </body>

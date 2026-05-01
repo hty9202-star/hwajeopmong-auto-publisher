@@ -11,10 +11,10 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import cron from 'node-cron';
-import { TOPICS, CONTENT_TYPES, BRAND, getNextTopic } from './config.js';
+import { CONTENT_TYPES, BRAND } from './config.js';
 import { generateContent } from './content-generator.js';
 import { publishToWordPress, getRecentPosts, checkConnection } from './wordpress-publisher.js';
-import { contentQueue, publishLogs, publishedTopics, settings, testConnection as testSupabase } from './supabase-client.js';
+import { contentQueue, publishLogs, publishedTopics, settings, topics as topicsDB, testConnection as testSupabase } from './supabase-client.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -27,11 +27,41 @@ const env = {
   PEXELS_API_KEY: process.env.PEXELS_API_KEY,
 };
 
+// ─── DB에서 토픽 로테이션 ───
+async function getNextTopicFromDB(publishedComboIds = []) {
+  const allTopics = await topicsDB.getAll();
+  if (!allTopics || allTopics.length === 0) return null;
+
+  const allCombinations = [];
+  for (const topic of allTopics) {
+    for (const type of [...CONTENT_TYPES].sort((a, b) => a.priority - b.priority)) {
+      const comboId = `${topic.id}__${type.id}`;
+      if (!publishedComboIds.includes(comboId)) {
+        allCombinations.push({ topic, contentType: type, comboId });
+      }
+    }
+  }
+
+  if (allCombinations.length === 0) {
+    return {
+      topic: allTopics[0],
+      contentType: CONTENT_TYPES[0],
+      comboId: `${allTopics[0].id}__${CONTENT_TYPES[0].id}`,
+      isRepublish: true,
+    };
+  }
+  return { ...allCombinations[0], isRepublish: false };
+}
+
 // ─── 자동 발행 로직 ───
 async function autoPublish() {
   try {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) { console.log('No GEMINI_API_KEY'); return; }
+
+    // DB에서 활성 토픽 로드
+    const allTopics = await topicsDB.getAll();
+    if (!allTopics || allTopics.length === 0) { console.log('No active topics'); return; }
 
     // 설정 로드
     const savedSettings = await settings.get('publish') || {};
@@ -43,9 +73,9 @@ async function autoPublish() {
 
     let topic;
     if (publish.nextTopic && publish.nextTopic !== 'auto') {
-      topic = TOPICS.find(t => t.id === publish.nextTopic) || TOPICS[topicIdx % TOPICS.length];
+      topic = allTopics.find(t => t.id === publish.nextTopic) || allTopics[topicIdx % allTopics.length];
     } else {
-      topic = TOPICS[topicIdx % TOPICS.length];
+      topic = allTopics[topicIdx % allTopics.length];
     }
 
     const ctIdxData = await settings.get('contentTypeIndex');
@@ -93,7 +123,7 @@ async function autoPublish() {
       });
 
       // 인덱스 업데이트
-      topicIdx = (topicIdx + 1) % TOPICS.length;
+      topicIdx = (topicIdx + 1) % allTopics.length;
       ctIdx = (ctIdx + 1) % CONTENT_TYPES.length;
       await settings.set('topicIndex', topicIdx);
       await settings.set('contentTypeIndex', ctIdx);
@@ -182,9 +212,23 @@ const server = http.createServer(async (req, res) => {
       const wp = await checkConnection(env);
       const sb = await testSupabase();
       const publishedComboIds = await publishedTopics.getComboIds();
-      const total = TOPICS.length * CONTENT_TYPES.length;
+      const allTopics = await topicsDB.getAll();
+      const topicCount = allTopics ? allTopics.length : 0;
+      const total = topicCount * CONTENT_TYPES.length;
       const publishSettings = await settings.get('publish') || {};
       const totalTarget = publishSettings.totalTarget || total;
+
+      // nextTopic 계산
+      let nextTopic = null;
+      if (publishSettings.nextTopic && publishSettings.nextTopic !== 'auto') {
+        const selectedTopic = allTopics ? allTopics.find(t => t.id === publishSettings.nextTopic) : null;
+        if (selectedTopic) {
+          nextTopic = { topic: selectedTopic, contentType: CONTENT_TYPES[0], comboId: selectedTopic.id + '__' + CONTENT_TYPES[0].id };
+        }
+      }
+      if (!nextTopic) {
+        nextTopic = await getNextTopicFromDB(publishedComboIds);
+      }
 
       return jsonRes(res, {
         brand: BRAND.name,
@@ -193,7 +237,7 @@ const server = http.createServer(async (req, res) => {
         ai: { model: 'gemini-2.5-flash-lite', status: env.GEMINI_API_KEY ? 'configured' : 'missing' },
         pexels: { status: env.PEXELS_API_KEY ? 'configured' : 'missing' },
         content: {
-          totalTopics: TOPICS.length,
+          totalTopics: topicCount,
           totalContentTypes: CONTENT_TYPES.length,
           totalCombinations: total,
           totalTarget: totalTarget,
@@ -201,23 +245,17 @@ const server = http.createServer(async (req, res) => {
           remaining: totalTarget - publishedComboIds.length,
           progress: `${Math.round((publishedComboIds.length / totalTarget) * 100)}%`,
         },
-        nextTopic: (() => {
-          if (publishSettings.nextTopic && publishSettings.nextTopic !== 'auto') {
-            const selectedTopic = TOPICS.find(t => t.id === publishSettings.nextTopic);
-            if (selectedTopic) {
-              return { topic: selectedTopic, contentType: CONTENT_TYPES[0], comboId: selectedTopic.id + '__' + CONTENT_TYPES[0].id };
-            }
-          }
-          return getNextTopic(publishedComboIds);
-        })(),
+        nextTopic,
       });
     }
 
-    // API: Topics
-    if (pathname === '/api/topics') {
+    // API: Topics (DB 기반)
+    if (pathname === '/api/topics' && method === 'GET') {
       const publishedComboIds = await publishedTopics.getComboIds();
-      const topicStatus = TOPICS.map((topic) => ({
+      const allTopics = await topicsDB.getAll();
+      const topicStatus = (allTopics || []).map((topic) => ({
         ...topic,
+        keywords: topic.keywords || [],
         contentStatus: CONTENT_TYPES.map((ct) => ({
           type: ct.name,
           comboId: `${topic.id}__${ct.id}`,
@@ -225,6 +263,63 @@ const server = http.createServer(async (req, res) => {
         })),
       }));
       return jsonRes(res, topicStatus);
+    }
+
+    // API: Topic CRUD
+    if (pathname === '/api/topics' && method === 'POST') {
+      let body = '';
+      req.on('data', ch => body += ch);
+      req.on('end', async () => {
+        try {
+          const data = JSON.parse(body);
+          // slug 자동 생성 (없으면)
+          if (!data.slug) data.slug = data.id;
+          // sort_order 자동 설정
+          if (!data.sort_order) {
+            const all = await topicsDB.getAll(true);
+            data.sort_order = (all ? all.length : 0) + 1;
+          }
+          const result = await topicsDB.add(data);
+          jsonRes(res, { success: true, data: result });
+        } catch (e) { jsonRes(res, { error: e.message }, 400); }
+      });
+      return;
+    }
+
+    if (pathname.match(/^\/api\/topics\/[^/]+$/) && method === 'PUT') {
+      const topicId = pathname.split('/')[3];
+      let body = '';
+      req.on('data', ch => body += ch);
+      req.on('end', async () => {
+        try {
+          const data = JSON.parse(body);
+          const result = await topicsDB.update(topicId, data);
+          jsonRes(res, { success: true, data: result });
+        } catch (e) { jsonRes(res, { error: e.message }, 400); }
+      });
+      return;
+    }
+
+    if (pathname.match(/^\/api\/topics\/[^/]+$/) && method === 'DELETE') {
+      const topicId = pathname.split('/')[3];
+      try {
+        await topicsDB.deactivate(topicId);
+        jsonRes(res, { success: true });
+      } catch (e) { jsonRes(res, { error: e.message }, 400); }
+      return;
+    }
+
+    if (pathname === '/api/topics/reorder' && method === 'POST') {
+      let body = '';
+      req.on('data', ch => body += ch);
+      req.on('end', async () => {
+        try {
+          const { order } = JSON.parse(body);
+          await topicsDB.updateOrder(order);
+          jsonRes(res, { success: true });
+        } catch (e) { jsonRes(res, { error: e.message }, 400); }
+      });
+      return;
     }
 
     // API: Recent Posts (with pagination)
@@ -268,14 +363,14 @@ const server = http.createServer(async (req, res) => {
     // API: Publish Now (POST)
     if (pathname === '/api/publish-now' && method === 'POST') {
       const publishedComboIds = await publishedTopics.getComboIds();
-      const next = getNextTopic(publishedComboIds);
+      const next = await getNextTopicFromDB(publishedComboIds);
 
       autoPublish().catch(console.error);
 
       return jsonRes(res, {
         message: '발행 시작됨',
-        topic: next.topic.name,
-        contentType: next.contentType.name,
+        topic: next ? next.topic.name : '없음',
+        contentType: next ? next.contentType.name : '없음',
       });
     }
 
@@ -285,15 +380,12 @@ const server = http.createServer(async (req, res) => {
       const defaultPublish = { publishFrequency: '5', publishDays: 'everyday', totalTarget: 50, nextTopic: 'auto', imagesPerContent: 3 };
       const publish = { ...defaultPublish, ...publishData };
 
-      const topicsData = await settings.get('topics');
-      const topics = TOPICS.map(t => {
-        const savedTopic = topicsData ? topicsData.find(st => st.id === t.id) : null;
-        return {
-          id: t.id, name: t.name, category: t.category,
-          keywords: savedTopic ? savedTopic.keywords : [...t.keywords],
-        };
-      });
-      return jsonRes(res, { publish, topics });
+      const allTopics = await topicsDB.getAll();
+      const topicsList = (allTopics || []).map(t => ({
+        id: t.id, name: t.name, category: t.category,
+        keywords: t.keywords || [],
+      }));
+      return jsonRes(res, { publish, topics: topicsList });
     }
 
     // API: Save Settings
