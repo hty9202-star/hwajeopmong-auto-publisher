@@ -493,14 +493,7 @@
         document.getElementById('topicCount').textContent = status.content.totalTopics;
 
         if (status.nextPublishTime) {
-          var npt = new Date(status.nextPublishTime);
-          var month = npt.getMonth()+1;
-          var day = npt.getDate();
-          var hours = String(npt.getHours()).padStart(2,'0');
-          var mins = String(npt.getMinutes()).padStart(2,'0');
-          var dayNames = ['일','월','화','수','목','금','토'];
-          var dayName = dayNames[npt.getDay()];
-          document.getElementById('nextPublishTime').textContent = month+'/'+day+'('+dayName+') '+hours+':'+mins;
+          document.getElementById('nextPublishTime').textContent = status.nextPublishTime.date + ' ' + status.nextPublishTime.time;
         }
         if (status.nextTopic) {
           document.getElementById('nextTopic').textContent = status.nextTopic.topic.name;

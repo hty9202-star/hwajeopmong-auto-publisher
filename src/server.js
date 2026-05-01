@@ -223,7 +223,7 @@ async function setupCronSchedule() {
 
 setupCronSchedule();
 
-// ─── 다음 발행 예정 시간 계산 ───
+// ─── 다음 발행 예정 시간 계산 (KST 문자열 반환) ───
 async function getNextPublishTime() {
   const publishSettings = await settings.get('publish') || {};
   const frequency = publishSettings.publishFrequency || '5';
@@ -234,12 +234,13 @@ async function getNextPublishTime() {
   const hours = crons.map(c => parseInt(c.split(' ')[1]));
   hours.sort((a, b) => a - b);
 
+  // 현재 KST 시간 계산 (UTC + 9시간)
   const now = new Date();
-  // 한국 시간 기준
-  const kst = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
-  const currentHour = kst.getHours();
-  const currentMin = kst.getMinutes();
-  const currentDay = kst.getDay(); // 0=일, 1=월...6=토
+  const kstOffset = 9 * 60 * 60 * 1000;
+  const kstNow = new Date(now.getTime() + kstOffset);
+  const currentHour = kstNow.getUTCHours();
+  const currentMin = kstNow.getUTCMinutes();
+  const currentDay = kstNow.getUTCDay(); // 0=일, 1=월...6=토
 
   const isWeekday = currentDay >= 1 && currentDay <= 5;
   const weekdaysOnly = days === 'weekdays';
@@ -247,29 +248,35 @@ async function getNextPublishTime() {
   // 오늘 남은 발행 시간 찾기
   let nextHour = null;
   for (const h of hours) {
-    if (h > currentHour || (h === currentHour && currentMin < 0)) {
+    if (h > currentHour || (h === currentHour && currentMin === 0)) {
       nextHour = h;
       break;
     }
   }
 
-  let nextDate = new Date(kst);
+  // KST 기준 날짜 계산
+  let targetDate = new Date(kstNow);
   if (nextHour !== null && (!weekdaysOnly || isWeekday)) {
-    // 오늘 중 다음 시간
-    nextDate.setHours(nextHour, 0, 0, 0);
+    targetDate.setUTCHours(nextHour, 0, 0, 0);
   } else {
-    // 내일 이후 첫 발행 시간
-    nextDate.setDate(nextDate.getDate() + 1);
-    nextDate.setHours(hours[0], 0, 0, 0);
-    // 평일만이면 주말 건너뛰기
+    targetDate.setUTCDate(targetDate.getUTCDate() + 1);
+    targetDate.setUTCHours(hours[0], 0, 0, 0);
     if (weekdaysOnly) {
-      while (nextDate.getDay() === 0 || nextDate.getDay() === 6) {
-        nextDate.setDate(nextDate.getDate() + 1);
+      while (targetDate.getUTCDay() === 0 || targetDate.getUTCDay() === 6) {
+        targetDate.setUTCDate(targetDate.getUTCDate() + 1);
       }
     }
   }
 
-  return nextDate.toISOString();
+  // KST 날짜/시간을 문자열로 직접 반환 (타임존 변환 문제 방지)
+  const y = targetDate.getUTCFullYear();
+  const m = targetDate.getUTCMonth() + 1;
+  const d = targetDate.getUTCDate();
+  const h = String(targetDate.getUTCHours()).padStart(2, '0');
+  const dayNames = ['일','월','화','수','목','금','토'];
+  const dayName = dayNames[targetDate.getUTCDay()];
+
+  return { date: `${m}/${d}(${dayName})`, time: `${h}:00`, full: `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}T${h}:00:00+09:00` };
 }
 
 // ─── HTTP 서버 ───

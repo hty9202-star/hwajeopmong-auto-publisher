@@ -1029,12 +1029,7 @@ loadContents();
 // 다음 발행 예정 시간 로드
 fetch('/api/status').then(r=>r.json()).then(d=>{
   if(d.nextPublishTime){
-    var npt=new Date(d.nextPublishTime);
-    var m=npt.getMonth()+1,dy=npt.getDate();
-    var h=String(npt.getHours()).padStart(2,'0');
-    var mi=String(npt.getMinutes()).padStart(2,'0');
-    var dn=['일','월','화','수','목','금','토'][npt.getDay()];
-    document.getElementById('clientNextPublish').textContent=m+'/'+dy+'('+dn+') '+h+':'+mi;
+    document.getElementById('clientNextPublish').textContent=d.nextPublishTime.date+' '+d.nextPublishTime.time;
   }
 }).catch(()=>{});
 </script>
