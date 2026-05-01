@@ -1152,7 +1152,7 @@
         var v=document.getElementById('publishPerDay');
         var s=document.getElementById('publishDetail');
         if(v)v.textContent=freqLabels[p.publishFrequency]||'하루 5회';
-        if(s){var ml={'auto':'자동','random':'랜덤','balanced':'균등분배','sequential':'질환별순서'};s.textContent=(daysLabels[p.publishDays]||'매일')+' \u00b7 '+(ml[p.publishMode]||'자동');}
+        if(s){var ml={'auto':'자동','random':'랜덤','balanced':'균등분배','sequential':'질환별순서'};s.textContent=(daysLabels[p.publishDays]||'매일')+' · '+(ml[p.publishMode]||'자동');}
       }
       var topicMap={'flat-warts':'편평사마귀','keratosis-pilaris':'모공각화증','folliculitis':'모낭염','acne':'여드름','atopic-dermatitis':'아토피','acne-scars':'여드름흉터','psoriasis':'건선','dyshidrosis':'한포진','diet':'다이어트','seborrheic-dermatitis':'지루성피부염'};
       var nt=p.nextTopic||'auto';

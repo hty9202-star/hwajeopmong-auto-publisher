@@ -752,10 +752,6 @@ function reviewContent(html, title) {
   };
 }
 
-// 기존 호환용 래퍼
-function postProcessHtml(html) {
-  return reviewContent(html, '').content;
-}
 
 // ─── 제목 후처리 (괄호 내용 제거) ───
 function cleanTitle(title) {
@@ -803,7 +799,6 @@ export async function generateContent(env, topic, contentType, options = {}) {
 
   // 이미지 가져오기 (검색어 다양화 적용)
   const diversifiedQuery = diversifyPexelsQuery(topic.pexelsQuery, topic.id);
-  console.log(`[이미지] Pexels 이미지 가져오기: ${diversifiedQuery} (원본: ${topic.pexelsQuery})`);
   const images = await fetchPexelsImages(pexelsKey, diversifiedQuery, 3);
 
   // 콘텐츠 조립
@@ -815,7 +810,6 @@ export async function generateContent(env, topic, contentType, options = {}) {
   cleanedProduction.title = reviewResult.title;
   if (reviewResult.fixes.length > 0) {
     console.log(`[검수] ${reviewResult.summary.total}건 치환 완료 (의료법: ${reviewResult.summary.high}, 과장광고: ${reviewResult.summary.medium})`);
-    reviewResult.fixes.forEach(f => console.log(`  - [${f.category}] "${f.found}" → "${f.replacement}" (${f.location})`));
   } else {
     console.log('[검수] 위반 사항 없음 ✓');
   }
@@ -843,8 +837,6 @@ export async function generateContent(env, topic, contentType, options = {}) {
   // GEO / E-E-A-T 품질 점수 계산
   const geoResult = calculateGeoScore(finalContent, cleanedProduction.title, cleanedProduction.metaDescription, cleanedProduction.faq, schemas);
   const eeatResult = calculateEeatScore(finalContent, cleanedProduction.title);
-  console.log(`[품질] GEO: ${geoResult.score}/100, E-E-A-T: ${eeatResult.score}/100`);
-
   return {
     title: cleanedProduction.title,
     slug: cleanedProduction.slug || strategy.slug,

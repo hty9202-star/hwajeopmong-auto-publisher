@@ -27,30 +27,38 @@ const env = {
   PEXELS_API_KEY: process.env.PEXELS_API_KEY,
 };
 
-// ─── DB에서 토픽 로테이션 ───
-async function getNextTopicFromDB(publishedComboIds = []) {
-  const allTopics = await topicsDB.getAll();
+// ─── 발행 모드에 따른 다음 토픽 선택 (공용) ───
+async function resolveNextTopic(allTopics) {
   if (!allTopics || allTopics.length === 0) return null;
 
-  const allCombinations = [];
-  for (const topic of allTopics) {
-    for (const type of [...CONTENT_TYPES].sort((a, b) => a.priority - b.priority)) {
-      const comboId = `${topic.id}__${type.id}`;
-      if (!publishedComboIds.includes(comboId)) {
-        allCombinations.push({ topic, contentType: type, comboId });
-      }
-    }
+  const publish = await settings.get('publish') || {};
+  const publishMode = publish.publishMode || 'auto';
+  const idxData = await settings.get('topicIndex');
+  const topicIdx = idxData ? parseInt(idxData) : 0;
+  const ctIdxData = await settings.get('contentTypeIndex');
+  const ctIdx = ctIdxData ? parseInt(ctIdxData) : 0;
+
+  // 개별 질환 지정
+  if (publish.nextTopic && !['auto','random','balanced','sequential'].includes(publish.nextTopic)) {
+    const selected = allTopics.find(t => t.id === publish.nextTopic);
+    if (selected) return { topic: selected, contentType: CONTENT_TYPES[ctIdx % CONTENT_TYPES.length], mode: 'manual' };
   }
 
-  if (allCombinations.length === 0) {
-    return {
-      topic: allTopics[0],
-      contentType: CONTENT_TYPES[0],
-      comboId: `${allTopics[0].id}__${CONTENT_TYPES[0].id}`,
-      isRepublish: true,
-    };
+  if (publishMode === 'random') {
+    return { topic: allTopics[topicIdx % allTopics.length], contentType: CONTENT_TYPES[ctIdx % CONTENT_TYPES.length], mode: 'random' };
   }
-  return { ...allCombinations[0], isRepublish: false };
+  if (publishMode === 'balanced') {
+    const counts = {};
+    for (const t of allTopics) counts[t.id] = 0;
+    const allQueue = await contentQueue.getAll();
+    for (const item of (allQueue || [])) {
+      if (counts[item.topic_id] !== undefined) counts[item.topic_id]++;
+    }
+    const sorted = [...allTopics].sort((a, b) => (counts[a.id] || 0) - (counts[b.id] || 0));
+    return { topic: sorted[0], contentType: CONTENT_TYPES[ctIdx % CONTENT_TYPES.length], mode: 'balanced' };
+  }
+  // auto / sequential
+  return { topic: allTopics[topicIdx % allTopics.length], contentType: CONTENT_TYPES[ctIdx % CONTENT_TYPES.length], mode: publishMode };
 }
 
 // ─── 자동 발행 로직 ───
@@ -64,48 +72,19 @@ async function autoPublish() {
     if (!allTopics || allTopics.length === 0) { console.log('No active topics'); return; }
 
     // 설정 로드
-    const savedSettings = await settings.get('publish') || {};
-    const publish = savedSettings;
-
-    // 발행 모드에 따른 토픽/콘텐츠유형 선택
+    const publish = await settings.get('publish') || {};
     const publishMode = publish.publishMode || 'auto';
+
+    // 토픽/콘텐츠유형 선택 (공용 함수)
+    const next = await resolveNextTopic(allTopics);
+    if (!next) { console.log('No topic resolved'); return; }
+    const { topic, contentType } = next;
+
+    // 인덱스 로드 (발행 후 업데이트용)
     const idxData = await settings.get('topicIndex');
     let topicIdx = idxData ? parseInt(idxData) : 0;
     const ctIdxData = await settings.get('contentTypeIndex');
     let ctIdx = ctIdxData ? parseInt(ctIdxData) : 0;
-
-    let topic, contentType;
-
-    // 개별 질환 지정 (기존 nextTopic 호환)
-    if (publish.nextTopic && !['auto','random','balanced','sequential'].includes(publish.nextTopic)) {
-      topic = allTopics.find(t => t.id === publish.nextTopic) || allTopics[topicIdx % allTopics.length];
-      contentType = CONTENT_TYPES[ctIdx % CONTENT_TYPES.length];
-    } else if (publishMode === 'random') {
-      // 랜덤 발행: 무작위 질환 + 무작위 콘텐츠 유형
-      topic = allTopics[Math.floor(Math.random() * allTopics.length)];
-      contentType = CONTENT_TYPES[Math.floor(Math.random() * CONTENT_TYPES.length)];
-    } else if (publishMode === 'balanced') {
-      // 균등 분배: 발행 콘텐츠가 가장 적은 질환 우선
-      const counts = {};
-      for (const t of allTopics) counts[t.id] = 0;
-      const allQueue = await contentQueue.getAll();
-      for (const item of (allQueue || [])) {
-        if (counts[item.topic_id] !== undefined) counts[item.topic_id]++;
-      }
-      const sorted = [...allTopics].sort((a, b) => (counts[a.id] || 0) - (counts[b.id] || 0));
-      topic = sorted[0];
-      contentType = CONTENT_TYPES[ctIdx % CONTENT_TYPES.length];
-    } else if (publishMode === 'sequential') {
-      // 질환별 순서 발행: 같은 콘텐츠 유형으로 모든 질환을 순서대로 돈 후 다음 유형
-      // topicIdx가 질환 순서, ctIdx가 콘텐츠 유형 순서
-      // 질환을 다 돌면 ctIdx++
-      contentType = CONTENT_TYPES[ctIdx % CONTENT_TYPES.length];
-      topic = allTopics[topicIdx % allTopics.length];
-    } else {
-      // 자동 (기존): 질환과 콘텐츠 유형 인덱스 동시 순환
-      topic = allTopics[topicIdx % allTopics.length];
-      contentType = CONTENT_TYPES[ctIdx % CONTENT_TYPES.length];
-    }
 
     console.log('Generating: ' + topic.name + ' / ' + contentType.name);
     const comboId = `${topic.id}__${contentType.id}`;
@@ -339,35 +318,8 @@ const server = http.createServer(async (req, res) => {
       const publishSettings = await settings.get('publish') || {};
       const totalTarget = publishSettings.totalTarget || total;
 
-      // nextTopic 계산 (autoPublish와 동일한 로직)
-      let nextTopic = null;
-      const publishMode = publishSettings.publishMode || 'auto';
-      const idxData = await settings.get('topicIndex');
-      const topicIdx = idxData ? parseInt(idxData) : 0;
-      const ctIdxData = await settings.get('contentTypeIndex');
-      const ctIdx = ctIdxData ? parseInt(ctIdxData) : 0;
-
-      if (publishSettings.nextTopic && !['auto','random','balanced','sequential'].includes(publishSettings.nextTopic)) {
-        // 개별 질환 지정
-        const selectedTopic = allTopics ? allTopics.find(t => t.id === publishSettings.nextTopic) : null;
-        if (selectedTopic) {
-          nextTopic = { topic: selectedTopic, contentType: CONTENT_TYPES[ctIdx % CONTENT_TYPES.length] };
-        }
-      } else if (publishMode === 'random' && allTopics && allTopics.length > 0) {
-        nextTopic = { topic: allTopics[topicIdx % allTopics.length], contentType: CONTENT_TYPES[ctIdx % CONTENT_TYPES.length], note: '랜덤 (예상)' };
-      } else if (publishMode === 'balanced' && allTopics && allTopics.length > 0) {
-        const counts = {};
-        for (const t of allTopics) counts[t.id] = 0;
-        const allQueue = await contentQueue.getAll();
-        for (const item of (allQueue || [])) {
-          if (counts[item.topic_id] !== undefined) counts[item.topic_id]++;
-        }
-        const sorted = [...allTopics].sort((a, b) => (counts[a.id] || 0) - (counts[b.id] || 0));
-        nextTopic = { topic: sorted[0], contentType: CONTENT_TYPES[ctIdx % CONTENT_TYPES.length] };
-      } else if (allTopics && allTopics.length > 0) {
-        // auto 또는 sequential: 인덱스 기반
-        nextTopic = { topic: allTopics[topicIdx % allTopics.length], contentType: CONTENT_TYPES[ctIdx % CONTENT_TYPES.length] };
-      }
+      // nextTopic 계산 (공용 함수 사용)
+      const nextTopic = await resolveNextTopic(allTopics);
 
       const nextPublishTime = await getNextPublishTime();
 
@@ -504,8 +456,8 @@ const server = http.createServer(async (req, res) => {
 
     // API: Publish Now (POST)
     if (pathname === '/api/publish-now' && method === 'POST') {
-      const publishedComboIds = await publishedTopics.getComboIds();
-      const next = await getNextTopicFromDB(publishedComboIds);
+      const allTopicsForPublish = await topicsDB.getAll();
+      const next = await resolveNextTopic(allTopicsForPublish);
 
       autoPublish().catch(console.error);
 
