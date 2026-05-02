@@ -897,6 +897,7 @@ const server = http.createServer(async function(req, res) {
               let mentionCount = 0;
               let citCount = 0;
               let totalQuestions = 0;
+              let sampleAnswer = '';
 
               for (const template of templates) {
                 const question = template.replace(/\{disease\}/g, topic.name);
@@ -904,6 +905,7 @@ const server = http.createServer(async function(req, res) {
                   totalQuestions++;
                   try {
                     const answer = await askAI(model, question, citationSettings);
+                    if (!sampleAnswer && answer.length > 0) sampleAnswer = answer.substring(0, 500);
                     var brandName = '화접몽';
                     var mentioned = answer.indexOf(brandName) >= 0 || answer.indexOf('화접몽 한의원') >= 0;
                     if (mentioned) {
@@ -913,6 +915,7 @@ const server = http.createServer(async function(req, res) {
                     }
                   } catch (e) {
                     console.error('[인용추적] ' + model + ' 에러:', e.message);
+                    if (!sampleAnswer) sampleAnswer = 'ERROR: ' + e.message;
                   }
                 }
               }
@@ -927,6 +930,7 @@ const server = http.createServer(async function(req, res) {
                 citation_count: citCount,
                 total_questions: totalQuestions,
                 tracked_at: new Date().toISOString(),
+                _debug_sample: sampleAnswer,
               });
             }
           }
