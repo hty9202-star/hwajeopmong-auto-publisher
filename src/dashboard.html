@@ -880,10 +880,16 @@
           document.getElementById('nextTopic').style.color = '#16a34a';
           document.getElementById('nextType').textContent = '';
           document.getElementById('nextPublishTime').textContent = '—';
-        } else {
-          if (status.nextPublishTime) {
-            document.getElementById('nextPublishTime').textContent = status.nextPublishTime.date + ' ' + status.nextPublishTime.time;
+        } else if (!status.nextPublishTime) {
+          if (status.publishPeriod && status.publishPeriod.status === 'waiting') {
+            document.getElementById('nextPublishTime').textContent = status.publishPeriod.startDate + ' 시작 예정';
+            document.getElementById('nextPublishTime').style.color = '#f59e0b';
+          } else {
+            document.getElementById('nextPublishTime').textContent = '발행 기간 종료';
+            document.getElementById('nextPublishTime').style.color = '#94a3b8';
           }
+        } else {
+          document.getElementById('nextPublishTime').textContent = status.nextPublishTime.date + ' ' + status.nextPublishTime.time;
           if (status.nextTopic) {
             document.getElementById('nextTopic').textContent = status.nextTopic.topic.name;
             document.getElementById('nextType').textContent = status.nextTopic.contentType.name;

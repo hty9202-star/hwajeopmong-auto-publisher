@@ -255,11 +255,35 @@ async function getNextPublishTime() {
     }
   }
 
+  // 발행 기간 체크: startDate가 미래이면 startDate 기준으로 계산
+  const publishStartDate = publishSettings.startDate;
+  const publishEndDate = publishSettings.endDate;
+  const todayStr = kstNow.getUTCFullYear() + '-' + String(kstNow.getUTCMonth()+1).padStart(2,'0') + '-' + String(kstNow.getUTCDate()).padStart(2,'0');
+
+  // 발행 기간이 끝났으면 null 반환
+  if (publishEndDate && todayStr > publishEndDate) {
+    return null;
+  }
+
   let targetDate = new Date(kstNow);
   if (nextHour !== null && (!weekdaysOnly || isWeekday)) {
     targetDate.setUTCHours(nextHour, 0, 0, 0);
   } else {
     targetDate.setUTCDate(targetDate.getUTCDate() + 1);
+    targetDate.setUTCHours(hours[0], 0, 0, 0);
+    if (weekdaysOnly) {
+      while (targetDate.getUTCDay() === 0 || targetDate.getUTCDay() === 6) {
+        targetDate.setUTCDate(targetDate.getUTCDate() + 1);
+      }
+    }
+  }
+
+  // 발행 시작일이 미래이면 시작일의 첫 발행 시간으로 조정
+  if (publishStartDate && todayStr < publishStartDate) {
+    const parts = publishStartDate.split('-');
+    targetDate.setUTCFullYear(parseInt(parts[0]));
+    targetDate.setUTCMonth(parseInt(parts[1]) - 1);
+    targetDate.setUTCDate(parseInt(parts[2]));
     targetDate.setUTCHours(hours[0], 0, 0, 0);
     if (weekdaysOnly) {
       while (targetDate.getUTCDay() === 0 || targetDate.getUTCDay() === 6) {
@@ -1095,13 +1119,13 @@ function verifyToken(req) {
 
 function jsonRes(res, data, status) {
   status = status || 200;
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.writeHead(status, { 'Content-Type': "application/json; charset=utf-8" });
   res.end(JSON.stringify(data, null, 2));
 }
 
 server.listen(PORT, function() {
-  console.log('\n[Server] \ud654\uc811\ubabd GEO Auto-Publisher \uc2e4\ud589 \uc911 (Supabase DB)');
-  console.log('[Server] \ub300\uc2dc\ubcf4\ub4dc: http://localhost:' + PORT + '/dashboard');
-  console.log('[Server] \uad11\uace0\uc8fc: http://localhost:' + PORT + '/client');
-  console.log('[Server] API: http://localhost:' + PORT + '/api/status\n');
+  console.log('[Server] 화접몽 GEO Auto-Publisher 실행 중 (Supabase DB)');
+  console.log('[Server] 대시보드: http://localhost:' + PORT + '/dashboard');
+  console.log('[Server] 광고주: http://localhost:' + PORT + '/client');
+  console.log('[Server] API: http://localhost:' + PORT + '/api/status');
 });
