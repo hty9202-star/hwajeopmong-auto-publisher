@@ -1070,7 +1070,24 @@ async function askAI(model, question, citationSettings) {
       body: JSON.stringify({ contents: [{ parts: [{ text: question }] }], tools: [{ google_search: {} }] }),
     });
     var gData = await gResp.json();
-    return (gData.candidates && gData.candidates[0] && gData.candidates[0].content && gData.candidates[0].content.parts && gData.candidates[0].content.parts[0] && gData.candidates[0].content.parts[0].text) || '';
+    if (gData.error) {
+      console.error('[Gemini API Error]', JSON.stringify(gData.error));
+      return '';
+    }
+    // Grounding 응답은 parts가 여러 개일 수 있음 - 모든 text를 합침
+    var allText = '';
+    if (gData.candidates && gData.candidates[0] && gData.candidates[0].content && gData.candidates[0].content.parts) {
+      var parts = gData.candidates[0].content.parts;
+      for (var pi = 0; pi < parts.length; pi++) {
+        if (parts[pi].text) allText += parts[pi].text;
+      }
+    }
+    if (question.indexOf('편평사마귀') >= 0 && allText.length > 0) {
+      console.log('[인용추적 디버그] 질문:', question.substring(0, 50));
+      console.log('[인용추적 디버그] 응답 길이:', allText.length, '화접몽 포함:', allText.indexOf('화접몽') >= 0);
+      console.log('[인용추적 디버그] 응답 앞 300자:', allText.substring(0, 300));
+    }
+    return allText;
   }
 
   if (model === 'chatgpt') {
