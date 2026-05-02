@@ -153,7 +153,7 @@ const TREATMENT_MAP = {
 
 // ─── Google Gemini API 호출 헬퍼 ───
 async function callGemini(apiKey, systemPrompt, userPrompt, options = {}) {
-  const FALLBACK_MODELS = [AI_CONFIG.model, 'gemini-2.0-flash'];
+  const FALLBACK_MODELS = [AI_CONFIG.model, 'gemini-2.5-flash'];
   const MAX_RETRIES = 3;
   const RETRY_DELAYS = [5000, 15000, 30000];
 

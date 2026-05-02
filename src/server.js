@@ -1072,7 +1072,7 @@ async function askAI(model, question, citationSettings) {
   if (model === 'gemini') {
     var geminiKey = env.GEMINI_API_KEY;
     if (!geminiKey) throw new Error('Gemini API key not set');
-    var gUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + geminiKey;
+    var gUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + geminiKey;
     var gResp = await fetch(gUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
