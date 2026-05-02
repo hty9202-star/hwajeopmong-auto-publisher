@@ -149,7 +149,7 @@ async function autoPublish(options) {
         eeat_score: eeat.score || 0,
         geo_details: geo.details || {},
         eeat_details: eeat.details || {},
-        status: isTest ? 'test' : 'pending',
+        status: 'pending',
       });
 
       var queueId = (inserted && inserted[0] && inserted[0].id) ? inserted[0].id : null;
@@ -162,7 +162,7 @@ async function autoPublish(options) {
         topic_name: topic.name,
         content_type_name: contentType.name,
         title: result.title,
-        status: isTest ? 'test' : 'queued',
+        status: 'queued',
         created_at: new Date().toISOString(),
       });
 
