@@ -920,6 +920,104 @@ const server = http.createServer(async function(req, res) {
       return;
     }
 
+    // API: Monthly Report (GET)
+    if (pathname === '/api/report' && method === 'GET') {
+      var rStartDate = params.get('startDate');
+      var rEndDate = params.get('endDate');
+      if (!rStartDate || !rEndDate) {
+        return jsonRes(res, { error: 'startDate, endDate 필수' }, 400);
+      }
+      var logs = await publishLogs.getByDateRange(rStartDate, rEndDate) || [];
+      var queue = await contentQueue.getByDateRange(rStartDate, rEndDate) || [];
+      var citations = await citationResults.getByDateRange(rStartDate, rEndDate) || [];
+
+      var publishedLogs = logs.filter(function(l) { return l.status === 'published' || l.status === 'success'; });
+      var totalPublished = publishedLogs.length;
+
+      var geoSum = 0; var eeatSum = 0; var scoredCount = 0;
+      for (var qi = 0; qi < queue.length; qi++) {
+        var q = queue[qi];
+        if (q.geo_score || q.eeat_score) {
+          geoSum += (q.geo_score || 0);
+          eeatSum += (q.eeat_score || 0);
+          scoredCount++;
+        }
+      }
+
+      var topicStats = {};
+      for (var li = 0; li < publishedLogs.length; li++) {
+        var log = publishedLogs[li];
+        var tn = log.topic_name || 'unknown';
+        if (!topicStats[tn]) topicStats[tn] = { count: 0, geoSum: 0, eeatSum: 0, scored: 0 };
+        topicStats[tn].count++;
+      }
+      for (var qi2 = 0; qi2 < queue.length; qi2++) {
+        var q2 = queue[qi2];
+        var tn2 = q2.topic_name || 'unknown';
+        if (!topicStats[tn2]) topicStats[tn2] = { count: 0, geoSum: 0, eeatSum: 0, scored: 0 };
+        if (q2.geo_score || q2.eeat_score) {
+          topicStats[tn2].geoSum += (q2.geo_score || 0);
+          topicStats[tn2].eeatSum += (q2.eeat_score || 0);
+          topicStats[tn2].scored++;
+        }
+      }
+
+      var modelStats = {};
+      for (var ci = 0; ci < citations.length; ci++) {
+        var c = citations[ci];
+        if (!modelStats[c.ai_model]) modelStats[c.ai_model] = { scoreSum: 0, count: 0 };
+        modelStats[c.ai_model].scoreSum += Number(c.score || 0);
+        modelStats[c.ai_model].count++;
+      }
+
+      var weeklyData = {};
+      for (var pi = 0; pi < publishedLogs.length; pi++) {
+        var plog = publishedLogs[pi];
+        var pdate = new Date(plog.created_at);
+        var weekNum = Math.ceil(pdate.getDate() / 7);
+        if (!weeklyData[weekNum]) weeklyData[weekNum] = { published: 0, geoSum: 0, eeatSum: 0, scored: 0 };
+        weeklyData[weekNum].published++;
+      }
+      for (var qi3 = 0; qi3 < queue.length; qi3++) {
+        var q3 = queue[qi3];
+        var qdate = new Date(q3.created_at);
+        var wn = Math.ceil(qdate.getDate() / 7);
+        if (!weeklyData[wn]) weeklyData[wn] = { published: 0, geoSum: 0, eeatSum: 0, scored: 0 };
+        if (q3.geo_score || q3.eeat_score) {
+          weeklyData[wn].geoSum += (q3.geo_score || 0);
+          weeklyData[wn].eeatSum += (q3.eeat_score || 0);
+          weeklyData[wn].scored++;
+        }
+      }
+
+      var weeklyCitation = {};
+      for (var ci2 = 0; ci2 < citations.length; ci2++) {
+        var c2 = citations[ci2];
+        var cdate = new Date(c2.tracked_at);
+        var cwn = Math.ceil(cdate.getDate() / 7);
+        var ckey = cwn + '_' + c2.ai_model;
+        if (!weeklyCitation[ckey]) weeklyCitation[ckey] = { model: c2.ai_model, week: cwn, scoreSum: 0, count: 0 };
+        weeklyCitation[ckey].scoreSum += Number(c2.score || 0);
+        weeklyCitation[ckey].count++;
+      }
+
+      return jsonRes(res, {
+        period: { startDate: rStartDate, endDate: rEndDate },
+        summary: {
+          totalPublished: totalPublished,
+          avgGeo: scoredCount > 0 ? Math.round(geoSum / scoredCount) : 0,
+          avgEeat: scoredCount > 0 ? Math.round(eeatSum / scoredCount) : 0,
+          avgCitation: Object.keys(modelStats).length > 0 ? Math.round(Object.values(modelStats).reduce(function(s, m) { return s + (m.count > 0 ? m.scoreSum / m.count : 0); }, 0) / Object.keys(modelStats).length) : 0,
+        },
+        topicStats: topicStats,
+        modelStats: modelStats,
+        weeklyData: weeklyData,
+        weeklyCitation: Object.values(weeklyCitation),
+        logs: publishedLogs,
+        citations: citations,
+      });
+    }
+
     // 404
     res.writeHead(404);
     res.end('Not Found');
@@ -929,7 +1027,7 @@ const server = http.createServer(async function(req, res) {
   }
 });
 
-// === AI 인용 추적용 API 호출 ===
+// === AI \uc778\uc6a9 \ucd94\uc801\uc6a9 API \ud638\ucd9c ===
 async function askAI(model, question, citationSettings) {
   citationSettings = citationSettings || {};
 
@@ -953,6 +1051,22 @@ async function askAI(model, question, citationSettings) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + chatKey },
       body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: question }] }),
+    });
+    var cData = await cResp.json();
+    return (cData.choices && cData.choices[0] && cData.choices[0].message && cData.choices[0].message.content) || '';
+  }
+
+  if (model === 'claude') {
+    var clKey = citationSettings.claudeApiKey;
+    if (!clKey) throw new Error('Claude API key not set');
+    var clResp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': clKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, messages: [{ role: 'user', content: question }] }),
     });
     var clData = await clResp.json();
     return (clData.content && clData.content[0] && clData.content[0].text) || '';
@@ -981,8 +1095,8 @@ function jsonRes(res, data, status) {
 }
 
 server.listen(PORT, function() {
-  console.log('\n[Server] 화접몽 GEO Auto-Publisher 실행 중 (Supabase DB)');
-  console.log('[Server] 대시보드: http://localhost:' + PORT + '/dashboard');
-  console.log('[Server] 광고주: http://localhost:' + PORT + '/client');
+  console.log('\n[Server] \ud654\uc811\ubabd GEO Auto-Publisher \uc2e4\ud589 \uc911 (Supabase DB)');
+  console.log('[Server] \ub300\uc2dc\ubcf4\ub4dc: http://localhost:' + PORT + '/dashboard');
+  console.log('[Server] \uad11\uace0\uc8fc: http://localhost:' + PORT + '/client');
   console.log('[Server] API: http://localhost:' + PORT + '/api/status\n');
 });

@@ -154,6 +154,13 @@ export const contentQueue = {
     return counts;
   },
 
+  // 기간별 조회 (리포트용)
+  async getByDateRange(startDate, endDate) {
+    return supabaseRequest('content_queue', {
+      query: '?created_at=gte.' + startDate + 'T00:00:00&created_at=lte.' + endDate + 'T23:59:59&order=created_at.desc',
+    });
+  },
+
   // combo_id로 기존 제목 조회 (중복 방지용)
   async getTitlesByComboId(comboId) {
     const data = await supabaseRequest('content_queue', {
@@ -238,6 +245,13 @@ export const publishLogs = {
       query: `?queue_id=eq.${queueId}`,
       body: updates,
       headers: { 'Prefer': 'return=representation' },
+    });
+  },
+
+  // 기간별 조회 (리포트용)
+  async getByDateRange(startDate, endDate) {
+    return supabaseRequest('publish_logs', {
+      query: '?created_at=gte.' + startDate + 'T00:00:00&created_at=lte.' + endDate + 'T23:59:59&order=created_at.desc',
     });
   },
 };
@@ -397,6 +411,13 @@ export const citationResults = {
       method: 'POST',
       body: result,
       headers: { 'Prefer': 'return=representation' },
+    });
+  },
+
+  // 기간별 조회 (리포트용)
+  async getByDateRange(startDate, endDate) {
+    return supabaseRequest('citation_results', {
+      query: '?tracked_at=gte.' + startDate + 'T00:00:00&tracked_at=lte.' + endDate + 'T23:59:59&order=tracked_at.desc',
     });
   },
 

@@ -435,6 +435,7 @@
     <button class="tab-btn active" onclick="switchTab('dashboard')">대시보드</button>
     <button class="tab-btn" onclick="switchTab('quality')">콘텐츠 품질</button>
     <button class="tab-btn" onclick="switchTab('citation')">GEO AI 인용추적</button>
+    <button class="tab-btn" onclick="switchTab('report')">월간 리포트</button>
   </div>
 
   <!-- Tab 1: Dashboard -->
@@ -813,6 +814,41 @@
   </div>
   </div><!-- end tab-citation -->
 
+  <!-- Tab 4: Monthly Report -->
+  <div class="tab-content" id="tab-report">
+  <div class="container">
+    <!-- Mode Toggle -->
+    <div style="display:flex;gap:0;margin-bottom:20px;background:#fff;border-radius:10px;border:1px solid #e8ecf1;overflow:hidden;width:fit-content;">
+      <button class="btn" id="reportModeBtn1" onclick="setReportMode('period')" style="border-radius:0;border:none;background:#2E75B6;color:white;padding:10px 24px;font-size:13px;">기간 리포트</button>
+      <button class="btn" id="reportModeBtn2" onclick="setReportMode('compare')" style="border-radius:0;border:none;background:#fff;color:#374151;padding:10px 24px;font-size:13px;">월간 비교</button>
+    </div>
+
+    <!-- Period Mode Controls -->
+    <div id="reportPeriodControls" style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+      <label style="font-size:14px;color:#6b7280;">기간</label>
+      <input type="date" id="reportStartDate" style="padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;">
+      <span style="color:#9ca3af;">~</span>
+      <input type="date" id="reportEndDate" style="padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;">
+      <button class="btn btn-primary" onclick="loadReport()" style="padding:8px 18px;font-size:13px;">리포트 생성</button>
+    </div>
+
+    <!-- Compare Mode Controls -->
+    <div id="reportCompareControls" style="display:none;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+      <label style="font-size:14px;color:#6b7280;">기준 월</label>
+      <select id="reportBaseMonth" class="filter-select" style="min-width:140px;"></select>
+      <span style="color:#9ca3af;">vs</span>
+      <select id="reportCompareMonth" class="filter-select" style="min-width:140px;"></select>
+      <button class="btn btn-primary" onclick="loadCompareReport()" style="padding:8px 18px;font-size:13px;">비교하기</button>
+    </div>
+
+    <!-- Report Content Area -->
+    <div id="reportContent">
+      <div class="empty-state" style="padding:60px;">기간을 선택하고 '리포트 생성'을 눌러주세요.</div>
+    </div>
+
+  </div>
+  </div><!-- end tab-report -->
+
   <!-- Preview Modal -->
   <div class="modal-overlay" id="previewModal" onclick="if(event.target===this)closePreview()">
     <div class="modal-content">
@@ -824,6 +860,7 @@
     </div>
   </div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <script>
     const API_BASE = window.location.origin;
 
@@ -1168,6 +1205,7 @@
     event.target.classList.add('active');
     if (tabId === 'quality' && !qualityLoaded) loadQualityData();
     if (tabId === 'citation' && !citationLoaded) loadCitationTab();
+    if (tabId === 'report' && !reportInitialized) initReportTab();
   }
 
   // ─── Quality Tab Data ───
@@ -1582,6 +1620,274 @@
 if(ntEl){var ml2={'auto':'자동','random':'랜덤','balanced':'균등분배','sequential':'질환별순서'};ntEl.textContent=['auto','random','balanced','sequential'].includes(nt)?ml2[p.publishMode||'auto']:topicMap[nt]||nt;}
     });
   }
+  // ─── Report Tab ───
+  var reportInitialized = false;
+  var reportCharts = {};
+  var currentReportMode = 'period';
+
+  function initReportTab() {
+    reportInitialized = true;
+    var now = new Date();
+    var y = now.getFullYear();
+    var m = now.getMonth();
+    var firstDay = y + '-' + String(m + 1).padStart(2, '0') + '-01';
+    var lastDay = new Date(y, m + 1, 0);
+    var lastDayStr = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(lastDay.getDate()).padStart(2, '0');
+    document.getElementById('reportStartDate').value = firstDay;
+    document.getElementById('reportEndDate').value = lastDayStr;
+
+    var baseSelect = document.getElementById('reportBaseMonth');
+    var compSelect = document.getElementById('reportCompareMonth');
+    baseSelect.innerHTML = '';
+    compSelect.innerHTML = '';
+    for (var mi = 0; mi < 12; mi++) {
+      var md = new Date(y, m - mi, 1);
+      var label = md.getFullYear() + '년 ' + (md.getMonth() + 1) + '월';
+      baseSelect.innerHTML += '<option value="' + md.getFullYear() + '-' + String(md.getMonth() + 1).padStart(2, '0') + '">' + label + '</option>';
+      var suffix = mi === 1 ? ' (전월)' : '';
+      compSelect.innerHTML += '<option value="' + md.getFullYear() + '-' + String(md.getMonth() + 1).padStart(2, '0') + '">' + label + suffix + '</option>';
+    }
+    compSelect.selectedIndex = 1;
+  }
+
+  function setReportMode(mode) {
+    currentReportMode = mode;
+    var btn1 = document.getElementById('reportModeBtn1');
+    var btn2 = document.getElementById('reportModeBtn2');
+    var pc = document.getElementById('reportPeriodControls');
+    var cc = document.getElementById('reportCompareControls');
+    if (mode === 'period') {
+      btn1.style.background = '#2E75B6'; btn1.style.color = 'white';
+      btn2.style.background = '#fff'; btn2.style.color = '#374151';
+      pc.style.display = 'flex'; cc.style.display = 'none';
+    } else {
+      btn2.style.background = '#2E75B6'; btn2.style.color = 'white';
+      btn1.style.background = '#fff'; btn1.style.color = '#374151';
+      pc.style.display = 'none'; cc.style.display = 'flex';
+    }
+  }
+
+  function destroyReportCharts() {
+    Object.keys(reportCharts).forEach(function(k) {
+      if (reportCharts[k]) { reportCharts[k].destroy(); reportCharts[k] = null; }
+    });
+  }
+
+  async function loadReport() {
+    var sd = document.getElementById('reportStartDate').value;
+    var ed = document.getElementById('reportEndDate').value;
+    if (!sd || !ed) { alert('기간을 선택해주세요.'); return; }
+    var container = document.getElementById('reportContent');
+    container.innerHTML = '<div class="empty-state">리포트 생성 중...</div>';
+    try {
+      var res = await fetch(API_BASE + '/api/report?startDate=' + sd + '&endDate=' + ed);
+      var data = await res.json();
+      renderPeriodReport(data, container);
+    } catch (e) {
+      container.innerHTML = '<div class="empty-state">리포트 생성 실패: ' + e.message + '</div>';
+    }
+  }
+
+  async function loadCompareReport() {
+    var baseVal = document.getElementById('reportBaseMonth').value;
+    var compVal = document.getElementById('reportCompareMonth').value;
+    if (baseVal === compVal) { alert('서로 다른 월을 선택해주세요.'); return; }
+    var container = document.getElementById('reportContent');
+    container.innerHTML = '<div class="empty-state">비교 리포트 생성 중...</div>';
+    try {
+      var baseParts = baseVal.split('-');
+      var compParts = compVal.split('-');
+      var baseStart = baseVal + '-01';
+      var baseEnd = baseVal + '-' + new Date(parseInt(baseParts[0]), parseInt(baseParts[1]), 0).getDate();
+      var compStart = compVal + '-01';
+      var compEnd = compVal + '-' + new Date(parseInt(compParts[0]), parseInt(compParts[1]), 0).getDate();
+
+      var res1 = await fetch(API_BASE + '/api/report?startDate=' + baseStart + '&endDate=' + baseEnd);
+      var baseData = await res1.json();
+      var res2 = await fetch(API_BASE + '/api/report?startDate=' + compStart + '&endDate=' + compEnd);
+      var compData = await res2.json();
+
+      var baseLabel = parseInt(baseParts[1]) + '월';
+      var compLabel = parseInt(compParts[1]) + '월';
+      renderCompareReport(baseData, compData, baseLabel, compLabel, container);
+    } catch (e) {
+      container.innerHTML = '<div class="empty-state">비교 리포트 생성 실패: ' + e.message + '</div>';
+    }
+  }
+
+  function renderPeriodReport(data, container) {
+    destroyReportCharts();
+    var s = data.summary;
+    var html = '';
+
+    html += '<div class="grid">';
+    html += '<div class="card"><h3>발행 건수</h3><div class="value">' + s.totalPublished + '건</div></div>';
+    html += '<div class="card"><h3>평균 GEO 점수</h3><div class="value">' + s.avgGeo + '</div></div>';
+    html += '<div class="card"><h3>평균 E-E-A-T 점수</h3><div class="value">' + s.avgEeat + '</div></div>';
+    html += '<div class="card"><h3>AI 인용 평균</h3><div class="value">' + s.avgCitation + '</div></div>';
+    html += '</div>';
+
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;">';
+    html += '<div class="card"><h3>주별 발행 추이</h3><div style="height:220px;position:relative;"><canvas id="rptWeeklyChart"></canvas></div></div>';
+    html += '<div class="card"><h3>질환별 발행 분포</h3><div style="height:220px;position:relative;"><canvas id="rptTopicChart"></canvas></div></div>';
+    html += '</div>';
+
+    html += '<div class="card" style="margin-bottom:24px;"><h3>품질 점수 추이 (주별 평균)</h3><div style="height:240px;position:relative;"><canvas id="rptQualityChart"></canvas></div></div>';
+
+    html += '<div class="card" style="margin-bottom:24px;"><h3>질환별 품질 요약</h3>';
+    html += '<table><thead><tr><th>질환</th><th>발행</th><th>GEO</th><th>E-E-A-T</th><th>종합</th></tr></thead><tbody>';
+    var ts = data.topicStats || {};
+    Object.keys(ts).forEach(function(name) {
+      var t = ts[name];
+      var geo = t.scored > 0 ? Math.round(t.geoSum / t.scored) : 0;
+      var eeat = t.scored > 0 ? Math.round(t.eeatSum / t.scored) : 0;
+      var total = Math.round((geo + eeat) / 2);
+      var gc = geo >= 80 ? 'score-high' : geo >= 50 ? 'score-mid' : 'score-low';
+      var ec = eeat >= 80 ? 'score-high' : eeat >= 50 ? 'score-mid' : 'score-low';
+      var tc = total >= 80 ? 'score-high' : total >= 50 ? 'score-mid' : 'score-low';
+      html += '<tr><td style="font-weight:600;">' + name + '</td><td>' + t.count + '건</td>';
+      html += '<td><span class="score-badge ' + gc + '">' + geo + '</span></td>';
+      html += '<td><span class="score-badge ' + ec + '">' + eeat + '</span></td>';
+      html += '<td><span class="score-badge ' + tc + '">' + total + '</span></td></tr>';
+    });
+    if (Object.keys(ts).length === 0) html += '<tr><td colspan="5" class="empty-state">데이터 없음</td></tr>';
+    html += '</tbody></table></div>';
+
+    container.innerHTML = html;
+
+    // Charts
+    var wd = data.weeklyData || {};
+    var weekNums = Object.keys(wd).sort();
+    var weekLabels = weekNums.map(function(w) { return w + '주차'; });
+    var weekPubData = weekNums.map(function(w) { return wd[w].published; });
+    var weekGeoData = weekNums.map(function(w) { return wd[w].scored > 0 ? Math.round(wd[w].geoSum / wd[w].scored) : 0; });
+    var weekEeatData = weekNums.map(function(w) { return wd[w].scored > 0 ? Math.round(wd[w].eeatSum / wd[w].scored) : 0; });
+
+    if (weekLabels.length === 0) { weekLabels = ['1주차']; weekPubData = [0]; weekGeoData = [0]; weekEeatData = [0]; }
+
+    reportCharts.weekly = new Chart(document.getElementById('rptWeeklyChart'), {
+      type: 'bar', data: { labels: weekLabels, datasets: [{ data: weekPubData, backgroundColor: '#2E75B6', borderRadius: 4 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true } } }
+    });
+
+    var topicNames = Object.keys(ts);
+    var topicCounts = topicNames.map(function(n) { return ts[n].count; });
+    var topicColors = ['#2E75B6','#7F77DD','#1D9E75','#EF9F27','#D85A30','#B4B2A9','#534AB7','#D4537E'];
+    if (topicNames.length === 0) { topicNames = ['없음']; topicCounts = [0]; }
+
+    reportCharts.topic = new Chart(document.getElementById('rptTopicChart'), {
+      type: 'doughnut', data: { labels: topicNames, datasets: [{ data: topicCounts, backgroundColor: topicColors.slice(0, topicNames.length), borderWidth: 0 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 11 }, padding: 6, usePointStyle: true } } }, cutout: '55%' }
+    });
+
+    reportCharts.quality = new Chart(document.getElementById('rptQualityChart'), {
+      type: 'line', data: { labels: weekLabels, datasets: [
+        { label: 'GEO', data: weekGeoData, borderColor: '#2E75B6', backgroundColor: 'rgba(46,117,182,0.1)', fill: true, tension: 0.3, pointRadius: 4, borderWidth: 2 },
+        { label: 'E-E-A-T', data: weekEeatData, borderColor: '#7F77DD', backgroundColor: 'rgba(127,119,221,0.1)', fill: true, tension: 0.3, pointRadius: 4, borderWidth: 2 }
+      ] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { font: { size: 11 }, usePointStyle: true } } }, scales: { x: { grid: { display: false } }, y: { min: 0, max: 100 } } }
+    });
+  }
+
+  function renderCompareReport(baseData, compData, baseLabel, compLabel, container) {
+    destroyReportCharts();
+    var bs = baseData.summary; var cs = compData.summary;
+
+    function pctChange(a, b) { if (b === 0) return a > 0 ? '+100%' : '0%'; var p = Math.round((a - b) / b * 100); return (p >= 0 ? '+' : '') + p + '%'; }
+    function diffColor(a, b) { return a >= b ? '#166534' : '#991b1b'; }
+
+    var html = '';
+
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">';
+    html += '<div class="card"><h3>' + baseLabel + ' (기준)</h3><div class="grid" style="grid-template-columns:1fr 1fr;gap:10px;">';
+    html += '<div><div class="sub">발행</div><div class="value" style="font-size:22px;">' + bs.totalPublished + '건</div></div>';
+    html += '<div><div class="sub">품질</div><div class="value" style="font-size:22px;">' + Math.round((bs.avgGeo + bs.avgEeat) / 2) + '점</div></div>';
+    html += '<div><div class="sub">GEO</div><div class="value" style="font-size:22px;">' + bs.avgGeo + '</div></div>';
+    html += '<div><div class="sub">AI 인용</div><div class="value" style="font-size:22px;">' + bs.avgCitation + '</div></div>';
+    html += '</div></div>';
+
+    html += '<div class="card"><h3>' + compLabel + ' (비교)</h3><div class="grid" style="grid-template-columns:1fr 1fr;gap:10px;">';
+    html += '<div><div class="sub">발행</div><div class="value" style="font-size:22px;">' + cs.totalPublished + '건</div></div>';
+    html += '<div><div class="sub">품질</div><div class="value" style="font-size:22px;">' + Math.round((cs.avgGeo + cs.avgEeat) / 2) + '점</div></div>';
+    html += '<div><div class="sub">GEO</div><div class="value" style="font-size:22px;">' + cs.avgGeo + '</div></div>';
+    html += '<div><div class="sub">AI 인용</div><div class="value" style="font-size:22px;">' + cs.avgCitation + '</div></div>';
+    html += '</div></div>';
+    html += '</div>';
+
+    html += '<div class="grid" style="margin-bottom:20px;">';
+    html += '<div class="card" style="text-align:center;"><h3>발행 증감</h3><div class="value" style="color:' + diffColor(bs.totalPublished, cs.totalPublished) + '">' + pctChange(bs.totalPublished, cs.totalPublished) + '</div><div class="sub">' + cs.totalPublished + ' \u2192 ' + bs.totalPublished + '건</div></div>';
+    html += '<div class="card" style="text-align:center;"><h3>품질 변화</h3><div class="value" style="color:' + diffColor(bs.avgGeo + bs.avgEeat, cs.avgGeo + cs.avgEeat) + '">' + pctChange(Math.round((bs.avgGeo + bs.avgEeat) / 2), Math.round((cs.avgGeo + cs.avgEeat) / 2)) + '</div><div class="sub">' + Math.round((cs.avgGeo + cs.avgEeat) / 2) + ' \u2192 ' + Math.round((bs.avgGeo + bs.avgEeat) / 2) + '점</div></div>';
+    html += '<div class="card" style="text-align:center;"><h3>GEO 변화</h3><div class="value" style="color:' + diffColor(bs.avgGeo, cs.avgGeo) + '">' + pctChange(bs.avgGeo, cs.avgGeo) + '</div><div class="sub">' + cs.avgGeo + ' \u2192 ' + bs.avgGeo + '점</div></div>';
+    html += '<div class="card" style="text-align:center;"><h3>AI 인용 변화</h3><div class="value" style="color:' + diffColor(bs.avgCitation, cs.avgCitation) + '">' + pctChange(bs.avgCitation, cs.avgCitation) + '</div><div class="sub">' + cs.avgCitation + ' \u2192 ' + bs.avgCitation + '점</div></div>';
+    html += '</div>';
+
+    html += '<div class="card" style="margin-bottom:24px;"><h3>발행 건수 비교</h3><div style="height:240px;position:relative;"><canvas id="rptCompPubChart"></canvas></div></div>';
+    html += '<div class="card" style="margin-bottom:24px;"><h3>품질 점수 비교</h3><div style="height:240px;position:relative;"><canvas id="rptCompQualChart"></canvas></div></div>';
+
+    html += '<div class="card" style="margin-bottom:24px;"><h3>질환별 월간 비교</h3>';
+    html += '<table><thead><tr><th>질환</th><th>' + baseLabel + ' 발행</th><th>' + compLabel + ' 발행</th><th>' + baseLabel + ' 품질</th><th>' + compLabel + ' 품질</th><th>변화</th></tr></thead><tbody>';
+
+    var allTopicNames = {};
+    Object.keys(baseData.topicStats || {}).forEach(function(n) { allTopicNames[n] = true; });
+    Object.keys(compData.topicStats || {}).forEach(function(n) { allTopicNames[n] = true; });
+
+    Object.keys(allTopicNames).forEach(function(name) {
+      var bt = (baseData.topicStats || {})[name] || { count: 0, geoSum: 0, eeatSum: 0, scored: 0 };
+      var ct = (compData.topicStats || {})[name] || { count: 0, geoSum: 0, eeatSum: 0, scored: 0 };
+      var bAvg = bt.scored > 0 ? Math.round((bt.geoSum + bt.eeatSum) / (bt.scored * 2)) : 0;
+      var cAvg = ct.scored > 0 ? Math.round((ct.geoSum + ct.eeatSum) / (ct.scored * 2)) : 0;
+      var diff = bAvg - cAvg;
+      var diffStr = diff > 0 ? '+' + diff : '' + diff;
+      var dColor = diff >= 0 ? '#166534' : '#991b1b';
+      var bc = bAvg >= 80 ? 'score-high' : bAvg >= 50 ? 'score-mid' : 'score-low';
+      var cc2 = cAvg >= 80 ? 'score-high' : cAvg >= 50 ? 'score-mid' : 'score-low';
+      html += '<tr><td style="font-weight:600;">' + name + '</td>';
+      html += '<td>' + bt.count + '건</td><td style="color:#9ca3af;">' + ct.count + '건</td>';
+      html += '<td><span class="score-badge ' + bc + '">' + bAvg + '</span></td>';
+      html += '<td><span class="score-badge ' + cc2 + '">' + cAvg + '</span></td>';
+      html += '<td style="color:' + dColor + ';font-weight:600;">' + diffStr + '</td></tr>';
+    });
+    if (Object.keys(allTopicNames).length === 0) html += '<tr><td colspan="6" class="empty-state">데이터 없음</td></tr>';
+    html += '</tbody></table></div>';
+
+    container.innerHTML = html;
+
+    // Charts
+    var bwd = baseData.weeklyData || {};
+    var cwd = compData.weeklyData || {};
+    var allWeeks = {};
+    Object.keys(bwd).forEach(function(w) { allWeeks[w] = true; });
+    Object.keys(cwd).forEach(function(w) { allWeeks[w] = true; });
+    var weekKeys = Object.keys(allWeeks).sort();
+    if (weekKeys.length === 0) weekKeys = ['1'];
+    var wLabels = weekKeys.map(function(w) { return w + '주차'; });
+    var bPub = weekKeys.map(function(w) { return (bwd[w] || {}).published || 0; });
+    var cPub = weekKeys.map(function(w) { return (cwd[w] || {}).published || 0; });
+
+    reportCharts.compPub = new Chart(document.getElementById('rptCompPubChart'), {
+      type: 'bar', data: { labels: wLabels, datasets: [
+        { label: baseLabel, data: bPub, backgroundColor: '#2E75B6', borderRadius: 4 },
+        { label: compLabel, data: cPub, backgroundColor: '#B4B2A9', borderRadius: 4 }
+      ] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { font: { size: 11 }, usePointStyle: true } } }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true } } }
+    });
+
+    var bGeo = weekKeys.map(function(w) { var d = bwd[w]; return d && d.scored > 0 ? Math.round(d.geoSum / d.scored) : 0; });
+    var cGeo = weekKeys.map(function(w) { var d = cwd[w]; return d && d.scored > 0 ? Math.round(d.geoSum / d.scored) : 0; });
+    var bEeat = weekKeys.map(function(w) { var d = bwd[w]; return d && d.scored > 0 ? Math.round(d.eeatSum / d.scored) : 0; });
+    var cEeat = weekKeys.map(function(w) { var d = cwd[w]; return d && d.scored > 0 ? Math.round(d.eeatSum / d.scored) : 0; });
+
+    reportCharts.compQual = new Chart(document.getElementById('rptCompQualChart'), {
+      type: 'line', data: { labels: wLabels, datasets: [
+        { label: baseLabel + ' GEO', data: bGeo, borderColor: '#2E75B6', borderWidth: 2.5, tension: 0.3, pointRadius: 4 },
+        { label: compLabel + ' GEO', data: cGeo, borderColor: 'rgba(46,117,182,0.35)', borderWidth: 2, tension: 0.3, pointRadius: 3, borderDash: [5,5] },
+        { label: baseLabel + ' E-E-A-T', data: bEeat, borderColor: '#7F77DD', borderWidth: 2.5, tension: 0.3, pointRadius: 4 },
+        { label: compLabel + ' E-E-A-T', data: cEeat, borderColor: 'rgba(127,119,221,0.35)', borderWidth: 2, tension: 0.3, pointRadius: 3, borderDash: [5,5] }
+      ] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { font: { size: 11 }, usePointStyle: true } } }, scales: { x: { grid: { display: false } }, y: { min: 0, max: 100 } } }
+    });
+  }
+
   </script>
 </body>
 </html>
