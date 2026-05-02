@@ -445,7 +445,8 @@
 
     <!-- Actions -->
     <div class="actions">
-      <button class="btn btn-primary" id="publishBtn" onclick="publishNow()">지금 발행하기</button>
+      <button class="btn" id="schedulerBtn" onclick="toggleScheduler()" style="background:#10b981;color:white;">스케줄 발행 ON</button>
+      <button class="btn btn-primary" id="publishBtn" onclick="publishNow()">1회 테스트 발행</button>
       <button class="btn btn-secondary" onclick="loadData()">새로고침</button>
     </div>
 
@@ -657,6 +658,15 @@
     <!-- Per-Content Score Table -->
     <div class="card table-card">
       <h3>콘텐츠별 품질 점수</h3>
+      <div class="search-bar">
+        <input type="text" class="search-input" id="qualitySearch" placeholder="제목으로 검색..." oninput="debounceQualitySearch()">
+        <select class="filter-select" id="qualitySortFilter" onchange="renderQualityPage()">
+          <option value="latest">최신순</option>
+          <option value="geo-high">GEO 높은순</option>
+          <option value="eeat-high">E-E-A-T 높은순</option>
+          <option value="total-high">종합 높은순</option>
+        </select>
+      </div>
       <table class="quality-table">
         <thead>
           <tr>
@@ -672,6 +682,7 @@
           <tr><td colspan="6" class="empty-state">데이터 로딩 중...</td></tr>
         </tbody>
       </table>
+      <div class="pagination" id="qualityPagination"></div>
     </div>
   </div>
   </div><!-- end tab-quality -->
@@ -1003,15 +1014,54 @@
       try {
         const res = await fetch(`${API_BASE}/api/publish-now`, { method: 'POST' });
         const data = await res.json();
-        alert(`발행 시작: ${data.topic} - ${data.contentType}
-
-콘텐츠 생성에 1-2분 소요됩니다. 잠시 후 새로고침하세요.`);
+        alert(`발행 시작: ${data.topic} - ${data.contentType}\n\n콘텐츠 생성에 1-2분 소요됩니다. 잠시 후 새로고침하세요.`);
       } catch (e) {
         alert('발행 실패: ' + e.message);
       } finally {
         btn.disabled = false;
-        btn.textContent = '지금 발행하기';
+        btn.textContent = '1회 테스트 발행';
       }
+    }
+
+    // ─── Scheduler Toggle ───
+    async function loadSchedulerStatus() {
+      try {
+        const res = await fetch(`${API_BASE}/api/scheduler-status`);
+        const data = await res.json();
+        updateSchedulerBtn(data.schedulerEnabled);
+      } catch (e) { console.error('Scheduler status error:', e); }
+    }
+
+    function updateSchedulerBtn(enabled) {
+      const btn = document.getElementById('schedulerBtn');
+      if (enabled) {
+        btn.textContent = '스케줄 발행 ON';
+        btn.style.background = '#10b981';
+        btn.style.color = 'white';
+        btn.style.border = 'none';
+      } else {
+        btn.textContent = '스케줄 발행 OFF';
+        btn.style.background = '#fee2e2';
+        btn.style.color = '#991b1b';
+        btn.style.border = '1px solid #fecaca';
+      }
+    }
+
+    async function toggleScheduler() {
+      const btn = document.getElementById('schedulerBtn');
+      const currentlyOn = btn.textContent.includes('ON');
+      const newState = !currentlyOn;
+      const msg = newState ? '스케줄 발행을 활성화하시겠습니까?' : '스케줄 발행을 중지하시겠습니까?\n(수동 1회 발행은 계속 가능합니다)';
+      if (!confirm(msg)) return;
+      try {
+        const res = await fetch(`${API_BASE}/api/scheduler-toggle`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled: newState })
+        });
+        const data = await res.json();
+        updateSchedulerBtn(data.schedulerEnabled);
+      } catch (e) { alert('실패: ' + e.message); }
     }
 
     // ─── Paginated Posts ───
@@ -1072,6 +1122,7 @@
     // Initial load
     loadData();
     loadPublishSettings();
+    loadSchedulerStatus();
     // Auto-refresh every 60s
     setInterval(loadData, 60000);
 
@@ -1121,6 +1172,58 @@
 
   // ─── Quality Tab Data ───
   let qualityLoaded = false;
+  let allQualityData = [];
+  let currentQualityPage = 1;
+  const qualityPageSize = 30;
+  let qualitySearchTimer = null;
+
+  function debounceQualitySearch() {
+    clearTimeout(qualitySearchTimer);
+    qualitySearchTimer = setTimeout(function() { currentQualityPage = 1; renderQualityPage(); }, 400);
+  }
+
+  function renderQualityPage(page) {
+    if (page) currentQualityPage = page;
+    const search = (document.getElementById('qualitySearch') || {}).value || '';
+    const sort = (document.getElementById('qualitySortFilter') || {}).value || 'latest';
+
+    let filtered = allQualityData;
+    if (search) {
+      const q = search.toLowerCase();
+      filtered = filtered.filter(function(d) { return (d.title || '').toLowerCase().indexOf(q) >= 0; });
+    }
+
+    // Sort
+    filtered = filtered.slice().sort(function(a, b) {
+      if (sort === 'geo-high') return (b.geo_score || 0) - (a.geo_score || 0);
+      if (sort === 'eeat-high') return (b.eeat_score || 0) - (a.eeat_score || 0);
+      if (sort === 'total-high') return (((b.geo_score||0)+(b.eeat_score||0)) - ((a.geo_score||0)+(a.eeat_score||0)));
+      return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+    });
+
+    const total = filtered.length;
+    const totalPages = Math.ceil(total / qualityPageSize) || 1;
+    if (currentQualityPage > totalPages) currentQualityPage = totalPages;
+    const start = (currentQualityPage - 1) * qualityPageSize;
+    const pageData = filtered.slice(start, start + qualityPageSize);
+
+    const tableHtml = pageData.map(function(item) {
+      const geo = item.geo_score || 0;
+      const eeat = item.eeat_score || 0;
+      const tot = Math.round((geo + eeat) / 2);
+      const dateStr = item.created_at ? new Date(item.created_at).toLocaleDateString('ko-KR') : '-';
+      return '<tr>' +
+        '<td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (item.title || '-') + '</td>' +
+        '<td>' + (item.topic_name || '-') + '</td>' +
+        '<td><span class="score-badge ' + scoreBadgeClass(geo) + '">' + geo + '</span></td>' +
+        '<td><span class="score-badge ' + scoreBadgeClass(eeat) + '">' + eeat + '</span></td>' +
+        '<td><span class="score-badge ' + scoreBadgeClass(tot) + '">' + tot + '</span></td>' +
+        '<td style="color:#9ca3af;font-size:12px;">' + dateStr + '</td>' +
+      '</tr>';
+    });
+    document.getElementById('qualityTableBody').innerHTML = tableHtml.join('') || '<tr><td colspan="6" class="empty-state">데이터 없음</td></tr>';
+    renderPagination('qualityPagination', { page: currentQualityPage, totalPages: totalPages, total: total }, renderQualityPage);
+  }
 
   function setGauge(id, score, max) {
     const circ = 314;
@@ -1243,22 +1346,10 @@
       });
       document.getElementById('topicCompareRows').innerHTML = topicRows.join('');
 
-      // Per-content table
-      const tableHtml = all.slice(0, 50).map(item => {
-        const geo = item.geo_score || 0;
-        const eeat = item.eeat_score || 0;
-        const total = Math.round((geo + eeat) / 2);
-        const dateStr = item.created_at ? new Date(item.created_at).toLocaleDateString('ko-KR') : '-';
-        return '<tr>' +
-          '<td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (item.title || '-') + '</td>' +
-          '<td>' + (item.topic_name || '-') + '</td>' +
-          '<td><span class="score-badge ' + scoreBadgeClass(geo) + '">' + geo + '</span></td>' +
-          '<td><span class="score-badge ' + scoreBadgeClass(eeat) + '">' + eeat + '</span></td>' +
-          '<td><span class="score-badge ' + scoreBadgeClass(total) + '">' + total + '</span></td>' +
-          '<td style="color:#9ca3af;font-size:12px;">' + dateStr + '</td>' +
-        '</tr>';
-      });
-      document.getElementById('qualityTableBody').innerHTML = tableHtml.join('') || '<tr><td colspan="6" class="empty-state">데이터 없음</td></tr>';
+      // Per-content table (paginated)
+      allQualityData = all;
+      currentQualityPage = 1;
+      renderQualityPage();
 
       qualityLoaded = true;
     } catch (e) {
@@ -1483,7 +1574,7 @@
         var v=document.getElementById('publishPerDay');
         var s=document.getElementById('publishDetail');
         if(v)v.textContent=freqLabels[p.publishFrequency]||'하루 5회';
-        if(s){var ml={'auto':'자동','random':'랜덤','balanced':'균등분배','sequential':'질환별순서'};s.textContent=(daysLabels[p.publishDays]||'매일')+' · '+(ml[p.publishMode]||'자동');}
+        if(s){var ml={'auto':'자동','random':'랜덤','balanced':'균등분배','sequential':'질환별순서'};s.textContent=(daysLabels[p.publishDays]||'매일')+' \xb7 '+(ml[p.publishMode]||'자동');}
       }
       var topicMap={'flat-warts':'편평사마귀','keratosis-pilaris':'모공각화증','folliculitis':'모낭염','acne':'여드름','atopic-dermatitis':'아토피','acne-scars':'여드름흉터','psoriasis':'건선','dyshidrosis':'한포진','diet':'다이어트','seborrheic-dermatitis':'지루성피부염'};
       var nt=p.nextTopic||'auto';

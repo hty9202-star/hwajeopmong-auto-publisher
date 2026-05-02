@@ -203,6 +203,7 @@ const FREQUENCY_LABELS = {
 };
 
 let activeCronJobs = [];
+let schedulerEnabled = true;
 
 async function setupCronSchedule() {
   activeCronJobs.forEach(function(job) { job.stop(); });
@@ -502,7 +503,7 @@ const server = http.createServer(async function(req, res) {
       return jsonRes(res, errorData || []);
     }
 
-    // API: Publish Now (POST)
+    // API: Publish Now - 1회 테스트 발행 (POST)
     if (pathname === '/api/publish-now' && method === 'POST') {
       const allTopicsForPublish = await topicsDB.getAll();
       const next = await resolveNextTopic(allTopicsForPublish);
@@ -514,6 +515,33 @@ const server = http.createServer(async function(req, res) {
         topic: next ? next.topic.name : '없음',
         contentType: next ? next.contentType.name : '없음',
       });
+    }
+
+    // API: Scheduler Toggle (POST) - 스케줄 ON/OFF
+    if (pathname === '/api/scheduler-toggle' && method === 'POST') {
+      var toggleBody = '';
+      await new Promise(function(resolve) {
+        req.on('data', function(chunk) { toggleBody += chunk; });
+        req.on('end', resolve);
+      });
+      var toggleData = JSON.parse(toggleBody || '{}');
+      if (typeof toggleData.enabled === 'boolean') {
+        schedulerEnabled = toggleData.enabled;
+        if (schedulerEnabled) {
+          await setupCronSchedule();
+          console.log('[Server] 스케줄 발행 활성화');
+        } else {
+          activeCronJobs.forEach(function(job) { job.stop(); });
+          activeCronJobs = [];
+          console.log('[Server] 스케줄 발행 비활성화');
+        }
+      }
+      return jsonRes(res, { success: true, schedulerEnabled: schedulerEnabled });
+    }
+
+    // API: Scheduler Status (GET)
+    if (pathname === '/api/scheduler-status' && method === 'GET') {
+      return jsonRes(res, { schedulerEnabled: schedulerEnabled, activeJobs: activeCronJobs.length });
     }
 
     // API: Get Settings
@@ -924,23 +952,7 @@ async function askAI(model, question, citationSettings) {
     var cResp = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + chatKey },
-      body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: question }], max_tokens: 1000 }),
-    });
-    var cData = await cResp.json();
-    return (cData.choices && cData.choices[0] && cData.choices[0].message && cData.choices[0].message.content) || '';
-  }
-
-  if (model === 'claude') {
-    var clKey = citationSettings.claudeApiKey;
-    if (!clKey) throw new Error('Claude API key not set');
-    var clResp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': clKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, messages: [{ role: 'user', content: question }] }),
+      body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: question }] }),
     });
     var clData = await clResp.json();
     return (clData.content && clData.content[0] && clData.content[0].text) || '';
@@ -969,7 +981,7 @@ function jsonRes(res, data, status) {
 }
 
 server.listen(PORT, function() {
-  console.log('\n[Server] 화접몹 GEO Auto-Publisher 실행 중 (Supabase DB)');
+  console.log('\n[Server] 화접몽 GEO Auto-Publisher 실행 중 (Supabase DB)');
   console.log('[Server] 대시보드: http://localhost:' + PORT + '/dashboard');
   console.log('[Server] 광고주: http://localhost:' + PORT + '/client');
   console.log('[Server] API: http://localhost:' + PORT + '/api/status\n');
