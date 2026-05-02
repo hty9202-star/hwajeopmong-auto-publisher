@@ -434,6 +434,7 @@
   <div class="tab-nav">
     <button class="tab-btn active" onclick="switchTab('dashboard')">대시보드</button>
     <button class="tab-btn" onclick="switchTab('quality')">콘텐츠 품질</button>
+    <button class="tab-btn" onclick="switchTab('citation')">GEO AI 인용추적</button>
   </div>
 
   <!-- Tab 1: Dashboard -->
@@ -481,38 +482,6 @@
         <div class="value" id="publishPerDay" style="font-size:24px">--</div>
         <div class="sub" id="publishDetail">--</div>
       </div>
-    </div>
-
-    <!-- GEO AI Citation Tracking -->
-    <div class="citation-section">
-      <h3>GEO AI 인용 추적</h3>
-      <div class="citation-grid">
-        <div class="citation-card">
-          <div class="citation-card-header"><div class="citation-dot chatgpt"></div><span>ChatGPT</span></div>
-          <div class="citation-score" id="chatgptScore">8</div>
-          <div class="citation-score-label">AI Visibility Score</div>
-          <div class="citation-divider"></div>
-          <div class="citation-metric"><span class="citation-metric-label">브랜드 언급</span><span class="citation-metric-value" id="chatgptMentions">0회</span></div>
-          <div class="citation-metric"><span class="citation-metric-label">인용 횟수</span><span class="citation-metric-value" id="chatgptCitations">0건</span></div>
-        </div>
-        <div class="citation-card">
-          <div class="citation-card-header"><div class="citation-dot gemini"></div><span>Gemini</span></div>
-          <div class="citation-score" id="geminiScore">15</div>
-          <div class="citation-score-label">AI Visibility Score</div>
-          <div class="citation-divider"></div>
-          <div class="citation-metric"><span class="citation-metric-label">브랜드 언급</span><span class="citation-metric-value" id="geminiMentions">2회</span></div>
-          <div class="citation-metric"><span class="citation-metric-label">인용 횟수</span><span class="citation-metric-value" id="geminiCitations">8건</span></div>
-        </div>
-        <div class="citation-card">
-          <div class="citation-card-header"><div class="citation-dot claude"></div><span>Claude</span></div>
-          <div class="citation-score" id="claudeScore">22</div>
-          <div class="citation-score-label">AI Visibility Score</div>
-          <div class="citation-divider"></div>
-          <div class="citation-metric"><span class="citation-metric-label">브랜드 언급</span><span class="citation-metric-value" id="claudeMentions">5회</span></div>
-          <div class="citation-metric"><span class="citation-metric-label">인용 횟수</span><span class="citation-metric-value" id="claudeCitations">37건</span></div>
-        </div>
-      </div>
-      <div class="citation-updated" id="citationUpdated">마지막 업데이트: 데이터 연동 대기 중</div>
     </div>
 
     <!-- Connection Status -->
@@ -707,6 +676,132 @@
   </div>
   </div><!-- end tab-quality -->
 
+  <!-- Tab 3: Citation Tracking -->
+  <div class="tab-content" id="tab-citation">
+  <div class="container">
+    <!-- Actions -->
+    <div class="actions">
+      <button class="btn btn-primary" id="trackNowBtn" onclick="trackCitationNow()">지금 추적하기</button>
+      <button class="btn btn-secondary" onclick="citationLoaded=false;loadCitationTab()">새로고침</button>
+    </div>
+
+    <!-- AI Score Cards -->
+    <div class="citation-section">
+      <h3>AI 모델별 인용 점수</h3>
+      <div class="citation-grid">
+        <div class="citation-card">
+          <div class="citation-card-header"><div class="citation-dot chatgpt"></div><span>ChatGPT</span></div>
+          <div class="citation-score" id="chatgptScore">--</div>
+          <div class="citation-score-label">AI Visibility Score</div>
+          <div class="citation-divider"></div>
+          <div class="citation-metric"><span class="citation-metric-label">브랜드 언급</span><span class="citation-metric-value" id="chatgptMentions">--</span></div>
+          <div class="citation-metric"><span class="citation-metric-label">인용 횟수</span><span class="citation-metric-value" id="chatgptCitations">--</span></div>
+        </div>
+        <div class="citation-card">
+          <div class="citation-card-header"><div class="citation-dot gemini"></div><span>Gemini</span></div>
+          <div class="citation-score" id="geminiScore">--</div>
+          <div class="citation-score-label">AI Visibility Score</div>
+          <div class="citation-divider"></div>
+          <div class="citation-metric"><span class="citation-metric-label">브랜드 언급</span><span class="citation-metric-value" id="geminiMentions">--</span></div>
+          <div class="citation-metric"><span class="citation-metric-label">인용 횟수</span><span class="citation-metric-value" id="geminiCitations">--</span></div>
+        </div>
+        <div class="citation-card">
+          <div class="citation-card-header"><div class="citation-dot claude"></div><span>Claude</span></div>
+          <div class="citation-score" id="claudeScore">--</div>
+          <div class="citation-score-label">AI Visibility Score</div>
+          <div class="citation-divider"></div>
+          <div class="citation-metric"><span class="citation-metric-label">브랜드 언급</span><span class="citation-metric-value" id="claudeMentions">--</span></div>
+          <div class="citation-metric"><span class="citation-metric-label">인용 횟수</span><span class="citation-metric-value" id="claudeCitations">--</span></div>
+        </div>
+      </div>
+      <div class="citation-updated" id="citationUpdated">마지막 업데이트: 데이터 없음</div>
+    </div>
+
+    <!-- Topic Citation Table -->
+    <div class="card table-card" style="margin-bottom:24px;">
+      <h3>질환별 인용 현황</h3>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:20%">질환</th>
+            <th style="width:15%">ChatGPT</th>
+            <th style="width:15%">Gemini</th>
+            <th style="width:15%">Claude</th>
+            <th style="width:15%">평균 점수</th>
+            <th style="width:20%">마지막 추적</th>
+          </tr>
+        </thead>
+        <tbody id="citationTopicBody">
+          <tr><td colspan="6" class="empty-state">추적 데이터가 없습니다. '지금 추적하기'를 눌러주세요.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Citation Settings -->
+    <div class="card" style="margin-bottom:24px;">
+      <h3 style="display:flex;justify-content:space-between;align-items:center;">
+        <span>인용추적 설정</span>
+        <button class="btn btn-primary" onclick="saveCitationSettings()" style="padding:8px 18px;font-size:13px;">설정 저장</button>
+      </h3>
+      <div style="margin-top:16px;">
+        <!-- API 연결 설정 -->
+        <div style="margin-bottom:20px;">
+          <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:10px;">API 연결 설정</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+            <div>
+              <label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px;">ChatGPT API Key</label>
+              <input type="password" id="citChatgptKey" class="search-input" style="width:100%;font-size:13px;" placeholder="sk-...">
+            </div>
+            <div>
+              <label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px;">Gemini API Key</label>
+              <input type="text" id="citGeminiKey" class="search-input" style="width:100%;font-size:13px;background:#f0fdf4;" placeholder="서버 설정 사용" disabled>
+            </div>
+            <div>
+              <label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px;">Claude API Key</label>
+              <input type="password" id="citClaudeKey" class="search-input" style="width:100%;font-size:13px;" placeholder="sk-ant-...">
+            </div>
+          </div>
+        </div>
+
+        <!-- 질문 템플릿 -->
+        <div style="margin-bottom:20px;">
+          <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:10px;">질문 템플릿 <span style="font-size:11px;color:#9ca3af;font-weight:400;">{disease}는 질환명으로 자동 치환</span></div>
+          <div id="questionTemplates"></div>
+          <button class="btn btn-secondary" onclick="addTemplateRow()" style="margin-top:8px;padding:6px 14px;font-size:12px;">+ 질문 추가</button>
+        </div>
+
+        <!-- 추적 주기 + 반복 횟수 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+          <div>
+            <label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px;">추적 주기</label>
+            <select id="citTrackingFreq" class="filter-select" style="width:100%;">
+              <option value="daily">매일</option>
+              <option value="weekly" selected>매주</option>
+              <option value="biweekly">2주마다</option>
+              <option value="monthly">매월</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px;">질문당 반복 횟수</label>
+            <select id="citRepeatCount" class="filter-select" style="width:100%;">
+              <option value="1">1회</option>
+              <option value="3" selected>3회</option>
+              <option value="5">5회</option>
+              <option value="10">10회</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px;">예상 API 호출 수</label>
+            <div id="citEstimatedCalls" style="font-size:20px;font-weight:700;color:#1B4F72;padding:6px 0;">--</div>
+            <div style="font-size:11px;color:#9ca3af;">질환 수 × 질문 수 × 반복 횟수 × AI 수</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  </div><!-- end tab-citation -->
+
   <!-- Preview Modal -->
   <div class="modal-overlay" id="previewModal" onclick="if(event.target===this)closePreview()">
     <div class="modal-content">
@@ -756,7 +851,6 @@
         const errorsRes = await fetch(`${API_BASE}/api/errors`);
         const errors = await errorsRes.json();
         renderErrors(errors);
-        loadCitationData();
 
       } catch (e) {
         document.getElementById('serverStatus').textContent = '연결 실패';
@@ -811,19 +905,7 @@
       document.getElementById('paceFill').style.background = color;
     }
 
-    function loadCitationData() {
-        const mockData = { chatgpt:{score:8,mentions:0,citations:0}, gemini:{score:15,mentions:2,citations:8}, claude:{score:22,mentions:5,citations:37}, lastUpdated:null };
-        document.getElementById('chatgptScore').textContent = mockData.chatgpt.score;
-        document.getElementById('chatgptMentions').textContent = mockData.chatgpt.mentions + '회';
-        document.getElementById('chatgptCitations').textContent = mockData.chatgpt.citations + '건';
-        document.getElementById('geminiScore').textContent = mockData.gemini.score;
-        document.getElementById('geminiMentions').textContent = mockData.gemini.mentions + '회';
-        document.getElementById('geminiCitations').textContent = mockData.gemini.citations + '건';
-        document.getElementById('claudeScore').textContent = mockData.claude.score;
-        document.getElementById('claudeMentions').textContent = mockData.claude.mentions + '회';
-        document.getElementById('claudeCitations').textContent = mockData.claude.citations + '건';
-        document.getElementById('citationUpdated').textContent = mockData.lastUpdated ? '마지막 업데이트: ' + new Date(mockData.lastUpdated).toLocaleString('ko-KR') : '마지막 업데이트: 데이터 연동 대기 중';
-    }
+    // loadCitationData는 citation 탭에서 처리
 
     function setConnectionStatus(prefix, isOk, label) {
       const dot = document.getElementById(`${prefix}Dot`);
@@ -921,7 +1003,9 @@
       try {
         const res = await fetch(`${API_BASE}/api/publish-now`, { method: 'POST' });
         const data = await res.json();
-        alert(`발행 시작: ${data.topic} - ${data.contentType}\n\n콘텐츠 생성에 1-2분 소요됩니다. 잠시 후 새로고침하세요.`);
+        alert(`발행 시작: ${data.topic} - ${data.contentType}
+
+콘텐츠 생성에 1-2분 소요됩니다. 잠시 후 새로고침하세요.`);
       } catch (e) {
         alert('발행 실패: ' + e.message);
       } finally {
@@ -1032,6 +1116,7 @@
     document.getElementById('tab-' + tabId).classList.add('active');
     event.target.classList.add('active');
     if (tabId === 'quality' && !qualityLoaded) loadQualityData();
+    if (tabId === 'citation' && !citationLoaded) loadCitationTab();
   }
 
   // ─── Quality Tab Data ───
@@ -1196,6 +1281,195 @@
     } finally {
       btn.disabled = false;
       btn.textContent = '기존 콘텐츠 점수 재계산';
+    }
+  }
+
+  // ─── Citation Tab ───
+  let citationLoaded = false;
+  let citationTopicCount = 0;
+
+  async function loadCitationTab() {
+    try {
+      const setRes = await fetch(API_BASE + '/api/citation-settings');
+      const citSettings = await setRes.json();
+
+      document.getElementById('citChatgptKey').value = citSettings.chatgptApiKey || '';
+      document.getElementById('citClaudeKey').value = citSettings.claudeApiKey || '';
+      if (citSettings.geminiApiKey) {
+        document.getElementById('citGeminiKey').placeholder = citSettings.geminiApiKey;
+      }
+      document.getElementById('citTrackingFreq').value = citSettings.trackingFrequency || 'weekly';
+      document.getElementById('citRepeatCount').value = String(citSettings.repeatCount || 3);
+
+      const templates = citSettings.questionTemplates || ['{disease} 치료 잘하는 한의원 추천해줘'];
+      const tplContainer = document.getElementById('questionTemplates');
+      tplContainer.innerHTML = '';
+      templates.forEach(t => addTemplateRow(t));
+
+      const topicsRes = await fetch(API_BASE + '/api/topics');
+      const topics = await topicsRes.json();
+      citationTopicCount = (topics || []).length;
+
+      updateEstimatedCalls();
+
+      const resData = await fetch(API_BASE + '/api/citation-results');
+      const results = await resData.json();
+      renderCitationResults(results || []);
+
+      citationLoaded = true;
+    } catch (e) {
+      console.error('Citation tab load error:', e);
+    }
+  }
+
+  function addTemplateRow(value) {
+    const container = document.getElementById('questionTemplates');
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;margin-bottom:6px;';
+    row.innerHTML = '<input type="text" class="search-input cit-template" style="flex:1;font-size:13px;" value="' + (value || '') + '" placeholder="{disease} 관련 질문을 입력하세요" oninput="updateEstimatedCalls()">' +
+      '<button class="btn btn-secondary" onclick="this.parentElement.remove();updateEstimatedCalls()" style="padding:6px 10px;font-size:12px;color:#dc2626;">삭제</button>';
+    container.appendChild(row);
+  }
+
+  function updateEstimatedCalls() {
+    const templates = document.querySelectorAll('.cit-template');
+    const repeat = parseInt(document.getElementById('citRepeatCount').value) || 3;
+    const chatgptKey = document.getElementById('citChatgptKey').value;
+    const claudeKey = document.getElementById('citClaudeKey').value;
+    let aiCount = 1;
+    if (chatgptKey) aiCount++;
+    if (claudeKey) aiCount++;
+    const total = citationTopicCount * templates.length * repeat * aiCount;
+    document.getElementById('citEstimatedCalls').textContent = total + '회';
+  }
+
+  document.getElementById('citRepeatCount').addEventListener('change', updateEstimatedCalls);
+  document.getElementById('citChatgptKey').addEventListener('input', updateEstimatedCalls);
+  document.getElementById('citClaudeKey').addEventListener('input', updateEstimatedCalls);
+
+  function renderCitationResults(results) {
+    if (!results || results.length === 0) {
+      document.getElementById('chatgptScore').textContent = '--';
+      document.getElementById('chatgptMentions').textContent = '--';
+      document.getElementById('chatgptCitations').textContent = '--';
+      document.getElementById('geminiScore').textContent = '--';
+      document.getElementById('geminiMentions').textContent = '--';
+      document.getElementById('geminiCitations').textContent = '--';
+      document.getElementById('claudeScore').textContent = '--';
+      document.getElementById('claudeMentions').textContent = '--';
+      document.getElementById('claudeCitations').textContent = '--';
+      document.getElementById('citationUpdated').textContent = '마지막 업데이트: 데이터 없음';
+      document.getElementById('citationTopicBody').innerHTML = '<tr><td colspan="6" class="empty-state">추적 데이터가 없습니다.</td></tr>';
+      return;
+    }
+
+    const modelAgg = { chatgpt: { score: 0, mentions: 0, citations: 0, count: 0 }, gemini: { score: 0, mentions: 0, citations: 0, count: 0 }, claude: { score: 0, mentions: 0, citations: 0, count: 0 } };
+    const topicAgg = {};
+    let latestDate = null;
+
+    const latestByKey = {};
+    for (const r of results) {
+      const key = r.topic_id + '__' + r.ai_model;
+      if (!latestByKey[key] || r.tracked_at > latestByKey[key].tracked_at) {
+        latestByKey[key] = r;
+      }
+    }
+
+    for (const r of Object.values(latestByKey)) {
+      const m = r.ai_model;
+      if (modelAgg[m]) {
+        modelAgg[m].score += r.score || 0;
+        modelAgg[m].mentions += r.mention_count || 0;
+        modelAgg[m].citations += r.citation_count || 0;
+        modelAgg[m].count++;
+      }
+      if (!topicAgg[r.topic_id]) topicAgg[r.topic_id] = { name: r.topic_name, chatgpt: 0, gemini: 0, claude: 0, lastTracked: null };
+      topicAgg[r.topic_id][m] = r.score || 0;
+      if (!topicAgg[r.topic_id].lastTracked || r.tracked_at > topicAgg[r.topic_id].lastTracked) {
+        topicAgg[r.topic_id].lastTracked = r.tracked_at;
+      }
+      if (!latestDate || r.tracked_at > latestDate) latestDate = r.tracked_at;
+    }
+
+    for (const [model, agg] of Object.entries(modelAgg)) {
+      const avgScore = agg.count > 0 ? Math.round(agg.score / agg.count) : 0;
+      document.getElementById(model + 'Score').textContent = avgScore;
+      document.getElementById(model + 'Mentions').textContent = agg.mentions + '회';
+      document.getElementById(model + 'Citations').textContent = agg.citations + '건';
+    }
+
+    document.getElementById('citationUpdated').textContent = latestDate
+      ? '마지막 업데이트: ' + new Date(latestDate).toLocaleString('ko-KR')
+      : '마지막 업데이트: 데이터 없음';
+
+    const topicRows = Object.entries(topicAgg).map(([id, t]) => {
+      const avg = Math.round((t.chatgpt + t.gemini + t.claude) / 3);
+      const badgeClass = avg >= 50 ? 'score-high' : avg >= 20 ? 'score-mid' : 'score-low';
+      const dateStr = t.lastTracked ? new Date(t.lastTracked).toLocaleDateString('ko-KR') : '-';
+      return '<tr>' +
+        '<td style="font-weight:600;">' + t.name + '</td>' +
+        '<td><span class="score-badge ' + (t.chatgpt >= 50 ? 'score-high' : t.chatgpt >= 20 ? 'score-mid' : 'score-low') + '">' + t.chatgpt + '</span></td>' +
+        '<td><span class="score-badge ' + (t.gemini >= 50 ? 'score-high' : t.gemini >= 20 ? 'score-mid' : 'score-low') + '">' + t.gemini + '</span></td>' +
+        '<td><span class="score-badge ' + (t.claude >= 50 ? 'score-high' : t.claude >= 20 ? 'score-mid' : 'score-low') + '">' + t.claude + '</span></td>' +
+        '<td><span class="score-badge ' + badgeClass + '">' + avg + '</span></td>' +
+        '<td style="color:#9ca3af;font-size:12px;">' + dateStr + '</td>' +
+      '</tr>';
+    });
+    document.getElementById('citationTopicBody').innerHTML = topicRows.join('') || '<tr><td colspan="6" class="empty-state">데이터 없음</td></tr>';
+  }
+
+  async function saveCitationSettings() {
+    const templates = [];
+    document.querySelectorAll('.cit-template').forEach(el => {
+      if (el.value.trim()) templates.push(el.value.trim());
+    });
+    const data = {
+      chatgptApiKey: document.getElementById('citChatgptKey').value.trim(),
+      claudeApiKey: document.getElementById('citClaudeKey').value.trim(),
+      questionTemplates: templates,
+      trackingFrequency: document.getElementById('citTrackingFreq').value,
+      repeatCount: parseInt(document.getElementById('citRepeatCount').value) || 3,
+    };
+    try {
+      const res = await fetch(API_BASE + '/api/citation-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const result = await res.json();
+      if (result.success) {
+        alert('인용추적 설정이 저장되었습니다.');
+      } else {
+        alert('저장 실패: ' + (result.error || ''));
+      }
+    } catch (e) {
+      alert('저장 실패: ' + e.message);
+    }
+  }
+
+  async function trackCitationNow() {
+    const btn = document.getElementById('trackNowBtn');
+    btn.disabled = true;
+    btn.textContent = '추적 중... (시간이 소요됩니다)';
+    try {
+      const res = await fetch(API_BASE + '/api/citation-track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message || '추적 완료');
+        citationLoaded = false;
+        loadCitationTab();
+      } else {
+        alert('추적 실패: ' + (data.error || ''));
+      }
+    } catch (e) {
+      alert('추적 실패: ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '지금 추적하기';
     }
   }
 

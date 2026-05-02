@@ -367,6 +367,49 @@ export const settings = {
   },
 };
 
+// ─── Citation Results CRUD (인용 추적 결과) ───
+export const citationResults = {
+  // 최신 결과 조회
+  async getRecent(limit = 50) {
+    return supabaseRequest('citation_results', {
+      query: `?order=tracked_at.desc&limit=${limit}`,
+    });
+  },
+
+  // AI 모델별 최신 결과 조회
+  async getLatestByModel(model) {
+    return supabaseRequest('citation_results', {
+      query: '?ai_model=eq.' + model + '&order=tracked_at.desc&limit=1',
+      single: true,
+    });
+  },
+
+  // 질환별 결과 조회
+  async getByTopic(topicId) {
+    return supabaseRequest('citation_results', {
+      query: '?topic_id=eq.' + topicId + '&order=tracked_at.desc',
+    });
+  },
+
+  // 결과 추가
+  async add(result) {
+    return supabaseRequest('citation_results', {
+      method: 'POST',
+      body: result,
+      headers: { 'Prefer': 'return=representation' },
+    });
+  },
+
+  // 벌크 추가
+  async addBulk(results) {
+    return supabaseRequest('citation_results', {
+      method: 'POST',
+      body: results,
+      headers: { 'Prefer': 'return=representation' },
+    });
+  },
+};
+
 // ─── 연결 테스트 ───
 export async function testConnection() {
   try {

@@ -14,7 +14,7 @@ import cron from 'node-cron';
 import { CONTENT_TYPES, BRAND } from './config.js';
 import { generateContent, calculateGeoScore, calculateEeatScore } from './content-generator.js';
 import { publishToWordPress, getRecentPosts, checkConnection } from './wordpress-publisher.js';
-import { contentQueue, publishLogs, publishedTopics, settings, topics as topicsDB, testConnection as testSupabase } from './supabase-client.js';
+import { contentQueue, publishLogs, publishedTopics, settings, topics as topicsDB, citationResults, testConnection as testSupabase } from './supabase-client.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -40,7 +40,7 @@ async function resolveNextTopic(allTopics) {
 
   // 개별 질환 지정
   if (publish.nextTopic && !['auto','random','balanced','sequential'].includes(publish.nextTopic)) {
-    const selected = allTopics.find(t => t.id === publish.nextTopic);
+    const selected = allTopics.find(function(t) { return t.id === publish.nextTopic; });
     if (selected) return { topic: selected, contentType: CONTENT_TYPES[ctIdx % CONTENT_TYPES.length], mode: 'manual' };
   }
 
@@ -54,7 +54,7 @@ async function resolveNextTopic(allTopics) {
     for (const item of (allQueue || [])) {
       if (counts[item.topic_id] !== undefined) counts[item.topic_id]++;
     }
-    const sorted = [...allTopics].sort((a, b) => (counts[a.id] || 0) - (counts[b.id] || 0));
+    const sorted = [...allTopics].sort(function(a, b) { return (counts[a.id] || 0) - (counts[b.id] || 0); });
     return { topic: sorted[0], contentType: CONTENT_TYPES[ctIdx % CONTENT_TYPES.length], mode: 'balanced' };
   }
   // auto / sequential
@@ -78,11 +78,11 @@ async function autoPublish() {
     // 발행 기간 체크
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     if (publish.startDate && today < publish.startDate) {
-      console.log(`[발행 대기] 시작일(${publish.startDate}) 전입니다. 발행 건너뜀.`);
+      console.log('[발행 대기] 시작일(' + publish.startDate + ') 전입니다. 발행 건너뜀.');
       return;
     }
     if (publish.endDate && today > publish.endDate) {
-      console.log(`[계약 종료] 종료일(${publish.endDate})이 지났습니다. 발행 건너뜀.`);
+      console.log('[계약 종료] 종료일(' + publish.endDate + ')이 지났습니다. 발행 건너뜀.');
       return;
     }
 
@@ -98,10 +98,10 @@ async function autoPublish() {
     let ctIdx = ctIdxData ? parseInt(ctIdxData) : 0;
 
     console.log('Generating: ' + topic.name + ' / ' + contentType.name);
-    const comboId = `${topic.id}__${contentType.id}`;
+    const comboId = topic.id + '__' + contentType.id;
     const existingTitles = await contentQueue.getTitlesByComboId(comboId);
     if (existingTitles.length > 0) {
-      console.log(`[중복 방지] 기존 ${existingTitles.length}건 제목 회피: ${existingTitles.join(', ')}`);
+      console.log('[중복 방지] 기존 ' + existingTitles.length + '건 제목 회피: ' + existingTitles.join(', '));
     }
     const result = await generateContent(process.env, topic, contentType, { existingTitles });
 
@@ -110,14 +110,14 @@ async function autoPublish() {
       // 검수 결과 로깅
       const review = result.review || { total: 0, high: 0, medium: 0, status: 'clean' };
       if (review.total > 0) {
-        console.log(`[검수 완료] ${review.total}건 자동 치환 (의료법: ${review.high}, 과장광고: ${review.medium})`);
+        console.log('[검수 완료] ' + review.total + '건 자동 치환 (의료법: ' + review.high + ', 과장광고: ' + review.medium + ')');
       }
 
       // GEO / E-E-A-T 품질 점수
       const geo = result.geoScore || { score: 0, details: {} };
       const eeat = result.eeatScore || { score: 0, details: {} };
       if (geo.score || eeat.score) {
-        console.log(`[품질] GEO: ${geo.score}/100, E-E-A-T: ${eeat.score}/100`);
+        console.log('[품질] GEO: ' + geo.score + '/100, E-E-A-T: ' + eeat.score + '/100');
       }
 
       // Supabase에 콘텐츠 추가 (검수 결과 + 품질 점수 포함)
@@ -134,7 +134,7 @@ async function autoPublish() {
         meta_description: result.metaDescription,
         category: result.category || topic.name,
         tags: result.tags || [],
-        hero_image_url: result.heroImage?.url || null,
+        hero_image_url: (result.heroImage && result.heroImage.url) ? result.heroImage.url : null,
         schemas: result.schemas || null,
         faq: result.faq || null,
         review_status: review.status,
@@ -146,7 +146,7 @@ async function autoPublish() {
         status: 'pending',
       });
 
-      const queueId = inserted?.[0]?.id || null;
+      var queueId = (inserted && inserted[0] && inserted[0].id) ? inserted[0].id : null;
       console.log('Queued: ' + result.title + ' (ID: ' + queueId + ')');
 
       // 발행 로그 추가
@@ -162,21 +162,17 @@ async function autoPublish() {
 
       // 인덱스 업데이트 (발행 모드에 따라 다름)
       if (publishMode === 'sequential') {
-        // 질환별 순서: 질환 인덱스 먼저 증가, 한 바퀴 돌면 콘텐츠 유형 증가
         topicIdx = topicIdx + 1;
         if (topicIdx >= allTopics.length) {
           topicIdx = 0;
           ctIdx = (ctIdx + 1) % CONTENT_TYPES.length;
         }
       } else if (publishMode === 'random') {
-        // 랜덤: 인덱스 불필요하지만 호환성 유지
         topicIdx = (topicIdx + 1) % allTopics.length;
         ctIdx = (ctIdx + 1) % CONTENT_TYPES.length;
       } else if (publishMode === 'balanced') {
-        // 균등 분배: 콘텐츠 유형만 순환
         ctIdx = (ctIdx + 1) % CONTENT_TYPES.length;
       } else {
-        // 자동: 기존 방식
         topicIdx = (topicIdx + 1) % allTopics.length;
         ctIdx = (ctIdx + 1) % CONTENT_TYPES.length;
       }
@@ -209,8 +205,7 @@ const FREQUENCY_LABELS = {
 let activeCronJobs = [];
 
 async function setupCronSchedule() {
-  // 기존 cron 중지
-  activeCronJobs.forEach(job => job.stop());
+  activeCronJobs.forEach(function(job) { job.stop(); });
   activeCronJobs = [];
 
   const publishSettings = await settings.get('publish') || {};
@@ -219,15 +214,14 @@ async function setupCronSchedule() {
 
   const crons = FREQUENCY_PRESETS[frequency] || FREQUENCY_PRESETS['5'];
 
-  crons.forEach(cronExpr => {
-    // 평일만이면 cron 요일 부분을 1-5로 변경
+  crons.forEach(function(cronExpr) {
     const finalExpr = days === 'weekdays' ? cronExpr.replace(/\*$/, '1-5') : cronExpr;
     const job = cron.schedule(finalExpr, autoPublish, { timezone: 'Asia/Seoul' });
     activeCronJobs.push(job);
   });
 
   const daysLabel = days === 'weekdays' ? '평일만' : '매일';
-  console.log(`[Server] Cron 스케줄 등록: ${daysLabel} ${FREQUENCY_LABELS[frequency] || FREQUENCY_LABELS['5']}`);
+  console.log('[Server] Cron 스케줄 등록: ' + daysLabel + ' ' + (FREQUENCY_LABELS[frequency] || FREQUENCY_LABELS['5']));
 }
 
 setupCronSchedule();
@@ -239,22 +233,19 @@ async function getNextPublishTime() {
   const days = publishSettings.publishDays || 'everyday';
   const crons = FREQUENCY_PRESETS[frequency] || FREQUENCY_PRESETS['5'];
 
-  // 각 cron에서 시간 추출 (형식: '0 9 * * *' → 9시)
-  const hours = crons.map(c => parseInt(c.split(' ')[1]));
-  hours.sort((a, b) => a - b);
+  const hours = crons.map(function(c) { return parseInt(c.split(' ')[1]); });
+  hours.sort(function(a, b) { return a - b; });
 
-  // 현재 KST 시간 계산 (UTC + 9시간)
   const now = new Date();
   const kstOffset = 9 * 60 * 60 * 1000;
   const kstNow = new Date(now.getTime() + kstOffset);
   const currentHour = kstNow.getUTCHours();
   const currentMin = kstNow.getUTCMinutes();
-  const currentDay = kstNow.getUTCDay(); // 0=일, 1=월...6=토
+  const currentDay = kstNow.getUTCDay();
 
   const isWeekday = currentDay >= 1 && currentDay <= 5;
   const weekdaysOnly = days === 'weekdays';
 
-  // 오늘 남은 발행 시간 찾기
   let nextHour = null;
   for (const h of hours) {
     if (h > currentHour || (h === currentHour && currentMin === 0)) {
@@ -263,7 +254,6 @@ async function getNextPublishTime() {
     }
   }
 
-  // KST 기준 날짜 계산
   let targetDate = new Date(kstNow);
   if (nextHour !== null && (!weekdaysOnly || isWeekday)) {
     targetDate.setUTCHours(nextHour, 0, 0, 0);
@@ -277,7 +267,6 @@ async function getNextPublishTime() {
     }
   }
 
-  // KST 날짜/시간을 문자열로 직접 반환 (타임존 변환 문제 방지)
   const y = targetDate.getUTCFullYear();
   const m = targetDate.getUTCMonth() + 1;
   const d = targetDate.getUTCDate();
@@ -285,12 +274,12 @@ async function getNextPublishTime() {
   const dayNames = ['일','월','화','수','목','금','토'];
   const dayName = dayNames[targetDate.getUTCDay()];
 
-  return { date: `${m}/${d}(${dayName})`, time: `${h}:00`, full: `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}T${h}:00:00+09:00` };
+  return { date: m + '/' + d + '(' + dayName + ')', time: h + ':00', full: y + '-' + String(m).padStart(2,'0') + '-' + String(d).padStart(2,'0') + 'T' + h + ':00:00+09:00' };
 }
 
 // ─── HTTP 서버 ───
-const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, `http://localhost:${PORT}`);
+const server = http.createServer(async function(req, res) {
+  const url = new URL(req.url, 'http://localhost:' + PORT);
   const pathname = url.pathname;
   const method = req.method;
 
@@ -306,14 +295,14 @@ const server = http.createServer(async (req, res) => {
   try {
     // Dashboard
     if (pathname === '/' || pathname === '/dashboard') {
-      const html = fs.readFileSync(`${__dirname}/dashboard.html`, 'utf-8');
+      const html = fs.readFileSync(__dirname + '/dashboard.html', 'utf-8');
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       return res.end(html);
     }
 
     // Settings page
     if (pathname === '/settings') {
-      const html = fs.readFileSync(`${__dirname}/settings.html`, 'utf-8');
+      const html = fs.readFileSync(__dirname + '/settings.html', 'utf-8');
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       return res.end(html);
     }
@@ -330,10 +319,10 @@ const server = http.createServer(async (req, res) => {
       const totalTarget = publishSettings.totalTarget || total;
 
       // 발행 기간 내 콘텐츠만 카운트
-      let periodPublished = publishedComboIds.length; // 기본: 전체
+      let periodPublished = publishedComboIds.length;
       if (publishSettings.startDate) {
         const allQueue = await contentQueue.getAll();
-        periodPublished = (allQueue || []).filter(item => {
+        periodPublished = (allQueue || []).filter(function(item) {
           if (!item.created_at) return false;
           const created = item.created_at.split('T')[0];
           if (publishSettings.startDate && created < publishSettings.startDate) return false;
@@ -342,9 +331,7 @@ const server = http.createServer(async (req, res) => {
         }).length;
       }
 
-      // nextTopic 계산 (공용 함수 사용)
       const nextTopic = await resolveNextTopic(allTopics);
-
       const nextPublishTime = await getNextPublishTime();
 
       // 발행 기간 정보 계산
@@ -353,17 +340,16 @@ const server = http.createServer(async (req, res) => {
       if (publishSettings.startDate || publishSettings.endDate) {
         const startDate = publishSettings.startDate || null;
         const endDate = publishSettings.endDate || null;
-        let status = 'active'; // 정상
+        let status = 'active';
         let daysLeft = null;
         if (startDate && todayStr < startDate) {
-          status = 'waiting'; // 시작 전
+          status = 'waiting';
           daysLeft = Math.ceil((new Date(startDate) - new Date(todayStr)) / (1000*60*60*24));
         } else if (endDate) {
           daysLeft = Math.ceil((new Date(endDate) - new Date(todayStr)) / (1000*60*60*24));
-          if (daysLeft < 0) status = 'expired'; // 만료
-          else if (daysLeft <= 7) status = 'expiring'; // 임박
+          if (daysLeft < 0) status = 'expired';
+          else if (daysLeft <= 7) status = 'expiring';
         }
-        // 일정 소화율 계산
         let totalDays = null, elapsedDays = null, pacePercent = null;
         if (startDate && endDate) {
           totalDays = Math.ceil((new Date(endDate) - new Date(startDate)) / (1000*60*60*24));
@@ -376,15 +362,15 @@ const server = http.createServer(async (req, res) => {
             pacePercent = 0;
           }
         }
-        publishPeriod = { startDate, endDate, status, daysLeft, totalDays, elapsedDays, pacePercent };
+        publishPeriod = { startDate: startDate, endDate: endDate, status: status, daysLeft: daysLeft, totalDays: totalDays, elapsedDays: elapsedDays, pacePercent: pacePercent };
       }
 
       return jsonRes(res, {
         brand: BRAND.name,
         wordpress: wp,
         supabase: sb,
-        nextPublishTime,
-        publishPeriod,
+        nextPublishTime: nextPublishTime,
+        publishPeriod: publishPeriod,
         ai: { model: 'gemini-2.5-flash-lite', status: env.GEMINI_API_KEY ? 'configured' : 'missing' },
         pexels: { status: env.PEXELS_API_KEY ? 'configured' : 'missing' },
         content: {
@@ -395,9 +381,9 @@ const server = http.createServer(async (req, res) => {
           published: periodPublished,
           publishedAll: publishedComboIds.length,
           remaining: totalTarget - periodPublished,
-          progress: `${Math.round((periodPublished / totalTarget) * 100)}%`,
+          progress: Math.round((periodPublished / totalTarget) * 100) + '%',
         },
-        nextTopic,
+        nextTopic: nextTopic,
       });
     }
 
@@ -405,28 +391,32 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/topics' && method === 'GET') {
       const publishedComboIds = await publishedTopics.getComboIds();
       const allTopics = await topicsDB.getAll();
-      const topicStatus = (allTopics || []).map((topic) => ({
-        ...topic,
-        keywords: topic.keywords || [],
-        contentStatus: CONTENT_TYPES.map((ct) => ({
-          type: ct.name,
-          comboId: `${topic.id}__${ct.id}`,
-          published: publishedComboIds.includes(`${topic.id}__${ct.id}`),
-        })),
-      }));
+      const topicStatus = (allTopics || []).map(function(topic) {
+        return {
+          id: topic.id, name: topic.name, nameEn: topic.nameEn, slug: topic.slug, category: topic.category,
+          keywords: topic.keywords || [], medicalName: topic.medicalName, icd10: topic.icd10,
+          pexelsQuery: topic.pexelsQuery, description: topic.description,
+          is_active: topic.is_active, sort_order: topic.sort_order,
+          contentStatus: CONTENT_TYPES.map(function(ct) {
+            return {
+              type: ct.name,
+              comboId: topic.id + '__' + ct.id,
+              published: publishedComboIds.includes(topic.id + '__' + ct.id),
+            };
+          }),
+        };
+      });
       return jsonRes(res, topicStatus);
     }
 
     // API: Topic CRUD
     if (pathname === '/api/topics' && method === 'POST') {
       let body = '';
-      req.on('data', ch => body += ch);
-      req.on('end', async () => {
+      req.on('data', function(ch) { body += ch; });
+      req.on('end', async function() {
         try {
           const data = JSON.parse(body);
-          // slug 자동 생성 (없으면)
           if (!data.slug) data.slug = data.id;
-          // sort_order 자동 설정
           if (!data.sort_order) {
             const all = await topicsDB.getAll(true);
             data.sort_order = (all ? all.length : 0) + 1;
@@ -441,8 +431,8 @@ const server = http.createServer(async (req, res) => {
     if (pathname.match(/^\/api\/topics\/[^/]+$/) && method === 'PUT') {
       const topicId = pathname.split('/')[3];
       let body = '';
-      req.on('data', ch => body += ch);
-      req.on('end', async () => {
+      req.on('data', function(ch) { body += ch; });
+      req.on('end', async function() {
         try {
           const data = JSON.parse(body);
           const result = await topicsDB.update(topicId, data);
@@ -463,8 +453,8 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/api/topics/reorder' && method === 'POST') {
       let body = '';
-      req.on('data', ch => body += ch);
-      req.on('end', async () => {
+      req.on('data', function(ch) { body += ch; });
+      req.on('end', async function() {
         try {
           const { order } = JSON.parse(body);
           await topicsDB.updateOrder(order);
@@ -503,7 +493,7 @@ const server = http.createServer(async (req, res) => {
         sort: params.sort || 'latest',
       });
       const counts = await contentQueue.getCounts();
-      return jsonRes(res, { ...result, counts });
+      return jsonRes(res, { data: result.data, total: result.total, page: result.page, limit: result.limit, totalPages: result.totalPages, counts: counts });
     }
 
     // API: Errors
@@ -530,26 +520,26 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/settings' && method === 'GET') {
       const publishData = await settings.get('publish') || {};
       const defaultPublish = { publishFrequency: '5', publishDays: 'everyday', publishMode: 'auto', totalTarget: 50, nextTopic: 'auto', imagesPerContent: 3 };
-      const publish = { ...defaultPublish, ...publishData };
+      var publishMerged = {};
+      Object.keys(defaultPublish).forEach(function(k) { publishMerged[k] = defaultPublish[k]; });
+      Object.keys(publishData).forEach(function(k) { publishMerged[k] = publishData[k]; });
 
       const allTopics = await topicsDB.getAll();
-      const topicsList = (allTopics || []).map(t => ({
-        id: t.id, name: t.name, category: t.category,
-        keywords: t.keywords || [],
-      }));
-      return jsonRes(res, { publish, topics: topicsList });
+      const topicsList = (allTopics || []).map(function(t) {
+        return { id: t.id, name: t.name, category: t.category, keywords: t.keywords || [] };
+      });
+      return jsonRes(res, { publish: publishMerged, topics: topicsList });
     }
 
     // API: Save Settings
     if (pathname === '/api/settings' && method === 'POST') {
       let body = '';
-      req.on('data', chunk => { body += chunk; });
-      req.on('end', async () => {
+      req.on('data', function(chunk) { body += chunk; });
+      req.on('end', async function() {
         try {
           const data = JSON.parse(body);
           if (data.publish) {
             await settings.set('publish', data.publish);
-            // 발행 주기가 변경되면 cron 재설정
             await setupCronSchedule();
           }
           if (data.topics) await settings.set('topics', data.topics);
@@ -574,14 +564,10 @@ const server = http.createServer(async (req, res) => {
         const pUrl = 'https://api.pexels.com/v1/search?query=' + encodeURIComponent(query + ' asian korean') + '&per_page=' + (parseInt(perPage) * 3) + '&page=' + (Math.floor(Math.random() * 5) + 1) + '&orientation=landscape';
         const pResp = await fetch(pUrl, { headers: { Authorization: pexelsKey } });
         const pData = await pResp.json();
-        const images = (pData.photos || []).map(p => ({
-          id: p.id,
-          url: p.src.medium,
-          alt: p.alt || query,
-          photographer: p.photographer,
-          pexelsUrl: p.url,
-        }));
-        return jsonRes(res, { images, total: pData.total_results || 0 });
+        const images = (pData.photos || []).map(function(p) {
+          return { id: p.id, url: p.src.medium, alt: p.alt || query, photographer: p.photographer, pexelsUrl: p.url };
+        });
+        return jsonRes(res, { images: images, total: pData.total_results || 0 });
       } catch (e) {
         return jsonRes(res, { error: e.message, images: [] });
       }
@@ -598,7 +584,7 @@ const server = http.createServer(async (req, res) => {
         } else if (qTitle) {
           item = await contentQueue.getByTitle(decodeURIComponent(qTitle));
         }
-      } catch { item = null; }
+      } catch (e) { item = null; }
       if (!item) {
         return jsonRes(res, { error: 'Content not found' }, 404);
       }
@@ -627,15 +613,15 @@ const server = http.createServer(async (req, res) => {
     // --- Client API: Login ---
     if (pathname === '/api/client/login' && method === 'POST') {
       let body = '';
-      req.on('data', ch => body += ch);
-      req.on('end', () => {
+      req.on('data', function(ch) { body += ch; });
+      req.on('end', function() {
         try {
-          const { id, password } = JSON.parse(body);
+          const parsed = JSON.parse(body);
           const cid = process.env.CLIENT_ID || 'hwajeopmong';
           const cpw = process.env.CLIENT_PASSWORD || 'hwj2024!';
-          if (id === cid && password === cpw) {
+          if (parsed.id === cid && parsed.password === cpw) {
             const tk = genToken();
-            CLIENT_TOKENS.set(tk, { id, at: new Date().toISOString() });
+            CLIENT_TOKENS.set(tk, { id: parsed.id, at: new Date().toISOString() });
             jsonRes(res, { success: true, token: tk });
           } else {
             jsonRes(res, { success: false, error: 'Invalid credentials' }, 401);
@@ -657,7 +643,7 @@ const server = http.createServer(async (req, res) => {
         sort: params.sort || 'latest',
       });
       const counts = await contentQueue.getCounts();
-      jsonRes(res, { ...result, counts });
+      jsonRes(res, { data: result.data, total: result.total, page: result.page, limit: result.limit, totalPages: result.totalPages, counts: counts });
       return;
     }
 
@@ -677,16 +663,13 @@ const server = http.createServer(async (req, res) => {
           tags: item.tags,
         }, 'publish');
 
-        // 큐 상태 업데이트
         await contentQueue.updateStatus(itemId, 'approved', {
           wp_post_id: wpR.id,
           wp_post_url: wpR.link,
         });
 
-        // published_topics 업데이트
         await publishedTopics.add(item.combo_id, item.topic_id, item.content_type_id);
 
-        // 발행 로그 업데이트
         await publishLogs.updateByQueueId(itemId, {
           status: 'published',
           wp_post_id: wpR.id,
@@ -708,15 +691,13 @@ const server = http.createServer(async (req, res) => {
 
       await contentQueue.updateStatus(itemId, 'rejected');
 
-      // 발행 로그 업데이트
       await publishLogs.updateByQueueId(itemId, {
         status: 'rejected',
       });
 
       jsonRes(res, { success: true });
 
-      // 새 콘텐츠 자동 생성
-      autoPublish().catch(e => console.error('Regen error:', e));
+      autoPublish().catch(function(e) { console.error('Regen error:', e); });
       return;
     }
 
@@ -751,25 +732,27 @@ const server = http.createServer(async (req, res) => {
         });
         updated++;
       }
-      jsonRes(res, { success: true, updated, message: `${updated}건 점수 재계산 완료` });
+      jsonRes(res, { success: true, updated: updated, message: updated + '건 점수 재계산 완료' });
       return;
     }
 
     // --- 품질 점수 API ---
     if (pathname === '/api/quality-scores' && method === 'GET') {
       const all = await contentQueue.getAll();
-      const scored = (all || []).map(item => ({
-        id: item.id,
-        title: item.title,
-        topic_name: item.topic_name,
-        content_type_name: item.content_type_name,
-        status: item.status,
-        geo_score: item.geo_score || 0,
-        eeat_score: item.eeat_score || 0,
-        geo_details: item.geo_details || {},
-        eeat_details: item.eeat_details || {},
-        created_at: item.created_at,
-      }));
+      const scored = (all || []).map(function(item) {
+        return {
+          id: item.id,
+          title: item.title,
+          topic_name: item.topic_name,
+          content_type_name: item.content_type_name,
+          status: item.status,
+          geo_score: item.geo_score || 0,
+          eeat_score: item.eeat_score || 0,
+          geo_details: item.geo_details || {},
+          eeat_details: item.eeat_details || {},
+          created_at: item.created_at,
+        };
+      });
       jsonRes(res, scored);
       return;
     }
@@ -788,6 +771,127 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // === 인용 추적 API ===
+
+    // GET: 인용추적 설정 조회
+    if (pathname === '/api/citation-settings' && method === 'GET') {
+      const citationSettings = await settings.get('citation') || {};
+      var citDefaults = {
+        chatgptApiKey: '',
+        claudeApiKey: '',
+        geminiApiKey: env.GEMINI_API_KEY ? '(서버 설정됨)' : '',
+        questionTemplates: [
+          '{disease} 치료 잘하는 한의원 추천해줘',
+          '{disease} 한방 치료 효과 있어?',
+          '{disease} 치료 후기 알려줘',
+        ],
+        trackingFrequency: 'weekly',
+        repeatCount: 3,
+      };
+      var citResult = {};
+      Object.keys(citDefaults).forEach(function(k) { citResult[k] = citDefaults[k]; });
+      Object.keys(citationSettings).forEach(function(k) { citResult[k] = citationSettings[k]; });
+      return jsonRes(res, citResult);
+    }
+
+    // POST: 인용추적 설정 저장
+    if (pathname === '/api/citation-settings' && method === 'POST') {
+      let body = '';
+      req.on('data', function(ch) { body += ch; });
+      req.on('end', async function() {
+        try {
+          const data = JSON.parse(body);
+          await settings.set('citation', data);
+          jsonRes(res, { success: true });
+        } catch (e) { jsonRes(res, { error: e.message }, 400); }
+      });
+      return;
+    }
+
+    // GET: 인용추적 결과 조회
+    if (pathname === '/api/citation-results' && method === 'GET') {
+      const results = await citationResults.getRecent(100);
+      return jsonRes(res, results || []);
+    }
+
+    // POST: 인용 추적 실행
+    if (pathname === '/api/citation-track' && method === 'POST') {
+      let body = '';
+      req.on('data', function(ch) { body += ch; });
+      req.on('end', async function() {
+        try {
+          const parsed = JSON.parse(body);
+          var topicIds = parsed.topicIds;
+          const citationSettings = await settings.get('citation') || {};
+          const allTopics = await topicsDB.getAll();
+          const targetTopics = topicIds && topicIds.length > 0
+            ? allTopics.filter(function(t) { return topicIds.includes(t.id); })
+            : allTopics;
+
+          const templates = citationSettings.questionTemplates || [
+            '{disease} 치료 잘하는 한의원 추천해줘',
+          ];
+          const repeatCount = citationSettings.repeatCount || 3;
+
+          const trackingResults = [];
+          const models = [];
+
+          if (env.GEMINI_API_KEY) models.push('gemini');
+          if (citationSettings.chatgptApiKey) models.push('chatgpt');
+          if (citationSettings.claudeApiKey) models.push('claude');
+
+          for (const topic of targetTopics) {
+            for (const model of models) {
+              let mentionCount = 0;
+              let citCount = 0;
+              let totalQuestions = 0;
+
+              for (const template of templates) {
+                const question = template.replace(/\{disease\}/g, topic.name);
+                for (let r = 0; r < repeatCount; r++) {
+                  totalQuestions++;
+                  try {
+                    const answer = await askAI(model, question, citationSettings);
+                    var brandName = '화접몽';
+                    var mentioned = answer.indexOf(brandName) >= 0 || answer.indexOf('화접몽 한의원') >= 0;
+                    if (mentioned) {
+                      mentionCount++;
+                      var citMatches = answer.match(/화접몽/g);
+                      citCount += citMatches ? citMatches.length : 0;
+                    }
+                  } catch (e) {
+                    console.error('[인용추적] ' + model + ' 에러:', e.message);
+                  }
+                }
+              }
+
+              var score = totalQuestions > 0 ? Math.round((mentionCount / totalQuestions) * 100) : 0;
+              trackingResults.push({
+                topic_id: topic.id,
+                topic_name: topic.name,
+                ai_model: model,
+                score: score,
+                mention_count: mentionCount,
+                citation_count: citCount,
+                total_questions: totalQuestions,
+                tracked_at: new Date().toISOString(),
+              });
+            }
+          }
+
+          if (trackingResults.length > 0) {
+            await citationResults.addBulk(trackingResults);
+          }
+
+          jsonRes(res, { success: true, results: trackingResults, message: targetTopics.length + '개 질환 x ' + models.length + '개 AI 추적 완료' });
+        } catch (e) {
+          console.error('[인용추적] 오류:', e);
+          jsonRes(res, { error: e.message }, 500);
+        }
+      });
+      return;
+    }
+
     // 404
     res.writeHead(404);
     res.end('Not Found');
@@ -797,27 +901,76 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+// === AI 인용 추적용 API 호출 ===
+async function askAI(model, question, citationSettings) {
+  citationSettings = citationSettings || {};
+
+  if (model === 'gemini') {
+    var geminiKey = env.GEMINI_API_KEY;
+    if (!geminiKey) throw new Error('Gemini API key not set');
+    var gUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + geminiKey;
+    var gResp = await fetch(gUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: question }] }] }),
+    });
+    var gData = await gResp.json();
+    return (gData.candidates && gData.candidates[0] && gData.candidates[0].content && gData.candidates[0].content.parts && gData.candidates[0].content.parts[0] && gData.candidates[0].content.parts[0].text) || '';
+  }
+
+  if (model === 'chatgpt') {
+    var chatKey = citationSettings.chatgptApiKey;
+    if (!chatKey) throw new Error('ChatGPT API key not set');
+    var cResp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + chatKey },
+      body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: question }], max_tokens: 1000 }),
+    });
+    var cData = await cResp.json();
+    return (cData.choices && cData.choices[0] && cData.choices[0].message && cData.choices[0].message.content) || '';
+  }
+
+  if (model === 'claude') {
+    var clKey = citationSettings.claudeApiKey;
+    if (!clKey) throw new Error('Claude API key not set');
+    var clResp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': clKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, messages: [{ role: 'user', content: question }] }),
+    });
+    var clData = await clResp.json();
+    return (clData.content && clData.content[0] && clData.content[0].text) || '';
+  }
+
+  throw new Error('Unknown AI model: ' + model);
+}
+
 // === Client Auth ===
-const CLIENT_TOKENS = new Map();
+var CLIENT_TOKENS = new Map();
 function genToken() {
-  let t = ''; const ch = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  for (let i = 0; i < 32; i++) t += ch[Math.floor(Math.random() * ch.length)];
+  var t = ''; var ch = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  for (var i = 0; i < 32; i++) t += ch[Math.floor(Math.random() * ch.length)];
   return t;
 }
 function verifyToken(req) {
-  const a = req.headers['authorization'];
+  var a = req.headers['authorization'];
   if (!a) return false;
   return CLIENT_TOKENS.has(a.replace('Bearer ', ''));
 }
 
-function jsonRes(res, data, status = 200) {
+function jsonRes(res, data, status) {
+  status = status || 200;
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify(data, null, 2));
 }
 
-server.listen(PORT, () => {
-  console.log(`\n[Server] 화접몹 GEO Auto-Publisher 실행 중 (Supabase DB)`);
-  console.log(`[Server] 대시보드: http://localhost:${PORT}/dashboard`);
-  console.log(`[Server] 광고주: http://localhost:${PORT}/client`);
-  console.log(`[Server] API: http://localhost:${PORT}/api/status\n`);
+server.listen(PORT, function() {
+  console.log('\n[Server] 화접몹 GEO Auto-Publisher 실행 중 (Supabase DB)');
+  console.log('[Server] 대시보드: http://localhost:' + PORT + '/dashboard');
+  console.log('[Server] 광고주: http://localhost:' + PORT + '/client');
+  console.log('[Server] API: http://localhost:' + PORT + '/api/status\n');
 });
