@@ -350,7 +350,20 @@ const server = http.createServer(async (req, res) => {
           if (daysLeft < 0) status = 'expired'; // 만료
           else if (daysLeft <= 7) status = 'expiring'; // 임박
         }
-        publishPeriod = { startDate, endDate, status, daysLeft };
+        // 일정 소화율 계산
+        let totalDays = null, elapsedDays = null, pacePercent = null;
+        if (startDate && endDate) {
+          totalDays = Math.ceil((new Date(endDate) - new Date(startDate)) / (1000*60*60*24));
+          if (todayStr >= startDate) {
+            elapsedDays = Math.ceil((new Date(todayStr) - new Date(startDate)) / (1000*60*60*24));
+            if (elapsedDays > totalDays) elapsedDays = totalDays;
+            pacePercent = totalDays > 0 ? Math.round((elapsedDays / totalDays) * 100) : 0;
+          } else {
+            elapsedDays = 0;
+            pacePercent = 0;
+          }
+        }
+        publishPeriod = { startDate, endDate, status, daysLeft, totalDays, elapsedDays, pacePercent };
       }
 
       return jsonRes(res, {
@@ -789,7 +802,7 @@ function jsonRes(res, data, status = 200) {
 }
 
 server.listen(PORT, () => {
-  console.log(`\n[Server] 화접몽 GEO Auto-Publisher 실행 중 (Supabase DB)`);
+  console.log(`\n[Server] 화접몹 GEO Auto-Publisher 실행 중 (Supabase DB)`);
   console.log(`[Server] 대시보드: http://localhost:${PORT}/dashboard`);
   console.log(`[Server] 광고주: http://localhost:${PORT}/client`);
   console.log(`[Server] API: http://localhost:${PORT}/api/status\n`);

@@ -436,12 +436,12 @@
     <button class="tab-btn" onclick="switchTab('quality')">콘텐츠 품질</button>
   </div>
 
-  <!-- 발행 기간 배너 -->
-  <div id="periodBanner" style="display:none;margin:0 32px 0;padding:14px 20px;border-radius:10px;border:1px solid #e8ecf1;background:#fff;cursor:default"></div>
-
   <!-- Tab 1: Dashboard -->
   <div class="tab-content active" id="tab-dashboard">
   <div class="container">
+    <!-- 발행 기간 배너 -->
+    <div id="periodBanner" style="display:none;padding:14px 20px;border-radius:10px;border:1px solid #e8ecf1;background:#fff;margin-bottom:16px"></div>
+
     <!-- Actions -->
     <div class="actions">
       <button class="btn btn-primary" id="publishBtn" onclick="publishNow()">지금 발행하기</button>
@@ -456,10 +456,16 @@
         <div class="sub" id="progressDetail">-- / -- 발행 완료</div>
         <div class="progress-bar"><div class="fill" id="progressFill" style="width: 0%"></div></div>
       </div>
+      <div class="card" id="paceCard" style="display:none">
+        <h3>일정 소화율</h3>
+        <div class="value" id="pacePercent" style="color:#f59e0b">--%</div>
+        <div class="sub" id="paceDetail">-- / -- 일 경과</div>
+        <div class="progress-bar"><div class="fill" id="paceFill" style="width:0%;background:#f59e0b"></div></div>
+      </div>
       <div class="card">
         <h3>등록 질환 수</h3>
         <div class="value" id="topicCount">--</div>
-        <div class="sub">5가지 콘텐츠 유형 × 질환</div>
+        <div class="sub">3가지 콘텐츠 유형 × 질환</div>
       </div>
       <div class="card">
         <h3>다음 발행 토픽</h3>
@@ -734,6 +740,7 @@
           document.getElementById('nextType').textContent = status.nextTopic.contentType.name;
         }
         renderPeriodBanner(status.publishPeriod);
+        renderPaceCard(status.publishPeriod);
 
         setConnectionStatus('wp', status.wordpress.connected, status.wordpress.connected ? '연결됨' : '미연결');
         setConnectionStatus('ai', status.ai.status === 'configured', status.ai.status === 'configured' ? '설정됨' : '미설정');
@@ -788,6 +795,20 @@
         '<div style="font-size:15px;font-weight:600">' + sd.replace(/-/g,'.') + ' ~ ' + ed.replace(/-/g,'.') + '</div></div></div>' +
         '<div style="text-align:right"><div style="font-size:22px;font-weight:600;color:' + dotColor + '">' + daysText + '</div>' +
         '<div style="font-size:12px;color:#64748b">' + statusText + '</div></div>';
+    }
+
+    function renderPaceCard(period) {
+      const card = document.getElementById('paceCard');
+      if (!period || period.totalDays === null) { card.style.display = 'none'; return; }
+      card.style.display = '';
+      const pct = period.pacePercent || 0;
+      document.getElementById('pacePercent').textContent = pct + '%';
+      document.getElementById('paceDetail').textContent = (period.elapsedDays || 0) + ' / ' + period.totalDays + '일 경과';
+      document.getElementById('paceFill').style.width = pct + '%';
+      // 색상: 정상=파랑, 80%이상=주황, 만료=빨강
+      const color = pct >= 100 ? '#dc2626' : pct >= 80 ? '#f59e0b' : '#1B4F72';
+      document.getElementById('pacePercent').style.color = color;
+      document.getElementById('paceFill').style.background = color;
     }
 
     function loadCitationData() {
@@ -1182,7 +1203,7 @@
     fetch('/api/settings').then(r=>r.json()).then(d=>{
       var p=d.publish||{};
       var freqLabels={'1':'하루 1회','2':'하루 2회','3':'하루 3회','5':'하루 5회'};
-      var daysLabels={'everyday':'매일','weekdays':'평일만'};
+    var daysLabels={'everyday':'매일','weekdays':'평일만'};
       var el=document.getElementById('publishSettingsCard');
       if(el){
         var v=document.getElementById('publishPerDay');
