@@ -237,6 +237,128 @@ async function setupCronSchedule() {
 
 setupCronSchedule();
 
+// ─── 인용추적 자동 cron ───
+let citationCronJob = null;
+let lastCitationTrackTime = null;
+
+const CITATION_CRON_MAP = {
+  'daily': '0 6 * * *',
+  'weekly': '0 6 * * 1',
+  'biweekly': '0 6 1,15 * *',
+  'monthly': '0 6 1 * *',
+};
+
+async function autoTrackCitations() {
+  try {
+    console.log('[인용추적 자동] 시작');
+    const citationSettings = await settings.get('citation') || {};
+    const allTopics = await topicsDB.getAll();
+    if (!allTopics || allTopics.length === 0) { console.log('[인용추적 자동] 활성 토픽 없음'); return; }
+
+    const templates = citationSettings.questionTemplates || ['{disease} 치료 잘하는 한의원 추천해줘'];
+    const repeatCount = citationSettings.repeatCount || 3;
+
+    const trackingResults = [];
+    const models = [];
+    if (env.GEMINI_API_KEY) models.push('gemini');
+    if (citationSettings.chatgptApiKey) models.push('chatgpt');
+    if (citationSettings.claudeApiKey) models.push('claude');
+
+    if (models.length === 0) { console.log('[인용추적 자동] 연동된 AI 모델 없음'); return; }
+
+    async function runWithConcurrency(tasks, limit) {
+      const results = [];
+      let idx = 0;
+      async function next() {
+        const i = idx++;
+        if (i >= tasks.length) return;
+        results[i] = await tasks[i]();
+        await next();
+      }
+      const workers = [];
+      for (let w = 0; w < Math.min(limit, tasks.length); w++) workers.push(next());
+      await Promise.all(workers);
+      return results;
+    }
+
+    function askAIWithTimeout(model, question, s) {
+      return Promise.race([
+        askAI(model, question, s),
+        new Promise(function(_, reject) { setTimeout(function() { reject(new Error('timeout 30s')); }, 30000); })
+      ]);
+    }
+
+    const topicTasks = allTopics.map(function(topic) {
+      return async function() {
+        const topicResults = [];
+        for (const model of models) {
+          let mentionCount = 0, citCount = 0, totalQuestions = 0, sampleAnswer = '';
+          const questionTasks = [];
+          for (const template of templates) {
+            const question = template.replace(/\{disease\}/g, topic.name);
+            for (let r = 0; r < repeatCount; r++) {
+              questionTasks.push({ model: model, question: question });
+            }
+          }
+          const answers = await Promise.allSettled(
+            questionTasks.map(function(qt) { return askAIWithTimeout(qt.model, qt.question, citationSettings); })
+          );
+          for (let ai = 0; ai < answers.length; ai++) {
+            totalQuestions++;
+            if (answers[ai].status === 'fulfilled') {
+              var answer = answers[ai].value;
+              if (!sampleAnswer && answer.length > 0) sampleAnswer = answer.substring(0, 500);
+              if (answer.indexOf('화접몽') >= 0) {
+                mentionCount++;
+                var citMatches = answer.match(/화접몽/g);
+                citCount += citMatches ? citMatches.length : 0;
+              }
+            } else {
+              console.error('[인용추적 자동] ' + model + ' 에러:', answers[ai].reason.message);
+            }
+          }
+          var score = totalQuestions > 0 ? Math.round((mentionCount / totalQuestions) * 100) : 0;
+          topicResults.push({
+            topic_id: topic.id, topic_name: topic.name, ai_model: model,
+            score: score, mention_count: mentionCount, citation_count: citCount,
+            total_questions: totalQuestions, tracked_at: new Date().toISOString(),
+          });
+        }
+        return topicResults;
+      };
+    });
+
+    const allResults = await runWithConcurrency(topicTasks, 2);
+    for (let ri = 0; ri < allResults.length; ri++) {
+      if (allResults[ri]) {
+        for (let rj = 0; rj < allResults[ri].length; rj++) {
+          trackingResults.push(allResults[ri][rj]);
+        }
+      }
+    }
+
+    if (trackingResults.length > 0) {
+      await citationResults.addBulk(trackingResults);
+    }
+
+    lastCitationTrackTime = new Date().toISOString();
+    console.log('[인용추적 자동] 완료: ' + trackingResults.length + '건 저장');
+  } catch (e) {
+    console.error('[인용추적 자동] 오류:', e);
+  }
+}
+
+async function setupCitationCron() {
+  if (citationCronJob) { citationCronJob.stop(); citationCronJob = null; }
+  const citationSettings = await settings.get('citation') || {};
+  const freq = citationSettings.trackingFrequency || 'weekly';
+  const cronExpr = CITATION_CRON_MAP[freq] || CITATION_CRON_MAP['weekly'];
+  citationCronJob = cron.schedule(cronExpr, autoTrackCitations, { timezone: 'Asia/Seoul' });
+  console.log('[Server] 인용추적 cron 등록: ' + freq + ' (' + cronExpr + ')');
+}
+
+setupCitationCron();
+
 // ─── 다음 발행 예정 시간 계산 (KST 문자열 반환) ───
 async function getNextPublishTime() {
   const publishSettings = await settings.get('publish') || {};
@@ -419,6 +541,31 @@ const server = http.createServer(async function(req, res) {
           progress: Math.round((periodPublished / totalTarget) * 100) + '%',
         },
         nextTopic: nextTopic,
+        citationTracking: {
+          enabled: !!citationCronJob,
+          frequency: (await settings.get('citation') || {}).trackingFrequency || 'weekly',
+          lastTrackTime: lastCitationTrackTime,
+          latestScores: await (async function() {
+            try {
+              const recent = await citationResults.getRecent(50);
+              if (!recent || recent.length === 0) return null;
+              var latestDate = recent[0].tracked_at;
+              var latest = recent.filter(function(r) { return r.tracked_at === latestDate; });
+              var modelAvg = {};
+              for (var mi = 0; mi < latest.length; mi++) {
+                var m = latest[mi].ai_model;
+                if (!modelAvg[m]) modelAvg[m] = { sum: 0, count: 0 };
+                modelAvg[m].sum += Number(latest[mi].score || 0);
+                modelAvg[m].count++;
+              }
+              var result = {};
+              Object.keys(modelAvg).forEach(function(k) {
+                result[k] = Math.round(modelAvg[k].sum / modelAvg[k].count);
+              });
+              return { scores: result, date: latestDate, topicScores: latest.map(function(l) { return { topic: l.topic_name, model: l.ai_model, score: l.score }; }) };
+            } catch(e) { return null; }
+          })(),
+        },
       });
     }
 
@@ -864,6 +1011,7 @@ const server = http.createServer(async function(req, res) {
         try {
           const data = JSON.parse(body);
           await settings.set('citation', data);
+          await setupCitationCron();
           jsonRes(res, { success: true });
         } catch (e) { jsonRes(res, { error: e.message }, 400); }
       });
@@ -1093,6 +1241,31 @@ const server = http.createServer(async function(req, res) {
         weeklyCitation[ckey].count++;
       }
 
+      // 질환별 인용 점수 집계
+      var topicCitationStats = {};
+      for (var tci = 0; tci < citations.length; tci++) {
+        var tc2 = citations[tci];
+        var tcKey = tc2.topic_name;
+        if (!topicCitationStats[tcKey]) topicCitationStats[tcKey] = { scoreSum: 0, count: 0, mentionSum: 0, citSum: 0 };
+        topicCitationStats[tcKey].scoreSum += Number(tc2.score || 0);
+        topicCitationStats[tcKey].count++;
+        topicCitationStats[tcKey].mentionSum += Number(tc2.mention_count || 0);
+        topicCitationStats[tcKey].citSum += Number(tc2.citation_count || 0);
+      }
+      // 질환별 평균 점수 배열 (정렬)
+      var topicCitationRanking = Object.keys(topicCitationStats).map(function(k) {
+        var s = topicCitationStats[k];
+        return { topic: k, avgScore: s.count > 0 ? Math.round(s.scoreSum / s.count) : 0, mentions: s.mentionSum, citations: s.citSum };
+      }).sort(function(a, b) { return b.avgScore - a.avgScore; });
+
+      // 인사이트 데이터 생성
+      var insights = { topPerformers: [], needsImprovement: [], avgCitationScore: 0 };
+      if (topicCitationRanking.length > 0) {
+        insights.avgCitationScore = Math.round(topicCitationRanking.reduce(function(s, t) { return s + t.avgScore; }, 0) / topicCitationRanking.length);
+        insights.topPerformers = topicCitationRanking.filter(function(t) { return t.avgScore >= 50; }).slice(0, 3);
+        insights.needsImprovement = topicCitationRanking.filter(function(t) { return t.avgScore < 30; }).slice(0, 3);
+      }
+
       return jsonRes(res, {
         period: { startDate: rStartDate, endDate: rEndDate },
         summary: {
@@ -1105,6 +1278,8 @@ const server = http.createServer(async function(req, res) {
         modelStats: modelStats,
         weeklyData: weeklyData,
         weeklyCitation: Object.values(weeklyCitation),
+        topicCitationRanking: topicCitationRanking,
+        insights: insights,
         logs: publishedLogs,
         citations: citations,
       });
