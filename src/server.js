@@ -329,6 +329,19 @@ const server = http.createServer(async (req, res) => {
       const publishSettings = await settings.get('publish') || {};
       const totalTarget = publishSettings.totalTarget || total;
 
+      // 발행 기간 내 콘텐츠만 카운트
+      let periodPublished = publishedComboIds.length; // 기본: 전체
+      if (publishSettings.startDate) {
+        const allQueue = await contentQueue.getAll();
+        periodPublished = (allQueue || []).filter(item => {
+          if (!item.created_at) return false;
+          const created = item.created_at.split('T')[0];
+          if (publishSettings.startDate && created < publishSettings.startDate) return false;
+          if (publishSettings.endDate && created > publishSettings.endDate) return false;
+          return true;
+        }).length;
+      }
+
       // nextTopic 계산 (공용 함수 사용)
       const nextTopic = await resolveNextTopic(allTopics);
 
@@ -379,9 +392,10 @@ const server = http.createServer(async (req, res) => {
           totalContentTypes: CONTENT_TYPES.length,
           totalCombinations: total,
           totalTarget: totalTarget,
-          published: publishedComboIds.length,
-          remaining: totalTarget - publishedComboIds.length,
-          progress: `${Math.round((publishedComboIds.length / totalTarget) * 100)}%`,
+          published: periodPublished,
+          publishedAll: publishedComboIds.length,
+          remaining: totalTarget - periodPublished,
+          progress: `${Math.round((periodPublished / totalTarget) * 100)}%`,
         },
         nextTopic,
       });
