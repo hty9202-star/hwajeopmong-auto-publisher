@@ -1682,6 +1682,7 @@ if(ntEl){var ml2={'auto':'자동','random':'랜덤','balanced':'균등분배','s
     try {
       var res = await fetch(API_BASE + '/api/report?startDate=' + sd + '&endDate=' + ed);
       var data = await res.json();
+      if (data.error) { container.innerHTML = '<div class="empty-state">서버 오류: ' + data.error + '</div>'; return; }
       renderPeriodReport(data, container);
     } catch (e) {
       container.innerHTML = '<div class="empty-state">리포트 생성 실패: ' + e.message + '</div>';
@@ -1704,8 +1705,10 @@ if(ntEl){var ml2={'auto':'자동','random':'랜덤','balanced':'균등분배','s
 
       var res1 = await fetch(API_BASE + '/api/report?startDate=' + baseStart + '&endDate=' + baseEnd);
       var baseData = await res1.json();
+      if (baseData.error) { container.innerHTML = '<div class="empty-state">서버 오류: ' + baseData.error + '</div>'; return; }
       var res2 = await fetch(API_BASE + '/api/report?startDate=' + compStart + '&endDate=' + compEnd);
       var compData = await res2.json();
+      if (compData.error) { container.innerHTML = '<div class="empty-state">서버 오류: ' + compData.error + '</div>'; return; }
 
       var baseLabel = parseInt(baseParts[1]) + '월';
       var compLabel = parseInt(compParts[1]) + '월';

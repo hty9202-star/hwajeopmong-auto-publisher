@@ -927,6 +927,7 @@ const server = http.createServer(async function(req, res) {
       if (!rStartDate || !rEndDate) {
         return jsonRes(res, { error: 'startDate, endDate 필수' }, 400);
       }
+      try {
       var logs = await publishLogs.getByDateRange(rStartDate, rEndDate) || [];
       var queue = await contentQueue.getByDateRange(rStartDate, rEndDate) || [];
       var citations = await citationResults.getByDateRange(rStartDate, rEndDate) || [];
@@ -1016,6 +1017,10 @@ const server = http.createServer(async function(req, res) {
         logs: publishedLogs,
         citations: citations,
       });
+      } catch (reportErr) {
+        console.error('Report API error:', reportErr);
+        return jsonRes(res, { error: reportErr.message }, 500);
+      }
     }
 
     // 404
