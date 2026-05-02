@@ -922,8 +922,8 @@ const server = http.createServer(async function(req, res) {
 
     // API: Monthly Report (GET)
     if (pathname === '/api/report' && method === 'GET') {
-      var rStartDate = params.get('startDate');
-      var rEndDate = params.get('endDate');
+      var rStartDate = url.searchParams.get('startDate');
+      var rEndDate = url.searchParams.get('endDate');
       if (!rStartDate || !rEndDate) {
         return jsonRes(res, { error: 'startDate, endDate 필수' }, 400);
       }
