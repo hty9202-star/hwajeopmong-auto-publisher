@@ -936,7 +936,12 @@ const server = http.createServer(async function(req, res) {
           }
 
           if (trackingResults.length > 0) {
-            await citationResults.addBulk(trackingResults);
+            var dbResults = trackingResults.map(function(r) {
+              var copy = Object.assign({}, r);
+              delete copy._debug_sample;
+              return copy;
+            });
+            await citationResults.addBulk(dbResults);
           }
 
           jsonRes(res, { success: true, results: trackingResults, message: targetTopics.length + '개 질환 x ' + models.length + '개 AI 추적 완료' });
