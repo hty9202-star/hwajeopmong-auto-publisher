@@ -62,7 +62,9 @@ async function resolveNextTopic(allTopics) {
 }
 
 // ─── 자동 발행 로직 ───
-async function autoPublish() {
+async function autoPublish(options) {
+  var opts = options || {};
+  var isTest = opts.isTest || false;
   try {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) { console.log('No GEMINI_API_KEY'); return; }
@@ -75,15 +77,19 @@ async function autoPublish() {
     const publish = await settings.get('publish') || {};
     const publishMode = publish.publishMode || 'auto';
 
-    // 발행 기간 체크
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    if (publish.startDate && today < publish.startDate) {
-      console.log('[발행 대기] 시작일(' + publish.startDate + ') 전입니다. 발행 건너뜀.');
-      return;
-    }
-    if (publish.endDate && today > publish.endDate) {
-      console.log('[계약 종료] 종료일(' + publish.endDate + ')이 지났습니다. 발행 건너뜀.');
-      return;
+    // 발행 기간 체크 (테스트 발행은 기간 체크 건너뜀)
+    if (!isTest) {
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      if (publish.startDate && today < publish.startDate) {
+        console.log('[발행 대기] 시작일(' + publish.startDate + ') 전입니다. 발행 건너뜀.');
+        return;
+      }
+      if (publish.endDate && today > publish.endDate) {
+        console.log('[계약 종료] 종료일(' + publish.endDate + ')이 지났습니다. 발행 건너뜀.');
+        return;
+      }
+    } else {
+      console.log('[테스트 발행] 기간 체크 건너뜀');
     }
 
     // 토픽/콘텐츠유형 선택 (공용 함수)
@@ -143,11 +149,11 @@ async function autoPublish() {
         eeat_score: eeat.score || 0,
         geo_details: geo.details || {},
         eeat_details: eeat.details || {},
-        status: 'pending',
+        status: isTest ? 'test' : 'pending',
       });
 
       var queueId = (inserted && inserted[0] && inserted[0].id) ? inserted[0].id : null;
-      console.log('Queued: ' + result.title + ' (ID: ' + queueId + ')');
+      console.log((isTest ? '[테스트] ' : '') + 'Queued: ' + result.title + ' (ID: ' + queueId + ')');
 
       // 발행 로그 추가
       await publishLogs.add({
@@ -156,33 +162,37 @@ async function autoPublish() {
         topic_name: topic.name,
         content_type_name: contentType.name,
         title: result.title,
-        status: 'queued',
+        status: isTest ? 'test' : 'queued',
         created_at: new Date().toISOString(),
       });
 
-      // 인덱스 업데이트 (발행 모드에 따라 다름)
-      if (publishMode === 'sequential') {
-        topicIdx = topicIdx + 1;
-        if (topicIdx >= allTopics.length) {
-          topicIdx = 0;
+      // 인덱스 업데이트 (테스트 발행은 인덱스 변경 안 함)
+      if (!isTest) {
+        if (publishMode === 'sequential') {
+          topicIdx = topicIdx + 1;
+          if (topicIdx >= allTopics.length) {
+            topicIdx = 0;
+            ctIdx = (ctIdx + 1) % CONTENT_TYPES.length;
+          }
+        } else if (publishMode === 'random') {
+          topicIdx = (topicIdx + 1) % allTopics.length;
+          ctIdx = (ctIdx + 1) % CONTENT_TYPES.length;
+        } else if (publishMode === 'balanced') {
+          ctIdx = (ctIdx + 1) % CONTENT_TYPES.length;
+        } else {
+          topicIdx = (topicIdx + 1) % allTopics.length;
           ctIdx = (ctIdx + 1) % CONTENT_TYPES.length;
         }
-      } else if (publishMode === 'random') {
-        topicIdx = (topicIdx + 1) % allTopics.length;
-        ctIdx = (ctIdx + 1) % CONTENT_TYPES.length;
-      } else if (publishMode === 'balanced') {
-        ctIdx = (ctIdx + 1) % CONTENT_TYPES.length;
-      } else {
-        topicIdx = (topicIdx + 1) % allTopics.length;
-        ctIdx = (ctIdx + 1) % CONTENT_TYPES.length;
-      }
-      await settings.set('topicIndex', topicIdx);
-      await settings.set('contentTypeIndex', ctIdx);
+        await settings.set('topicIndex', topicIdx);
+        await settings.set('contentTypeIndex', ctIdx);
 
-      // 개별 질환 지정이었으면 리셋
-      if (publish.nextTopic && !['auto','random','balanced','sequential'].includes(publish.nextTopic)) {
-        publish.nextTopic = 'auto';
-        await settings.set('publish', publish);
+        // 개별 질환 지정이었으면 리셋
+        if (publish.nextTopic && !['auto','random','balanced','sequential'].includes(publish.nextTopic)) {
+          publish.nextTopic = 'auto';
+          await settings.set('publish', publish);
+        }
+      } else {
+        console.log('[테스트 발행] 인덱스 업데이트 건너뜀');
       }
     }
   } catch (e) { console.error('autoPublish error:', e); }
@@ -532,10 +542,10 @@ const server = http.createServer(async function(req, res) {
       const allTopicsForPublish = await topicsDB.getAll();
       const next = await resolveNextTopic(allTopicsForPublish);
 
-      autoPublish().catch(console.error);
+      autoPublish({ isTest: true }).catch(console.error);
 
       return jsonRes(res, {
-        message: '발행 시작됨',
+        message: '테스트 발행 시작됨 (기간/인덱스 영향 없음)',
         topic: next ? next.topic.name : '없음',
         contentType: next ? next.contentType.name : '없음',
       });
@@ -892,46 +902,94 @@ const server = http.createServer(async function(req, res) {
           if (citationSettings.chatgptApiKey) models.push('chatgpt');
           if (citationSettings.claudeApiKey) models.push('claude');
 
-          for (const topic of targetTopics) {
-            for (const model of models) {
-              let mentionCount = 0;
-              let citCount = 0;
-              let totalQuestions = 0;
-              let sampleAnswer = '';
+          // 병렬 처리를 위한 헬퍼 (동시 3개씩)
+          async function runWithConcurrency(tasks, limit) {
+            const results = [];
+            let idx = 0;
+            async function next() {
+              const i = idx++;
+              if (i >= tasks.length) return;
+              results[i] = await tasks[i]();
+              await next();
+            }
+            const workers = [];
+            for (let w = 0; w < Math.min(limit, tasks.length); w++) workers.push(next());
+            await Promise.all(workers);
+            return results;
+          }
 
-              for (const template of templates) {
-                const question = template.replace(/\{disease\}/g, topic.name);
-                for (let r = 0; r < repeatCount; r++) {
+          // 타임아웃 래퍼 (30초)
+          function askAIWithTimeout(model, question, settings) {
+            return Promise.race([
+              askAI(model, question, settings),
+              new Promise(function(_, reject) { setTimeout(function() { reject(new Error('timeout 30s')); }, 30000); })
+            ]);
+          }
+
+          // 질환별 태스크 생성
+          const topicTasks = targetTopics.map(function(topic) {
+            return async function() {
+              const topicResults = [];
+              for (const model of models) {
+                let mentionCount = 0;
+                let citCount = 0;
+                let totalQuestions = 0;
+                let sampleAnswer = '';
+
+                // 템플릿x반복 질문을 병렬로 실행
+                const questionTasks = [];
+                for (const template of templates) {
+                  const question = template.replace(/\{disease\}/g, topic.name);
+                  for (let r = 0; r < repeatCount; r++) {
+                    questionTasks.push({ model: model, question: question });
+                  }
+                }
+
+                const answers = await Promise.allSettled(
+                  questionTasks.map(function(qt) { return askAIWithTimeout(qt.model, qt.question, citationSettings); })
+                );
+
+                for (let ai = 0; ai < answers.length; ai++) {
                   totalQuestions++;
-                  try {
-                    const answer = await askAI(model, question, citationSettings);
+                  if (answers[ai].status === 'fulfilled') {
+                    var answer = answers[ai].value;
                     if (!sampleAnswer && answer.length > 0) sampleAnswer = answer.substring(0, 500);
-                    var brandName = '화접몽';
-                    var mentioned = answer.indexOf(brandName) >= 0 || answer.indexOf('화접몽 한의원') >= 0;
+                    var mentioned = answer.indexOf('화접몽') >= 0;
                     if (mentioned) {
                       mentionCount++;
                       var citMatches = answer.match(/화접몽/g);
                       citCount += citMatches ? citMatches.length : 0;
                     }
-                  } catch (e) {
-                    console.error('[인용추적] ' + model + ' 에러:', e.message);
-                    if (!sampleAnswer) sampleAnswer = 'ERROR: ' + e.message;
+                  } else {
+                    console.error('[인용추적] ' + model + ' 에러:', answers[ai].reason.message);
+                    if (!sampleAnswer) sampleAnswer = 'ERROR: ' + answers[ai].reason.message;
                   }
                 }
-              }
 
-              var score = totalQuestions > 0 ? Math.round((mentionCount / totalQuestions) * 100) : 0;
-              trackingResults.push({
-                topic_id: topic.id,
-                topic_name: topic.name,
-                ai_model: model,
-                score: score,
-                mention_count: mentionCount,
-                citation_count: citCount,
-                total_questions: totalQuestions,
-                tracked_at: new Date().toISOString(),
-                _debug_sample: sampleAnswer,
-              });
+                var score = totalQuestions > 0 ? Math.round((mentionCount / totalQuestions) * 100) : 0;
+                topicResults.push({
+                  topic_id: topic.id,
+                  topic_name: topic.name,
+                  ai_model: model,
+                  score: score,
+                  mention_count: mentionCount,
+                  citation_count: citCount,
+                  total_questions: totalQuestions,
+                  tracked_at: new Date().toISOString(),
+                  _debug_sample: sampleAnswer,
+                });
+              }
+              return topicResults;
+            };
+          });
+
+          // 질환 2개씩 동시 처리
+          const allResults = await runWithConcurrency(topicTasks, 2);
+          for (let ri = 0; ri < allResults.length; ri++) {
+            if (allResults[ri]) {
+              for (let rj = 0; rj < allResults[ri].length; rj++) {
+                trackingResults.push(allResults[ri][rj]);
+              }
             }
           }
 
