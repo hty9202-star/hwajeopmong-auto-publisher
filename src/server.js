@@ -354,6 +354,7 @@ async function setupCitationCron() {
   const freq = citationSettings.trackingFrequency || 'weekly';
   const cronExpr = CITATION_CRON_MAP[freq] || CITATION_CRON_MAP['weekly'];
   citationCronJob = cron.schedule(cronExpr, autoTrackCitations, { timezone: 'Asia/Seoul' });
+  citationCronJob._freq = freq;
   console.log('[Server] 인용추적 cron 등록: ' + freq + ' (' + cronExpr + ')');
 }
 
@@ -545,6 +546,39 @@ const server = http.createServer(async function(req, res) {
           enabled: !!citationCronJob,
           frequency: (await settings.get('citation') || {}).trackingFrequency || 'weekly',
           lastTrackTime: lastCitationTrackTime,
+          nextTrackTime: (function() {
+            try {
+              var now = new Date();
+              var kst = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+              var next = new Date(kst);
+              next.setHours(6, 0, 0, 0);
+              var freq = ((citationCronJob || {})._freq) || 'daily';
+              if (freq === 'daily') {
+                if (next <= kst) next.setDate(next.getDate() + 1);
+              } else if (freq === 'weekly') {
+                // 매주 월요일
+                var day = kst.getDay();
+                var daysUntilMon = (1 - day + 7) % 7 || 7;
+                if (day === 1 && kst.getHours() < 6) daysUntilMon = 0;
+                next.setDate(kst.getDate() + daysUntilMon);
+              } else if (freq === 'biweekly') {
+                // 1일, 15일
+                var d = kst.getDate();
+                if (d < 1 || (d === 1 && kst.getHours() < 6)) { next.setDate(1); }
+                else if (d < 15 || (d === 15 && kst.getHours() < 6)) { next.setDate(15); }
+                else { next.setMonth(next.getMonth() + 1); next.setDate(1); }
+              } else if (freq === 'monthly') {
+                // 매월 1일
+                if (kst.getDate() > 1 || (kst.getDate() === 1 && kst.getHours() >= 6)) {
+                  next.setMonth(next.getMonth() + 1);
+                }
+                next.setDate(1);
+              } else {
+                if (next <= kst) next.setDate(next.getDate() + 1);
+              }
+              return next.toISOString();
+            } catch(e) { return null; }
+          })(),
           latestScores: await (async function() {
             try {
               const recent = await citationResults.getRecent(50);

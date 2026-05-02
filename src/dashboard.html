@@ -486,6 +486,44 @@
       </div>
     </div>
 
+    <!-- GEO 인용추적 현황 카드 -->
+    <div class="card" id="citationStatusCard" style="margin-bottom: 24px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <h3 style="margin:0;">GEO 인용추적 현황</h3>
+          <span id="citationCronBadge" style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#166534;font-size:11px;padding:2px 8px;border-radius:8px;">
+            <span style="width:6px;height:6px;border-radius:50%;background:#16a34a;display:inline-block;"></span>
+            자동 추적 중
+          </span>
+        </div>
+        <span id="citationLastTrack" style="font-size:11px;color:#9ca3af;">마지막 추적: --</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+        <div style="background:#f8fafc;border-radius:10px;padding:12px;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <span style="width:8px;height:8px;border-radius:50%;background:#3b82f6;display:inline-block;"></span>
+            <span style="font-size:12px;color:#6b7280;">Gemini</span>
+          </div>
+          <span id="citStatusGemini" style="font-size:26px;font-weight:700;color:#1a1a2e;">--%</span>
+        </div>
+        <div style="background:#f8fafc;border-radius:10px;padding:12px;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span>
+            <span style="font-size:12px;color:#6b7280;">ChatGPT</span>
+          </div>
+          <span id="citStatusChatgpt" style="font-size:26px;font-weight:700;color:#1a1a2e;">--%</span>
+        </div>
+        <div style="background:#f8fafc;border-radius:10px;padding:12px;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>
+            <span style="font-size:12px;color:#6b7280;">Claude</span>
+          </div>
+          <span id="citStatusClaude" style="font-size:26px;font-weight:700;color:#1a1a2e;">--%</span>
+        </div>
+      </div>
+      <div id="citationNextTrack" style="margin-top:10px;font-size:12px;color:#6b7280;text-align:right;"></div>
+    </div>
+
     <!-- Connection Status -->
     <div class="card" style="margin-bottom: 24px;">
       <h3>연결 상태</h3>
@@ -574,44 +612,6 @@
       <div id="errorLog">
         <div class="empty-state">에러 없음</div>
       </div>
-    </div>
-  </div>
-    <!-- GEO 인용추적 현황 카드 -->
-    <div class="card" id="citationStatusCard" style="margin-bottom: 24px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <h3 style="margin:0;">GEO 인용추적 현황</h3>
-          <span id="citationCronBadge" style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#166534;font-size:11px;padding:2px 8px;border-radius:8px;">
-            <span style="width:6px;height:6px;border-radius:50%;background:#16a34a;display:inline-block;"></span>
-            자동 추적 중
-          </span>
-        </div>
-        <span id="citationLastTrack" style="font-size:11px;color:#9ca3af;">마지막 추적: --</span>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px;">
-        <div style="background:#f8fafc;border-radius:10px;padding:12px;">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-            <span style="width:8px;height:8px;border-radius:50%;background:#3b82f6;display:inline-block;"></span>
-            <span style="font-size:12px;color:#6b7280;">Gemini</span>
-          </div>
-          <span id="citStatusGemini" style="font-size:26px;font-weight:700;color:#1a1a2e;">--%</span>
-        </div>
-        <div style="background:#f8fafc;border-radius:10px;padding:12px;">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-            <span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span>
-            <span style="font-size:12px;color:#6b7280;">ChatGPT</span>
-          </div>
-          <span id="citStatusChatgpt" style="font-size:26px;font-weight:700;color:#1a1a2e;">--%</span>
-        </div>
-        <div style="background:#f8fafc;border-radius:10px;padding:12px;">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-            <span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>
-            <span style="font-size:12px;color:#6b7280;">Claude</span>
-          </div>
-          <span id="citStatusClaude" style="font-size:26px;font-weight:700;color:#1a1a2e;">--%</span>
-        </div>
-      </div>
-      <div id="citStatusTopics" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
     </div>
 
   </div>
@@ -847,6 +847,9 @@
             <div style="font-size:11px;color:#9ca3af;">질환 수 × 질문 수 × 반복 횟수 × AI 수</div>
           </div>
         </div>
+        <div id="citScheduleInfo" style="background:#e6f1fb;border-radius:8px;padding:10px 14px;margin-top:10px;">
+          <span style="font-size:13px;color:#0c447c;">매주 월요일 오전 6시(KST)에 자동 실행됩니다</span>
+        </div>
       </div>
     </div>
 
@@ -1032,21 +1035,15 @@
       document.getElementById('citStatusGemini').textContent = scores.gemini !== undefined ? scores.gemini + '%' : '--%';
       document.getElementById('citStatusChatgpt').textContent = scores.chatgpt !== undefined ? scores.chatgpt + '%' : '--%';
       document.getElementById('citStatusClaude').textContent = scores.claude !== undefined ? scores.claude + '%' : '--%';
-      var topicsEl = document.getElementById('citStatusTopics');
-      if (ct.latestScores && ct.latestScores.topicScores) {
-        var ts = ct.latestScores.topicScores;
-        var seen = {};
-        var html = '';
-        for (var i = 0; i < ts.length; i++) {
-          if (seen[ts[i].topic]) continue;
-          seen[ts[i].topic] = true;
-          var sc = ts[i].score;
-          var clr = sc >= 50 ? '#16a34a' : sc >= 20 ? '#d97706' : '#9ca3af';
-          html += '<span style="display:inline-flex;align-items:center;gap:6px;background:#f8fafc;padding:5px 10px;border-radius:8px;font-size:13px;">' +
-            '<span style="color:#374151;">' + ts[i].topic + '</span>' +
-            '<span style="font-weight:600;color:' + clr + ';">' + sc + '%</span></span>';
-        }
-        topicsEl.innerHTML = html;
+      // 다음 추적 예정 표시
+      var nextEl = document.getElementById('citationNextTrack');
+      if (nextEl && ct.nextTrackTime) {
+        var nd = new Date(ct.nextTrackTime);
+        var dayNames = ['일','월','화','수','목','금','토'];
+        nextEl.textContent = '다음 추적: ' + nd.toLocaleDateString('ko-KR') + ' (' + dayNames[nd.getDay()] + ') 06:00';
+      } else if (nextEl) {
+        var freqLabel = {daily:'매일',weekly:'매주 월요일',biweekly:'격주 (1일, 15일)',monthly:'매월 1일'}[ct.frequency] || ct.frequency;
+        nextEl.textContent = '추적 주기: ' + freqLabel + ' 06:00';
       }
     }
 
@@ -1535,6 +1532,7 @@
       citationTopicCount = (topics || []).length;
 
       updateEstimatedCalls();
+      updateScheduleInfo();
 
       const resData = await fetch(API_BASE + '/api/citation-results');
       const results = await resData.json();
@@ -1567,6 +1565,19 @@
     document.getElementById('citEstimatedCalls').textContent = total + '회';
   }
 
+  function updateScheduleInfo() {
+    var freq = document.getElementById('citTrackingFreq').value;
+    var msgs = {
+      daily: '매일 오전 6시(KST)에 자동 실행됩니다',
+      weekly: '매주 월요일 오전 6시(KST)에 자동 실행됩니다',
+      biweekly: '매월 1일, 15일 오전 6시(KST)에 자동 실행됩니다',
+      monthly: '매월 1일 오전 6시(KST)에 자동 실행됩니다'
+    };
+    var el = document.getElementById('citScheduleInfo');
+    if (el) el.innerHTML = '<span style="font-size:13px;color:#0c447c;">' + (msgs[freq] || msgs.weekly) + '</span>';
+  }
+
+  document.getElementById('citTrackingFreq').addEventListener('change', function() { updateEstimatedCalls(); updateScheduleInfo(); });
   document.getElementById('citRepeatCount').addEventListener('change', updateEstimatedCalls);
   document.getElementById('citChatgptKey').addEventListener('input', updateEstimatedCalls);
   document.getElementById('citClaudeKey').addEventListener('input', updateEstimatedCalls);
