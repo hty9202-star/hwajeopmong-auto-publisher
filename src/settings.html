@@ -80,6 +80,8 @@ body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-s
 <div class="setting-row"><div><div class="setting-label">발행 요일</div><div class="setting-desc">콘텐츠를 발행할 요일 설정</div></div><div style="display:flex;align-items:center;gap:8px"><select id="publishDays" style="padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;color:#1B4F72;font-weight:600;outline:none"><option value="everyday">매일</option><option value="weekdays">평일만 (월~금)</option></select></div></div>
 <div class="setting-row"><div><div class="setting-label">총 발행 목표</div><div class="setting-desc">전체 콘텐츠 발행 목표 건수 (진행률 계산 기준)</div></div><div style="display:flex;align-items:center;gap:8px"><input type="number" class="num-input" id="totalTarget" min="1" max="500" value="50"><span class="unit">건</span></div></div>
 <div class="setting-row"><div><div class="setting-label">콘텐츠당 이미지 수</div><div class="setting-desc">Pexels에서 검색할 이미지 개수</div></div><div style="display:flex;align-items:center;gap:8px"><input type="number" class="num-input" id="imagesPerContent" min="0" max="10" value="3"><span class="unit">개</span></div></div>
+<div class="setting-row"><div><div class="setting-label">발행 기간</div><div class="setting-desc">자동 발행이 활성화되는 기간 (기간 외에는 자동 발행 중단)</div></div><div style="display:flex;align-items:center;gap:8px"><input type="date" id="publishStartDate" style="padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;color:#1B4F72;font-weight:600;outline:none"><span class="unit">~</span><input type="date" id="publishEndDate" style="padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;color:#1B4F72;font-weight:600;outline:none"></div></div>
+<div id="periodInfo" style="padding:0 20px 4px;font-size:13px;color:#64748b;line-height:1.5"></div>
 </div>
 <div class="section">
 <div class="section-title">📋 발행 모드 & 토픽 설정</div>
@@ -163,8 +165,34 @@ function renderPublish(p){
   document.getElementById('publishMode').value=p.publishMode||'auto';
   document.getElementById('totalTarget').value=p.totalTarget||50;
   document.getElementById('imagesPerContent').value=p.imagesPerContent||3;
+  document.getElementById('publishStartDate').value=p.startDate||'';
+  document.getElementById('publishEndDate').value=p.endDate||'';
   updateModeDesc();
+  updatePeriodInfo();
 }
+
+function updatePeriodInfo(){
+  const s=document.getElementById('publishStartDate').value;
+  const e=document.getElementById('publishEndDate').value;
+  const el=document.getElementById('periodInfo');
+  if(!s||!e){el.textContent='시작일과 종료일을 모두 설정하면 기간이 표시됩니다.';return;}
+  const sd=new Date(s),ed=new Date(e);
+  if(ed<=sd){el.textContent='종료일은 시작일 이후여야 합니다.';el.style.color='#ef4444';return;}
+  el.style.color='#64748b';
+  const days=Math.ceil((ed-sd)/(1000*60*60*24));
+  const months=Math.round(days/30*10)/10;
+  const freq=parseInt(document.getElementById('publishFrequency').value)||3;
+  const daysMode=document.getElementById('publishDays').value;
+  const activeDays=daysMode==='weekdays'?Math.round(days*5/7):days;
+  const est=activeDays*freq;
+  el.textContent='총 발행 기간: '+days+'일 (약 '+months+'개월) · 예상 발행 콘텐츠: 약 '+est+'건';
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  const sd=document.getElementById('publishStartDate');
+  const ed=document.getElementById('publishEndDate');
+  if(sd)sd.addEventListener('change',updatePeriodInfo);
+  if(ed)ed.addEventListener('change',updatePeriodInfo);
+});
 
 function saveSettings(){
   const publish={
@@ -173,7 +201,9 @@ function saveSettings(){
     publishMode:document.getElementById('publishMode').value||'auto',
     totalTarget:parseInt(document.getElementById('totalTarget').value)||50,
     imagesPerContent:parseInt(document.getElementById('imagesPerContent').value)||3,
-    nextTopic:document.getElementById('nextTopic').value||'auto'
+    nextTopic:document.getElementById('nextTopic').value||'auto',
+    startDate:document.getElementById('publishStartDate').value||'',
+    endDate:document.getElementById('publishEndDate').value||''
   };
   fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({publish})})
   .then(r=>r.json()).then(d=>{if(d.success)showToast('설정 저장 완료!','success');else showToast('저장 실패','error');}).catch(()=>showToast('저장 실패','error'));
@@ -288,7 +318,7 @@ async function saveTopic(){
       showToast(editingTopicId?'수정 완료!':'추가 완료!','success');
       closeModal();
       loadTopics();
-      loadSettings(); // 다음 토픽 드롭다운 갱신
+      loadSettings();
     }else{
       showToast(result.error||'저장 실패','error');
     }

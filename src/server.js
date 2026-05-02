@@ -75,6 +75,17 @@ async function autoPublish() {
     const publish = await settings.get('publish') || {};
     const publishMode = publish.publishMode || 'auto';
 
+    // 발행 기간 체크
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    if (publish.startDate && today < publish.startDate) {
+      console.log(`[발행 대기] 시작일(${publish.startDate}) 전입니다. 발행 건너뜀.`);
+      return;
+    }
+    if (publish.endDate && today > publish.endDate) {
+      console.log(`[계약 종료] 종료일(${publish.endDate})이 지났습니다. 발행 건너뜀.`);
+      return;
+    }
+
     // 토픽/콘텐츠유형 선택 (공용 함수)
     const next = await resolveNextTopic(allTopics);
     if (!next) { console.log('No topic resolved'); return; }
@@ -323,11 +334,31 @@ const server = http.createServer(async (req, res) => {
 
       const nextPublishTime = await getNextPublishTime();
 
+      // 발행 기간 정보 계산
+      const todayStr = new Date().toISOString().split('T')[0];
+      let publishPeriod = null;
+      if (publishSettings.startDate || publishSettings.endDate) {
+        const startDate = publishSettings.startDate || null;
+        const endDate = publishSettings.endDate || null;
+        let status = 'active'; // 정상
+        let daysLeft = null;
+        if (startDate && todayStr < startDate) {
+          status = 'waiting'; // 시작 전
+          daysLeft = Math.ceil((new Date(startDate) - new Date(todayStr)) / (1000*60*60*24));
+        } else if (endDate) {
+          daysLeft = Math.ceil((new Date(endDate) - new Date(todayStr)) / (1000*60*60*24));
+          if (daysLeft < 0) status = 'expired'; // 만료
+          else if (daysLeft <= 7) status = 'expiring'; // 임박
+        }
+        publishPeriod = { startDate, endDate, status, daysLeft };
+      }
+
       return jsonRes(res, {
         brand: BRAND.name,
         wordpress: wp,
         supabase: sb,
         nextPublishTime,
+        publishPeriod,
         ai: { model: 'gemini-2.5-flash-lite', status: env.GEMINI_API_KEY ? 'configured' : 'missing' },
         pexels: { status: env.PEXELS_API_KEY ? 'configured' : 'missing' },
         content: {

@@ -552,6 +552,8 @@
   </div>
 </div>
 
+<div id="clientPeriodBanner" style="display:none;margin:0 32px 16px;padding:14px 20px;border-radius:10px;border:1px solid #e8ecf1;background:#fff;justify-content:space-between;align-items:center"></div>
+
 <div class="container">
   <div class="stats-bar">
     <div class="stat-card pending">
@@ -1025,12 +1027,45 @@ function renderCalendar() {
 loadCalendar();
 loadContents();
 
-// 다음 발행 예정 시간 로드
+// 다음 발행 예정 시간 + 기간 배너 로드
 fetch('/api/status').then(r=>r.json()).then(d=>{
   if(d.nextPublishTime){
     document.getElementById('clientNextPublish').textContent=d.nextPublishTime.date+' '+d.nextPublishTime.time;
   }
+  renderClientPeriodBanner(d.publishPeriod);
 }).catch(()=>{});
+
+function renderClientPeriodBanner(period){
+  const el=document.getElementById('clientPeriodBanner');
+  if(!period){el.style.display='none';return;}
+  el.style.display='flex';
+  const sd=period.startDate||'-',ed=period.endDate||'-';
+  let dotColor,statusText,daysText,bgColor,borderColor;
+  if(period.status==='waiting'){
+    dotColor='#94a3b8';statusText='발행 대기 중';bgColor='#f8fafc';borderColor='#e2e8f0';
+    daysText='D-'+period.daysLeft+' (시작 전)';
+  }else if(period.status==='expired'){
+    dotColor='#dc2626';statusText='계약 기간이 종료되었습니다';bgColor='#fef2f2';borderColor='#fecaca';
+    daysText='만료';
+  }else if(period.status==='expiring'){
+    dotColor='#f59e0b';statusText='종료 임박';bgColor='#fffbeb';borderColor='#fde68a';
+    daysText='D-'+period.daysLeft;
+  }else{
+    dotColor='#10b981';statusText='정상 운영 중';bgColor='#f0fdf4';borderColor='#bbf7d0';
+    daysText=period.daysLeft!==null?'D-'+period.daysLeft:'';
+  }
+  el.style.background=bgColor;el.style.borderColor=borderColor;
+  let contactBtn='';
+  if(period.status==='expired'||period.status==='expiring'){
+    contactBtn='<button onclick="alert(\'연장 문의: 관리자에게 연락해주세요.\')" style="margin-top:6px;padding:6px 14px;background:'+dotColor+';color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">연장 문의</button>';
+  }
+  el.innerHTML='<div style="display:flex;align-items:center;gap:12px">'+
+    '<div style="width:8px;height:8px;border-radius:50%;background:'+dotColor+'"></div>'+
+    '<div><div style="font-size:12px;color:#64748b">발행 기간</div>'+
+    '<div style="font-size:15px;font-weight:600">'+sd.replace(/-/g,'.')+' ~ '+ed.replace(/-/g,'.')+'</div></div></div>'+
+    '<div style="text-align:right"><div style="font-size:22px;font-weight:600;color:'+dotColor+'">'+daysText+'</div>'+
+    '<div style="font-size:12px;color:#64748b">'+statusText+'</div>'+contactBtn+'</div>';
+}
 </script>
 
 </body>
