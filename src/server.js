@@ -502,16 +502,15 @@ const server = http.createServer(async function(req, res) {
       const publishSettings = await settings.get('publish') || {};
       const totalTarget = publishSettings.totalTarget || total;
 
-      // 발행 기간 내 콘텐츠만 카운트
+      // 발행 기간 내 실제 WordPress 발행 건수만 카운트
       let periodPublished = publishedComboIds.length;
       if (publishSettings.startDate) {
-        const allQueue = await contentQueue.getAll();
-        periodPublished = (allQueue || []).filter(function(item) {
-          if (!item.created_at) return false;
-          const created = item.created_at.split('T')[0];
-          if (publishSettings.startDate && created < publishSettings.startDate) return false;
-          if (publishSettings.endDate && created > publishSettings.endDate) return false;
-          return true;
+        const periodLogs = await publishLogs.getByDateRange(
+          publishSettings.startDate,
+          publishSettings.endDate || '2099-12-31'
+        );
+        periodPublished = (periodLogs || []).filter(function(item) {
+          return item.status === 'published' || item.status === 'success';
         }).length;
       }
 
