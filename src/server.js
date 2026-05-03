@@ -535,13 +535,14 @@ const server = http.createServer(async function(req, res) {
         } else if (endDate) {
           daysLeft = Math.ceil((new Date(endDate) - new Date(todayStr)) / (1000*60*60*24));
           if (daysLeft < 0) status = 'expired';
+          else if (daysLeft === 0) status = 'dday';
           else if (daysLeft <= 7) status = 'expiring';
         }
         let totalDays = null, elapsedDays = null, pacePercent = null;
         if (startDate && endDate) {
-          totalDays = Math.ceil((new Date(endDate) - new Date(startDate)) / (1000*60*60*24));
+          totalDays = Math.ceil((new Date(endDate) - new Date(startDate)) / (1000*60*60*24)) + 1;
           if (todayStr >= startDate) {
-            elapsedDays = Math.ceil((new Date(todayStr) - new Date(startDate)) / (1000*60*60*24));
+            elapsedDays = Math.ceil((new Date(todayStr) - new Date(startDate)) / (1000*60*60*24)) + 1;
             if (elapsedDays > totalDays) elapsedDays = totalDays;
             pacePercent = totalDays > 0 ? Math.round((elapsedDays / totalDays) * 100) : 0;
           } else {
