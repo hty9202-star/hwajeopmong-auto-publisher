@@ -2102,19 +2102,3 @@ if(ntEl){var ml2={'auto':'자동','random':'랜덤','balanced':'균등분배','s
   </script>
 </body>
 </html>
-at = weekKeys.map(function(w) { var d = cwd[w]; return d && d.scored > 0 ? Math.round(d.eeatSum / d.scored) : 0; });
-
-    reportCharts.compQual = new Chart(document.getElementById('rptCompQualChart'), {
-      type: 'line', data: { labels: wLabels, datasets: [
-        { label: baseLabel + ' GEO', data: bGeo, borderColor: '#2E75B6', borderWidth: 2.5, tension: 0.3, pointRadius: 4 },
-        { label: compLabel + ' GEO', data: cGeo, borderColor: 'rgba(46,117,182,0.35)', borderWidth: 2, tension: 0.3, pointRadius: 3, borderDash: [5,5] },
-        { label: baseLabel + ' E-E-A-T', data: bEeat, borderColor: '#7F77DD', borderWidth: 2.5, tension: 0.3, pointRadius: 4 },
-        { label: compLabel + ' E-E-A-T', data: cEeat, borderColor: 'rgba(127,119,221,0.35)', borderWidth: 2, tension: 0.3, pointRadius: 3, borderDash: [5,5] }
-      ] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { font: { size: 11 }, usePointStyle: true } } }, scales: { x: { grid: { display: false } }, y: { min: 0, max: 100 } } }
-    });
-  }
-
-  </script>
-</body>
-</html>
