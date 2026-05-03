@@ -1,0 +1,128 @@
+diff --git a/src/dashboard.html b/src/dashboard.html
+index dec185e..c35bf09 100644
+--- a/src/dashboard.html
++++ b/src/dashboard.html
+@@ -1559,32 +1559,45 @@
+       return;
+     }
+ 
+-    const modelAgg = { chatgpt: { score: 0, mentions: 0, citations: 0, count: 0 }, gemini: { score: 0, mentions: 0, citations: 0, count: 0 }, claude: { score: 0, mentions: 0, citations: 0, count: 0 } };
+-    const topicAgg = {};
+-    let latestDate = null;
+-
+-    const latestByKey = {};
+-    for (const r of results) {
+-      const key = r.topic_id + '__' + r.ai_model;
+-      if (!latestByKey[key] || r.tracked_at > latestByKey[key].tracked_at) {
+-        latestByKey[key] = r;
+-      }
++    // === 통일된 날짜 기반 집계 (7회 현황표와 동일 방식) ===
++    // 1) 날짜별로 모든 데이터 그룹핑
++    var allDateGroups = {};
++    var latestDate = null;
++    for (var i = 0; i < results.length; i++) {
++      var r = results[i];
++      var dateKey = r.tracked_at ? r.tracked_at.substring(0, 10) : null;
++      if (!dateKey) continue;
++      if (!allDateGroups[dateKey]) allDateGroups[dateKey] = [];
++      allDateGroups[dateKey].push(r);
++      if (!latestDate || r.tracked_at > latestDate) latestDate = r.tracked_at;
+     }
+ 
+-    for (const r of Object.values(latestByKey)) {
+-      const m = r.ai_model;
+-      if (modelAgg[m]) {
+-        modelAgg[m].score += r.score || 0;
+-        modelAgg[m].mentions += r.mention_count || 0;
+-        modelAgg[m].citations += r.citation_count || 0;
+-        modelAgg[m].count++;
+-      }
+-      if (!topicAgg[r.topic_id]) topicAgg[r.topic_id] = { name: r.topic_name, chatgpt: 0, gemini: 0, claude: 0, lastTracked: null };
+-      topicAgg[r.topic_id][m] = r.score || 0;
+-      if (!topicAgg[r.topic_id].lastTracked || r.tracked_at > topicAgg[r.topic_id].lastTracked) {
+-        topicAgg[r.topic_id].lastTracked = r.tracked_at;
++    // 2) 최신 날짜 찾기
++    var allDates = Object.keys(allDateGroups).sort(function(a, b) { return b.localeCompare(a); });
++    var latestDateKey = allDates.length > 0 ? allDates[0] : null;
++
++    // 3) 최신 날짜의 전체 데이터로 모델별 평균 계산 (상단 카드)
++    const modelAgg = { chatgpt: { score: 0, count: 0 }, gemini: { score: 0, count: 0 }, claude: { score: 0, count: 0 } };
++    const topicAgg = {};
++
++    if (latestDateKey && allDateGroups[latestDateKey]) {
++      var latestData = allDateGroups[latestDateKey];
++      for (var li = 0; li < latestData.length; li++) {
++        var r = latestData[li];
++        var m = r.ai_model;
++        if (modelAgg[m]) {
++          modelAgg[m].score += Number(r.score || 0);
++          modelAgg[m].count++;
++        }
++        if (!topicAgg[r.topic_id]) topicAgg[r.topic_id] = { name: r.topic_name, chatgpt: { sum: 0, cnt: 0 }, gemini: { sum: 0, cnt: 0 }, claude: { sum: 0, cnt: 0 }, lastTracked: null };
++        if (topicAgg[r.topic_id][m]) {
++          topicAgg[r.topic_id][m].sum += Number(r.score || 0);
++          topicAgg[r.topic_id][m].cnt++;
++        }
++        if (!topicAgg[r.topic_id].lastTracked || r.tracked_at > topicAgg[r.topic_id].lastTracked) {
++          topicAgg[r.topic_id].lastTracked = r.tracked_at;
++        }
+       }
+-      if (!latestDate || r.tracked_at > latestDate) latestDate = r.tracked_at;
+     }
+ 
+     for (const [model, agg] of Object.entries(modelAgg)) {
+@@ -1596,32 +1609,40 @@
+       ? '마지막 업데이트: ' + new Date(latestDate).toLocaleString('ko-KR')
+       : '마지막 업데이트: 데이터 없음';
+ 
++    // 4) 질환별 인용 현황 테이블 (최신 날짜 기준 평균)
+     const topicRows = Object.entries(topicAgg).map(([id, t]) => {
+-      const avg = Math.round((t.chatgpt + t.gemini + t.claude) / 3);
++      var cg = t.chatgpt.cnt > 0 ? Math.round(t.chatgpt.sum / t.chatgpt.cnt) : 0;
++      var gm = t.gemini.cnt > 0 ? Math.round(t.gemini.sum / t.gemini.cnt) : 0;
++      var cl = t.claude.cnt > 0 ? Math.round(t.claude.sum / t.claude.cnt) : 0;
++      var activeCnt = 0, totalScore = 0;
++      if (t.chatgpt.cnt > 0) { activeCnt++; totalScore += cg; }
++      if (t.gemini.cnt > 0) { activeCnt++; totalScore += gm; }
++      if (t.claude.cnt > 0) { activeCnt++; totalScore += cl; }
++      var avg = activeCnt > 0 ? Math.round(totalScore / activeCnt) : 0;
+       const badgeClass = avg >= 50 ? 'score-high' : avg >= 20 ? 'score-mid' : 'score-low';
+       const dateStr = t.lastTracked ? new Date(t.lastTracked).toLocaleDateString('ko-KR') : '-';
+       return '<tr>' +
+         '<td style="font-weight:600;">' + t.name + '</td>' +
+-        '<td><span class="score-badge ' + (t.chatgpt >= 50 ? 'score-high' : t.chatgpt >= 20 ? 'score-mid' : 'score-low') + '">' + t.chatgpt + '%</span></td>' +
+-        '<td><span class="score-badge ' + (t.gemini >= 50 ? 'score-high' : t.gemini >= 20 ? 'score-mid' : 'score-low') + '">' + t.gemini + '%</span></td>' +
+-        '<td><span class="score-badge ' + (t.claude >= 50 ? 'score-high' : t.claude >= 20 ? 'score-mid' : 'score-low') + '">' + t.claude + '%</span></td>' +
++        '<td><span class="score-badge ' + (cg >= 50 ? 'score-high' : cg >= 20 ? 'score-mid' : 'score-low') + '">' + cg + '%</span></td>' +
++        '<td><span class="score-badge ' + (gm >= 50 ? 'score-high' : gm >= 20 ? 'score-mid' : 'score-low') + '">' + gm + '%</span></td>' +
++        '<td><span class="score-badge ' + (cl >= 50 ? 'score-high' : cl >= 20 ? 'score-mid' : 'score-low') + '">' + cl + '%</span></td>' +
+         '<td><span class="score-badge ' + badgeClass + '">' + avg + '%</span></td>' +
+         '<td style="color:#9ca3af;font-size:12px;">' + dateStr + '</td>' +
+       '</tr>';
+     });
+     document.getElementById('citationTopicBody').innerHTML = topicRows.join('') || '<tr><td colspan="6" class="empty-state">데이터 없음</td></tr>';
+ 
+-    // 최근 7회 추적 현황표
++    // 최근 7회 추적 현황표 (allDateGroups 재활용)
+     var dateGroups = {};
+-    for (var ri = 0; ri < results.length; ri++) {
+-      var r = results[ri];
+-      var dateKey = r.tracked_at ? r.tracked_at.substring(0, 10) : null;
+-      if (!dateKey) continue;
+-      if (!dateGroups[dateKey]) dateGroups[dateKey] = { gemini: { sum: 0, cnt: 0 }, chatgpt: { sum: 0, cnt: 0 }, claude: { sum: 0, cnt: 0 } };
+-      var m = r.ai_model;
+-      if (dateGroups[dateKey][m]) {
+-        dateGroups[dateKey][m].sum += Number(r.score || 0);
+-        dateGroups[dateKey][m].cnt++;
++    for (var dk in allDateGroups) {
++      dateGroups[dk] = { gemini: { sum: 0, cnt: 0 }, chatgpt: { sum: 0, cnt: 0 }, claude: { sum: 0, cnt: 0 } };
++      for (var ri = 0; ri < allDateGroups[dk].length; ri++) {
++        var r = allDateGroups[dk][ri];
++        var m = r.ai_model;
++        if (dateGroups[dk][m]) {
++          dateGroups[dk][m].sum += Number(r.score || 0);
++          dateGroups[dk][m].cnt++;
++        }
+       }
+     }
+     var sortedDates = Object.keys(dateGroups).sort(function(a, b) { return b.localeCompare(a); }).slice(0, 7);

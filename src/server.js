@@ -19,6 +19,51 @@ import { contentQueue, publishLogs, publishedTopics, settings, topics as topicsD
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
 
+// HTML 파일 캐싱 (매 요청마다 readFileSync 방지)
+const HTML_CACHE = {};
+function getHtml(filename) {
+  if (!HTML_CACHE[filename]) {
+    HTML_CACHE[filename] = fs.readFileSync(__dirname + '/' + filename, 'utf-8');
+  }
+  return HTML_CACHE[filename];
+}
+
+// 공용 body 파싱 유틸
+function parseBody(req) {
+  return new Promise(function(resolve, reject) {
+    let body = '';
+    req.on('data', function(ch) { body += ch; });
+    req.on('end', function() {
+      try { resolve(JSON.parse(body)); }
+      catch (e) { reject(e); }
+    });
+  });
+}
+
+// 공용 동시실행 제한 유틸
+async function runWithConcurrency(tasks, limit) {
+  const results = [];
+  let idx = 0;
+  async function next() {
+    const i = idx++;
+    if (i >= tasks.length) return;
+    results[i] = await tasks[i]();
+    await next();
+  }
+  const workers = [];
+  for (let w = 0; w < Math.min(limit, tasks.length); w++) workers.push(next());
+  await Promise.all(workers);
+  return results;
+}
+
+// 공용 AI 호출 타임아웃 래퍼
+function askAIWithTimeout(model, question, s) {
+  return Promise.race([
+    askAI(model, question, s),
+    new Promise(function(_, reject) { setTimeout(function() { reject(new Error('timeout 30s')); }, 30000); })
+  ]);
+}
+
 // env 객체 (WordPress, Gemini 등 외부 API용)
 const env = {
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
@@ -267,28 +312,6 @@ async function autoTrackCitations() {
 
     if (models.length === 0) { console.log('[인용추적 자동] 연동된 AI 모델 없음'); return; }
 
-    async function runWithConcurrency(tasks, limit) {
-      const results = [];
-      let idx = 0;
-      async function next() {
-        const i = idx++;
-        if (i >= tasks.length) return;
-        results[i] = await tasks[i]();
-        await next();
-      }
-      const workers = [];
-      for (let w = 0; w < Math.min(limit, tasks.length); w++) workers.push(next());
-      await Promise.all(workers);
-      return results;
-    }
-
-    function askAIWithTimeout(model, question, s) {
-      return Promise.race([
-        askAI(model, question, s),
-        new Promise(function(_, reject) { setTimeout(function() { reject(new Error('timeout 30s')); }, 30000); })
-      ]);
-    }
-
     const topicTasks = allTopics.map(function(topic) {
       return async function() {
         const topicResults = [];
@@ -458,16 +481,14 @@ const server = http.createServer(async function(req, res) {
   try {
     // Dashboard
     if (pathname === '/' || pathname === '/dashboard') {
-      const html = fs.readFileSync(__dirname + '/dashboard.html', 'utf-8');
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      return res.end(html);
+      return res.end(getHtml('dashboard.html'));
     }
 
     // Settings page
     if (pathname === '/settings') {
-      const html = fs.readFileSync(__dirname + '/settings.html', 'utf-8');
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      return res.end(html);
+      return res.end(getHtml('settings.html'));
     }
 
     // API: Status
@@ -548,11 +569,13 @@ const server = http.createServer(async function(req, res) {
           progress: Math.round((periodPublished / totalTarget) * 100) + '%',
         },
         nextTopic: nextTopic,
-        citationTracking: {
+        citationTracking: await (async function() {
+          const citSettings = await settings.get('citation') || {};
+          return {
           enabled: !!citationCronJob,
-          settingEnabled: ((await settings.get('citation') || {}).enabled !== false),
-          frequency: (await settings.get('citation') || {}).trackingFrequency || 'weekly',
-          repeatCount: (await settings.get('citation') || {}).repeatCount || 3,
+          settingEnabled: (citSettings.enabled !== false),
+          frequency: citSettings.trackingFrequency || 'weekly',
+          repeatCount: citSettings.repeatCount || 3,
           lastTrackTime: lastCitationTrackTime,
           nextTrackTime: (function() {
             try {
@@ -607,7 +630,7 @@ const server = http.createServer(async function(req, res) {
               return { scores: result, date: latestDate, topicScores: latest.map(function(l) { return { topic: l.topic_name, model: l.ai_model, score: l.score }; }) };
             } catch(e) { return null; }
           })(),
-        },
+        }; })(),
       });
     }
 
@@ -635,34 +658,26 @@ const server = http.createServer(async function(req, res) {
 
     // API: Topic CRUD
     if (pathname === '/api/topics' && method === 'POST') {
-      let body = '';
-      req.on('data', function(ch) { body += ch; });
-      req.on('end', async function() {
-        try {
-          const data = JSON.parse(body);
-          if (!data.slug) data.slug = data.id;
-          if (!data.sort_order) {
-            const all = await topicsDB.getAll(true);
-            data.sort_order = (all ? all.length : 0) + 1;
-          }
-          const result = await topicsDB.add(data);
-          jsonRes(res, { success: true, data: result });
-        } catch (e) { jsonRes(res, { error: e.message }, 400); }
-      });
+      try {
+        const data = await parseBody(req);
+        if (!data.slug) data.slug = data.id;
+        if (!data.sort_order) {
+          const all = await topicsDB.getAll(true);
+          data.sort_order = (all ? all.length : 0) + 1;
+        }
+        const result = await topicsDB.add(data);
+        jsonRes(res, { success: true, data: result });
+      } catch (e) { jsonRes(res, { error: e.message }, 400); }
       return;
     }
 
     if (pathname.match(/^\/api\/topics\/[^/]+$/) && method === 'PUT') {
       const topicId = pathname.split('/')[3];
-      let body = '';
-      req.on('data', function(ch) { body += ch; });
-      req.on('end', async function() {
-        try {
-          const data = JSON.parse(body);
-          const result = await topicsDB.update(topicId, data);
-          jsonRes(res, { success: true, data: result });
-        } catch (e) { jsonRes(res, { error: e.message }, 400); }
-      });
+      try {
+        const data = await parseBody(req);
+        const result = await topicsDB.update(topicId, data);
+        jsonRes(res, { success: true, data: result });
+      } catch (e) { jsonRes(res, { error: e.message }, 400); }
       return;
     }
 
@@ -676,15 +691,11 @@ const server = http.createServer(async function(req, res) {
     }
 
     if (pathname === '/api/topics/reorder' && method === 'POST') {
-      let body = '';
-      req.on('data', function(ch) { body += ch; });
-      req.on('end', async function() {
-        try {
-          const { order } = JSON.parse(body);
-          await topicsDB.updateOrder(order);
-          jsonRes(res, { success: true });
-        } catch (e) { jsonRes(res, { error: e.message }, 400); }
-      });
+      try {
+        const { order } = await parseBody(req);
+        await topicsDB.updateOrder(order);
+        jsonRes(res, { success: true });
+      } catch (e) { jsonRes(res, { error: e.message }, 400); }
       return;
     }
 
@@ -742,12 +753,7 @@ const server = http.createServer(async function(req, res) {
 
     // API: Scheduler Toggle (POST) - 스케줄 ON/OFF
     if (pathname === '/api/scheduler-toggle' && method === 'POST') {
-      var toggleBody = '';
-      await new Promise(function(resolve) {
-        req.on('data', function(chunk) { toggleBody += chunk; });
-        req.on('end', resolve);
-      });
-      var toggleData = JSON.parse(toggleBody || '{}');
+      var toggleData = await parseBody(req).catch(function() { return {}; });
       if (typeof toggleData.enabled === 'boolean') {
         schedulerEnabled = toggleData.enabled;
         if (schedulerEnabled) {
@@ -784,23 +790,17 @@ const server = http.createServer(async function(req, res) {
 
     // API: Save Settings
     if (pathname === '/api/settings' && method === 'POST') {
-      let body = '';
-      req.on('data', function(chunk) { body += chunk; });
-      req.on('end', async function() {
-        try {
-          const data = JSON.parse(body);
-          if (data.publish) {
-            await settings.set('publish', data.publish);
-            await setupCronSchedule();
-          }
-          if (data.topics) await settings.set('topics', data.topics);
-          return jsonRes(res, { success: true });
-        } catch (e) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          return res.end(JSON.stringify({ error: 'Invalid JSON' }));
+      try {
+        const data = await parseBody(req);
+        if (data.publish) {
+          await settings.set('publish', data.publish);
+          await setupCronSchedule();
         }
-      });
-      return;
+        if (data.topics) await settings.set('topics', data.topics);
+        return jsonRes(res, { success: true });
+      } catch (e) {
+        return jsonRes(res, { error: 'Invalid JSON' }, 400);
+      }
     }
 
     // Pexels 이미지 검색 API
@@ -851,34 +851,28 @@ const server = http.createServer(async function(req, res) {
 
     // --- Client Login Page ---
     if (pathname === '/client/login' && method === 'GET') {
-      const html = fs.readFileSync(__dirname + '/client-login.html', 'utf8');
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      return res.end(html);
+      return res.end(getHtml('client-login.html'));
     }
     if (pathname === '/client' && method === 'GET') {
-      const html = fs.readFileSync(__dirname + '/client-dashboard.html', 'utf8');
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      return res.end(html);
+      return res.end(getHtml('client-dashboard.html'));
     }
 
     // --- Client API: Login ---
     if (pathname === '/api/client/login' && method === 'POST') {
-      let body = '';
-      req.on('data', function(ch) { body += ch; });
-      req.on('end', function() {
-        try {
-          const parsed = JSON.parse(body);
-          const cid = process.env.CLIENT_ID || 'hwajeopmong';
-          const cpw = process.env.CLIENT_PASSWORD || 'hwj2024!';
-          if (parsed.id === cid && parsed.password === cpw) {
-            const tk = genToken();
-            CLIENT_TOKENS.set(tk, { id: parsed.id, at: new Date().toISOString() });
-            jsonRes(res, { success: true, token: tk });
-          } else {
-            jsonRes(res, { success: false, error: 'Invalid credentials' }, 401);
-          }
-        } catch (e) { jsonRes(res, { error: e.message }, 400); }
-      });
+      try {
+        const parsed = await parseBody(req);
+        const cid = process.env.CLIENT_ID || 'hwajeopmong';
+        const cpw = process.env.CLIENT_PASSWORD || 'hwj2024!';
+        if (parsed.id === cid && parsed.password === cpw) {
+          const tk = genToken();
+          CLIENT_TOKENS.set(tk, { id: parsed.id, at: new Date().toISOString() });
+          jsonRes(res, { success: true, token: tk });
+        } else {
+          jsonRes(res, { success: false, error: 'Invalid credentials' }, 401);
+        }
+      } catch (e) { jsonRes(res, { error: e.message }, 400); }
       return;
     }
 
@@ -1048,16 +1042,12 @@ const server = http.createServer(async function(req, res) {
 
     // POST: 인용추적 설정 저장
     if (pathname === '/api/citation-settings' && method === 'POST') {
-      let body = '';
-      req.on('data', function(ch) { body += ch; });
-      req.on('end', async function() {
-        try {
-          const data = JSON.parse(body);
-          await settings.set('citation', data);
-          await setupCitationCron();
-          jsonRes(res, { success: true });
-        } catch (e) { jsonRes(res, { error: e.message }, 400); }
-      });
+      try {
+        const data = await parseBody(req);
+        await settings.set('citation', data);
+        await setupCitationCron();
+        jsonRes(res, { success: true });
+      } catch (e) { jsonRes(res, { error: e.message }, 400); }
       return;
     }
 
@@ -1069,11 +1059,8 @@ const server = http.createServer(async function(req, res) {
 
     // POST: 인용 추적 실행
     if (pathname === '/api/citation-track' && method === 'POST') {
-      let body = '';
-      req.on('data', function(ch) { body += ch; });
-      req.on('end', async function() {
-        try {
-          const parsed = JSON.parse(body);
+      try {
+          const parsed = await parseBody(req);
           var topicIds = parsed.topicIds;
           const citationSettings = await settings.get('citation') || {};
           const allTopics = await topicsDB.getAll();
@@ -1092,30 +1079,6 @@ const server = http.createServer(async function(req, res) {
           if (env.GEMINI_API_KEY) models.push('gemini');
           if (citationSettings.chatgptApiKey) models.push('chatgpt');
           if (citationSettings.claudeApiKey) models.push('claude');
-
-          // 병렬 처리를 위한 헬퍼 (동시 3개씩)
-          async function runWithConcurrency(tasks, limit) {
-            const results = [];
-            let idx = 0;
-            async function next() {
-              const i = idx++;
-              if (i >= tasks.length) return;
-              results[i] = await tasks[i]();
-              await next();
-            }
-            const workers = [];
-            for (let w = 0; w < Math.min(limit, tasks.length); w++) workers.push(next());
-            await Promise.all(workers);
-            return results;
-          }
-
-          // 타임아웃 래퍼 (30초)
-          function askAIWithTimeout(model, question, settings) {
-            return Promise.race([
-              askAI(model, question, settings),
-              new Promise(function(_, reject) { setTimeout(function() { reject(new Error('timeout 30s')); }, 30000); })
-            ]);
-          }
 
           // 질환별 태스크 생성
           const topicTasks = targetTopics.map(function(topic) {
@@ -1194,11 +1157,10 @@ const server = http.createServer(async function(req, res) {
           }
 
           jsonRes(res, { success: true, results: trackingResults, message: targetTopics.length + '개 질환 x ' + models.length + '개 AI 추적 완료' });
-        } catch (e) {
-          console.error('[인용추적] 오류:', e);
-          jsonRes(res, { error: e.message }, 500);
-        }
-      });
+      } catch (e) {
+        console.error('[인용추적] 오류:', e);
+        jsonRes(res, { error: e.message }, 500);
+      }
       return;
     }
 
@@ -1367,11 +1329,6 @@ async function askAI(model, question, citationSettings) {
         if (parts[pi].text) allText += parts[pi].text;
       }
     }
-    if (question.indexOf('편평사마귀') >= 0 && allText.length > 0) {
-      console.log('[인용추적 디버그] 질문:', question.substring(0, 50));
-      console.log('[인용추적 디버그] 응답 길이:', allText.length, '화접몽 포함:', allText.indexOf('화접몽') >= 0);
-      console.log('[인용추적 디버그] 응답 앞 300자:', allText.substring(0, 300));
-    }
     return allText;
   }
 
@@ -1406,8 +1363,10 @@ async function askAI(model, question, citationSettings) {
   throw new Error('Unknown AI model: ' + model);
 }
 
-// === Client Auth ===
+// === Client Auth (1시간 만료 + 자동 정리) ===
 var CLIENT_TOKENS = new Map();
+var TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1시간
+
 function genToken() {
   var t = ''; var ch = 'abcdefghijklmnopqrstuvwxyz0123456789';
   for (var i = 0; i < 32; i++) t += ch[Math.floor(Math.random() * ch.length)];
@@ -1416,13 +1375,27 @@ function genToken() {
 function verifyToken(req) {
   var a = req.headers['authorization'];
   if (!a) return false;
-  return CLIENT_TOKENS.has(a.replace('Bearer ', ''));
+  var tk = a.replace('Bearer ', '');
+  var entry = CLIENT_TOKENS.get(tk);
+  if (!entry) return false;
+  if (Date.now() - new Date(entry.at).getTime() > TOKEN_EXPIRY_MS) {
+    CLIENT_TOKENS.delete(tk);
+    return false;
+  }
+  return true;
 }
+// 10분마다 만료 토큰 정리
+setInterval(function() {
+  var now = Date.now();
+  CLIENT_TOKENS.forEach(function(val, key) {
+    if (now - new Date(val.at).getTime() > TOKEN_EXPIRY_MS) CLIENT_TOKENS.delete(key);
+  });
+}, 10 * 60 * 1000);
 
 function jsonRes(res, data, status) {
   status = status || 200;
   res.writeHead(status, { 'Content-Type': "application/json; charset=utf-8" });
-  res.end(JSON.stringify(data, null, 2));
+  res.end(JSON.stringify(data));
 }
 
 server.listen(PORT, function() {

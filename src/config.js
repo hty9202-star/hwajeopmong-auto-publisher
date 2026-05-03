@@ -12,7 +12,7 @@ export const BRAND = {
   specialty: '피부질환 전문 한방 클리닉',
   tone: '전문적이고 신뢰감 있으며, 환자를 배려하는 따뜻한 어조',
   // 아래 정보는 WordPress 개설 후 실제 값으로 교체
-  url: 'https://mongclinictest.wordpress.com',
+  url: 'https://www.mongclinic.com',
   phone: '+82-XX-XXXX-XXXX',
   address: '서울특별시 XX구 XX로 XX',
   doctor: {

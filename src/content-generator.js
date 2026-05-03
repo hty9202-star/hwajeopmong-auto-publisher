@@ -454,7 +454,7 @@ const PEXELS_QUERY_POOLS = {
 const PEXELS_GENERAL_POOL = [
   'korean traditional medicine', 'herbal medicine clinic', 'acupuncture treatment session',
   'wellness health lifestyle', 'doctor consultation friendly', 'oriental medicine herbs',
-  'patient care clinic', 'holistic health approach', 'oriental medicine herbs', 'therapeutic massage treatment',
+  'patient care clinic', 'holistic health approach', 'therapeutic massage treatment',
   'healthy living nature', 'medical professional care', 'natural healing herbs',
 ];
 
