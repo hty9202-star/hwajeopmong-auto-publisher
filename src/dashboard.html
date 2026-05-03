@@ -444,9 +444,28 @@
     <!-- 발행 기간 배너 -->
     <div id="periodBanner" style="display:none;padding:14px 20px;border-radius:10px;border:1px solid #e8ecf1;background:#fff;margin-bottom:16px"></div>
 
+    <!-- 스케줄 발행 상태 배너 -->
+    <div id="scheduleBanner" style="border-radius:10px;padding:14px 20px;margin-bottom:12px;border:1.5px solid #5DCAA5;background:#e6f9f0">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span id="schDot" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#10b981;box-shadow:0 0 0 3px rgba(16,185,129,0.2)"></span>
+            <span id="schLabel" style="font-size:15px;font-weight:600;color:#065f46">자동 발행 ON</span>
+          </div>
+          <span style="width:1px;height:16px;background:#5DCAA5;display:inline-block" class="sch-sep"></span>
+          <span id="schFreqInfo" style="font-size:13px;color:#047857">하루 5회 · 매일</span>
+          <span style="width:1px;height:16px;background:#5DCAA5;display:inline-block" class="sch-sep"></span>
+          <span id="schNextInfo" style="font-size:13px;color:#047857">다음 발행: --</span>
+        </div>
+        <div id="schToggle" style="position:relative;width:44px;height:24px;cursor:pointer" onclick="toggleScheduler()">
+          <div id="schToggleBg" style="width:44px;height:24px;border-radius:12px;background:#10b981;transition:background 0.2s"></div>
+          <div id="schToggleDot" style="position:absolute;top:2px;right:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:all 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.15)"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Actions -->
     <div class="actions">
-      <button class="btn" id="schedulerBtn" onclick="toggleScheduler()" style="background:#10b981;color:white;">스케줄 발행 ON</button>
       <button class="btn btn-primary" id="publishBtn" onclick="publishNow()">1회 테스트 발행</button>
       <button class="btn btn-secondary" onclick="loadData()">새로고침</button>
     </div>
@@ -1071,27 +1090,61 @@
         const res = await fetch(`${API_BASE}/api/scheduler-status`);
         const data = await res.json();
         updateSchedulerBtn(data.schedulerEnabled);
+        // 배너에 주기/요일/다음발행 정보 표시
+        if (data.schedulerEnabled) {
+          try {
+            const stRes = await fetch(`${API_BASE}/api/status`);
+            const st = await stRes.json();
+            var freqMap = {'1':'하루 1회','2':'하루 2회','3':'하루 3회','5':'하루 5회'};
+            var daysMap = {'everyday':'매일','weekdays':'평일만'};
+            var p = st.content || {};
+            var setRes2 = await fetch(`${API_BASE}/api/settings`);
+            var sets = await setRes2.json();
+            var pub = sets.publish || {};
+            var freqLabel = freqMap[pub.publishFrequency] || '하루 5회';
+            var daysLabel = daysMap[pub.publishDays] || '매일';
+            document.getElementById('schFreqInfo').textContent = freqLabel + ' · ' + daysLabel;
+            if (st.nextPublishTime) {
+              document.getElementById('schNextInfo').textContent = '다음 발행: ' + st.nextPublishTime.date + ' ' + st.nextPublishTime.time;
+            } else {
+              document.getElementById('schNextInfo').textContent = '다음 발행: 대기 중';
+            }
+          } catch(e2) {}
+        }
       } catch (e) { console.error('Scheduler status error:', e); }
     }
 
     function updateSchedulerBtn(enabled) {
-      const btn = document.getElementById('schedulerBtn');
+      const banner = document.getElementById('scheduleBanner');
+      const dot = document.getElementById('schDot');
+      const label = document.getElementById('schLabel');
+      const freqInfo = document.getElementById('schFreqInfo');
+      const nextInfo = document.getElementById('schNextInfo');
+      const toggleBg = document.getElementById('schToggleBg');
+      const toggleDot = document.getElementById('schToggleDot');
+      const seps = document.querySelectorAll('.sch-sep');
       if (enabled) {
-        btn.textContent = '스케줄 발행 ON';
-        btn.style.background = '#10b981';
-        btn.style.color = 'white';
-        btn.style.border = 'none';
+        banner.style.background = '#e6f9f0'; banner.style.borderColor = '#5DCAA5';
+        dot.style.background = '#10b981'; dot.style.boxShadow = '0 0 0 3px rgba(16,185,129,0.2)';
+        label.textContent = '자동 발행 ON'; label.style.color = '#065f46';
+        freqInfo.style.color = '#047857'; nextInfo.style.color = '#047857'; nextInfo.style.display = '';
+        seps.forEach(function(s){ s.style.background = '#5DCAA5'; s.style.display = ''; });
+        toggleBg.style.background = '#10b981';
+        toggleDot.style.right = '2px'; toggleDot.style.left = 'auto';
       } else {
-        btn.textContent = '스케줄 발행 OFF';
-        btn.style.background = '#fee2e2';
-        btn.style.color = '#991b1b';
-        btn.style.border = '1px solid #fecaca';
+        banner.style.background = '#f9fafb'; banner.style.borderColor = '#e5e7eb';
+        dot.style.background = '#9ca3af'; dot.style.boxShadow = 'none';
+        label.textContent = '자동 발행 OFF'; label.style.color = '#6b7280';
+        freqInfo.textContent = '수동 1회 발행만 가능합니다'; freqInfo.style.color = '#9ca3af';
+        nextInfo.style.display = 'none';
+        seps.forEach(function(s,i){ if(i>0) s.style.display='none'; else s.style.background='#d1d5db'; });
+        toggleBg.style.background = '#9ca3af';
+        toggleDot.style.left = '2px'; toggleDot.style.right = 'auto';
       }
     }
 
     async function toggleScheduler() {
-      const btn = document.getElementById('schedulerBtn');
-      const currentlyOn = btn.textContent.includes('ON');
+      const currentlyOn = document.getElementById('schLabel').textContent.includes('ON');
       const newState = !currentlyOn;
       const msg = newState ? '스케줄 발행을 활성화하시겠습니까?' : '스케줄 발행을 중지하시겠습니까?\n(수동 1회 발행은 계속 가능합니다)';
       if (!confirm(msg)) return;
