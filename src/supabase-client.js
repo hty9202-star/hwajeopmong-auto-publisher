@@ -107,8 +107,9 @@ export const contentQueue = {
   },
 
   // 페이지네이션 + 검색 + 필터 조회
-  async search({ page = 1, limit = 10, search = '', status = '', topic = '', sort = 'latest' } = {}) {
+  async search({ page = 1, limit = 10, search = '', status = '', topic = '', sort = 'latest', excludeTest = false } = {}) {
     const filters = [];
+    if (excludeTest) filters.push('is_test=eq.false');
     if (status) filters.push(`status=eq.${status}`);
     if (topic) filters.push(`topic_id=eq.${topic}`);
     if (search) filters.push(`title=ilike.*${encodeURIComponent(search)}*`);
@@ -143,9 +144,9 @@ export const contentQueue = {
     };
   },
 
-  // 상태별 카운트 (통계용)
+  // 상태별 카운트 (통계용, 테스트 발행 제외)
   async getCounts() {
-    const all = await supabaseRequest('content_queue', { query: '?select=status' });
+    const all = await supabaseRequest('content_queue', { query: '?select=status,is_test&is_test=eq.false' });
     const counts = { pending: 0, approved: 0, rejected: 0, published: 0, total: 0 };
     for (const item of (all || [])) {
       counts[item.status] = (counts[item.status] || 0) + 1;

@@ -196,6 +196,7 @@ async function autoPublish(options) {
         geo_details: geo.details || {},
         eeat_details: eeat.details || {},
         status: 'pending',
+        is_test: isTest,
       });
 
       var queueId = (inserted && inserted[0] && inserted[0].id) ? inserted[0].id : null;
@@ -209,6 +210,7 @@ async function autoPublish(options) {
         content_type_name: contentType.name,
         title: result.title,
         status: 'queued',
+        is_test: isTest,
         created_at: new Date().toISOString(),
       });
 
@@ -509,11 +511,11 @@ const server = http.createServer(async function(req, res) {
         const periodEnd = publishSettings.endDate || '2099-12-31';
         const periodQueue = await contentQueue.getByDateRange(publishSettings.startDate, periodEnd);
         periodCreated = (periodQueue || []).filter(function(item) {
-          return item.status !== 'rejected';
+          return item.status !== 'rejected' && !item.is_test;
         }).length;
         const periodLogs = await publishLogs.getByDateRange(publishSettings.startDate, periodEnd);
         periodPublished = (periodLogs || []).filter(function(item) {
-          return item.status === 'published' || item.status === 'success';
+          return (item.status === 'published' || item.status === 'success') && !item.is_test;
         }).length;
       }
 
@@ -1177,8 +1179,8 @@ const server = http.createServer(async function(req, res) {
         return jsonRes(res, { error: 'startDate, endDate 필수' }, 400);
       }
       try {
-      var logs = await publishLogs.getByDateRange(rStartDate, rEndDate) || [];
-      var queue = await contentQueue.getByDateRange(rStartDate, rEndDate) || [];
+      var logs = (await publishLogs.getByDateRange(rStartDate, rEndDate) || []).filter(function(l) { return !l.is_test; });
+      var queue = (await contentQueue.getByDateRange(rStartDate, rEndDate) || []).filter(function(q) { return !q.is_test; });
       var citations = await citationResults.getByDateRange(rStartDate, rEndDate) || [];
 
       var publishedLogs = logs.filter(function(l) { return l.status === 'published' || l.status === 'success'; });
