@@ -100,6 +100,38 @@ body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-s
 </div>
 <div id="topicsList"></div>
 </div>
+<div class="section" style="margin-top:20px">
+<div class="section-title" style="display:flex;justify-content:space-between;align-items:center">
+  <span>📡 GEO AI 인용추적</span>
+  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:500;color:#444">
+    <span id="citToggleLabel">활성</span>
+    <div style="position:relative;width:44px;height:24px" onclick="toggleCitEnabled()">
+      <div id="citToggleBg" style="width:44px;height:24px;border-radius:12px;background:#1D9E75;transition:background 0.2s"></div>
+      <div id="citToggleDot" style="position:absolute;top:2px;right:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:all 0.2s"></div>
+    </div>
+  </label>
+</div>
+<div id="citSettingsBody">
+<div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+  <div class="setting-row" style="flex:1;min-width:200px"><div><div class="setting-label">추적 주기</div><div class="setting-desc">AI에 질문을 보내는 주기</div></div><div><select id="citFrequency" style="padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;color:#1B4F72;font-weight:600;outline:none"><option value="daily">매일</option><option value="weekly">매주</option><option value="biweekly">격주</option><option value="monthly">매월</option></select></div></div>
+  <div class="setting-row" style="flex:1;min-width:200px"><div><div class="setting-label">질문 반복 횟수</div><div class="setting-desc">같은 질문을 반복해 평균 산출</div></div><div><select id="citRepeatCount" style="padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;color:#1B4F72;font-weight:600;outline:none"><option value="1">1회</option><option value="3">3회</option><option value="5">5회</option><option value="10">10회</option></select></div></div>
+</div>
+<div style="margin-bottom:12px">
+  <div class="setting-label" style="margin-bottom:6px">질문 템플릿</div>
+  <div class="setting-desc" style="margin-bottom:8px">{disease} 부분이 각 질환명으로 자동 치환됩니다</div>
+  <div id="citTemplateList" style="background:#f8fafc;border-radius:8px;padding:10px 14px;margin-bottom:8px"></div>
+  <div style="display:flex;gap:8px"><input type="text" id="citNewTemplate" placeholder="{disease}를 포함한 질문 입력..." style="flex:1;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;outline:none"><button class="btn-add" onclick="addCitTemplate()" style="padding:6px 14px;font-size:12px">추가</button></div>
+</div>
+<div style="border-top:1px solid #e5e7eb;padding-top:14px">
+  <div class="setting-label" style="margin-bottom:10px">AI 모델 API 키</div>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <div style="display:flex;align-items:center;gap:8px"><label style="min-width:90px;font-size:13px;color:#555">Gemini</label><input type="text" id="citGeminiKey" disabled style="flex:1;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;background:#f1f5f9;color:#888;outline:none"><span id="citGeminiBadge" style="font-size:11px;padding:3px 10px;border-radius:6px;font-weight:500;white-space:nowrap"></span></div>
+    <div style="display:flex;align-items:center;gap:8px"><label style="min-width:90px;font-size:13px;color:#555">ChatGPT</label><input type="password" id="citChatgptKey" placeholder="sk-..." style="flex:1;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;outline:none"><span id="citChatgptBadge" style="font-size:11px;padding:3px 10px;border-radius:6px;font-weight:500;white-space:nowrap"></span></div>
+    <div style="display:flex;align-items:center;gap:8px"><label style="min-width:90px;font-size:13px;color:#555">Claude</label><input type="password" id="citClaudeKey" placeholder="sk-ant-..." style="flex:1;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;outline:none"><span id="citClaudeBadge" style="font-size:11px;padding:3px 10px;border-radius:6px;font-weight:500;white-space:nowrap"></span></div>
+  </div>
+</div>
+</div>
+</div>
 </div>
 <div class="modal-overlay" id="topicModal">
 <div class="modal">
@@ -124,7 +156,7 @@ let currentSettings=null;
 let allTopics=[];
 let editingTopicId=null;
 
-window.addEventListener('DOMContentLoaded',()=>{loadSettings();loadTopics()});
+window.addEventListener('DOMContentLoaded',()=>{loadSettings();loadTopics();loadCitationSettings()});
 
 async function loadSettings(){
   fetch('/api/settings').then(r=>r.json()).then(d=>{
@@ -224,7 +256,7 @@ function saveSettings(){
     endDate:document.getElementById('publishEndDate').value||''
   };
   fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({publish})})
-  .then(r=>r.json()).then(d=>{if(d.success)showToast('설정 저장 완료!','success');else showToast('저장 실패','error');}).catch(()=>showToast('저장 실패','error'));
+  .then(r=>r.json()).then(d=>{if(d.success){saveCitationSettings();showToast('설정 저장 완료!','success');}else showToast('저장 실패','error');}).catch(()=>showToast('저장 실패','error'));
 }
 
 // ─── 질환 관리 ───
@@ -363,6 +395,115 @@ function escapeHtml(s){
 }
 
 function showToast(m,t){const el=document.getElementById('toast');el.textContent=m;el.className='toast '+t+' show';setTimeout(()=>{el.className='toast'},2500)}
+
+// ─── 인용추적 설정 ───
+let citTemplates=[];
+let citEnabled=true;
+
+async function loadCitationSettings(){
+  try{
+    const res=await fetch('/api/citation-settings');
+    const data=await res.json();
+    citEnabled=data.enabled!==false;
+    citTemplates=data.questionTemplates||[];
+    document.getElementById('citFrequency').value=data.trackingFrequency||'weekly';
+    document.getElementById('citRepeatCount').value=String(data.repeatCount||3);
+    // API 키
+    document.getElementById('citGeminiKey').value=data.geminiApiKey||'';
+    document.getElementById('citChatgptKey').value=data.chatgptApiKey||'';
+    document.getElementById('citClaudeKey').value=data.claudeApiKey||'';
+    renderCitToggle();
+    renderCitTemplates();
+    updateCitBadges();
+  }catch(e){console.error('인용추적 설정 로드 실패',e)}
+}
+
+async function saveCitationSettings(){
+  const data={
+    enabled:citEnabled,
+    trackingFrequency:document.getElementById('citFrequency').value,
+    repeatCount:parseInt(document.getElementById('citRepeatCount').value)||3,
+    questionTemplates:citTemplates,
+    chatgptApiKey:document.getElementById('citChatgptKey').value.trim(),
+    claudeApiKey:document.getElementById('citClaudeKey').value.trim()
+  };
+  try{
+    await fetch('/api/citation-settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+  }catch(e){console.error('인용추적 설정 저장 실패',e)}
+}
+
+function toggleCitEnabled(){
+  citEnabled=!citEnabled;
+  renderCitToggle();
+}
+
+function renderCitToggle(){
+  const bg=document.getElementById('citToggleBg');
+  const dot=document.getElementById('citToggleDot');
+  const label=document.getElementById('citToggleLabel');
+  const body=document.getElementById('citSettingsBody');
+  if(citEnabled){
+    bg.style.background='#1D9E75';
+    dot.style.right='2px';dot.style.left='auto';
+    label.textContent='활성';
+    body.style.opacity='1';body.style.pointerEvents='auto';
+  }else{
+    bg.style.background='#d1d5db';
+    dot.style.left='2px';dot.style.right='auto';
+    label.textContent='비활성';
+    body.style.opacity='0.5';body.style.pointerEvents='none';
+  }
+}
+
+function renderCitTemplates(){
+  const container=document.getElementById('citTemplateList');
+  if(!citTemplates.length){container.innerHTML='<div style="color:#9ca3af;font-size:13px;padding:6px 0">등록된 질문 템플릿이 없습니다</div>';return;}
+  container.innerHTML=citTemplates.map((t,i)=>
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #e8ecf1">'+
+      '<span style="font-size:13px;color:#374151">'+escapeHtml(t)+'</span>'+
+      '<button onclick="removeCitTemplate('+i+')" style="border:none;background:none;color:#ef4444;cursor:pointer;font-size:16px;font-weight:700;padding:0 4px">&times;</button>'+
+    '</div>'
+  ).join('');
+}
+
+function addCitTemplate(){
+  const input=document.getElementById('citNewTemplate');
+  const val=input.value.trim();
+  if(!val){showToast('질문을 입력해주세요','error');return;}
+  if(!val.includes('{disease}')){showToast('{disease}를 포함해야 합니다','error');return;}
+  citTemplates.push(val);
+  input.value='';
+  renderCitTemplates();
+}
+
+function removeCitTemplate(idx){
+  citTemplates.splice(idx,1);
+  renderCitTemplates();
+}
+
+function updateCitBadges(){
+  const keys=[
+    {id:'citGeminiKey',badge:'citGeminiBadge'},
+    {id:'citChatgptKey',badge:'citChatgptBadge'},
+    {id:'citClaudeKey',badge:'citClaudeBadge'}
+  ];
+  keys.forEach(k=>{
+    const val=document.getElementById(k.id).value;
+    const badge=document.getElementById(k.badge);
+    if(val&&val!==''){
+      badge.textContent='연결됨';badge.style.background='#dcfce7';badge.style.color='#166534';
+    }else{
+      badge.textContent='미설정';badge.style.background='#fee2e2';badge.style.color='#991b1b';
+    }
+  });
+}
+// API 키 입력 시 배지 실시간 갱신
+document.addEventListener('DOMContentLoaded',()=>{
+  ['citChatgptKey','citClaudeKey'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.addEventListener('input',updateCitBadges);
+  });
+});
 </script>
 </body>
 </html>

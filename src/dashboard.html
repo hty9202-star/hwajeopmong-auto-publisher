@@ -702,10 +702,19 @@
   <!-- Tab 3: Citation Tracking -->
   <div class="tab-content" id="tab-citation">
   <div class="container">
-    <!-- Actions -->
-    <div class="actions">
-      <button class="btn btn-primary" id="trackNowBtn" onclick="trackCitationNow()">지금 추적하기</button>
-      <button class="btn btn-secondary" onclick="citationLoaded=false;loadCitationTab()">새로고침</button>
+    <!-- 인용추적 상태 배너 -->
+    <div id="citStatusBanner" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:14px 20px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span id="citStatusDot" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#10b981"></span>
+        <span id="citStatusText" style="font-size:14px;font-weight:600;color:#1B4F72">자동 추적 ON</span>
+        <span id="citStatusDetail" style="font-size:13px;color:#64748b">매주 · 반복 3회 · 다음 추적: --</span>
+      </div>
+      <a href="/settings" style="font-size:13px;color:#2E75B6;text-decoration:none;font-weight:500">설정에서 변경 →</a>
+    </div>
+    <!-- 수동 실행 / 새로고침 버튼 -->
+    <div class="actions" style="gap:8px">
+      <button class="btn btn-primary" id="trackNowBtn" onclick="trackCitationNow()" style="font-size:13px;padding:8px 18px">수동 1회 실행</button>
+      <button class="btn btn-secondary" onclick="citationLoaded=false;loadCitationTab()" style="font-size:13px;padding:8px 18px">새로고침</button>
     </div>
 
     <!-- AI Score Cards -->
@@ -769,70 +778,7 @@
       </table>
     </div>
 
-    <!-- Citation Settings -->
-    <div class="card" style="margin-bottom:24px;">
-      <h3 style="display:flex;justify-content:space-between;align-items:center;">
-        <span>인용추적 설정</span>
-        <button class="btn btn-primary" onclick="saveCitationSettings()" style="padding:8px 18px;font-size:13px;">설정 저장</button>
-      </h3>
-      <div style="margin-top:16px;">
-        <!-- API 연결 설정 -->
-        <div style="margin-bottom:20px;">
-          <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:10px;">API 연결 설정</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
-            <div>
-              <label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px;">ChatGPT API Key</label>
-              <input type="password" id="citChatgptKey" class="search-input" style="width:100%;font-size:13px;" placeholder="sk-...">
-            </div>
-            <div>
-              <label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px;">Gemini API Key</label>
-              <input type="text" id="citGeminiKey" class="search-input" style="width:100%;font-size:13px;background:#f0fdf4;" placeholder="서버 설정 사용" disabled>
-            </div>
-            <div>
-              <label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px;">Claude API Key</label>
-              <input type="password" id="citClaudeKey" class="search-input" style="width:100%;font-size:13px;" placeholder="sk-ant-...">
-            </div>
-          </div>
-        </div>
-
-        <!-- 질문 템플릿 -->
-        <div style="margin-bottom:20px;">
-          <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:10px;">질문 템플릿 <span style="font-size:11px;color:#9ca3af;font-weight:400;">{disease}는 질환명으로 자동 치환</span></div>
-          <div id="questionTemplates"></div>
-          <button class="btn btn-secondary" onclick="addTemplateRow()" style="margin-top:8px;padding:6px 14px;font-size:12px;">+ 질문 추가</button>
-        </div>
-
-        <!-- 추적 주기 + 반복 횟수 -->
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
-          <div>
-            <label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px;">추적 주기</label>
-            <select id="citTrackingFreq" class="filter-select" style="width:100%;">
-              <option value="daily">매일</option>
-              <option value="weekly" selected>매주</option>
-              <option value="biweekly">2주마다</option>
-              <option value="monthly">매월</option>
-            </select>
-          </div>
-          <div>
-            <label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px;">질문당 반복 횟수</label>
-            <select id="citRepeatCount" class="filter-select" style="width:100%;">
-              <option value="1">1회</option>
-              <option value="3" selected>3회</option>
-              <option value="5">5회</option>
-              <option value="10">10회</option>
-            </select>
-          </div>
-          <div>
-            <label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px;">예상 API 호출 수</label>
-            <div id="citEstimatedCalls" style="font-size:20px;font-weight:700;color:#1B4F72;padding:6px 0;">--</div>
-            <div style="font-size:11px;color:#9ca3af;">질환 수 × 질문 수 × 반복 횟수 × AI 수</div>
-          </div>
-        </div>
-        <div id="citScheduleInfo" style="background:#e6f1fb;border-radius:8px;padding:10px 14px;margin-top:10px;">
-          <span style="font-size:13px;color:#0c447c;">매주 월요일 오전 6시(KST)에 자동 실행됩니다</span>
-        </div>
-      </div>
-    </div>
+    <!-- 설정은 설정 페이지로 이동됨 -->
 
   </div>
   </div><!-- end tab-citation -->
@@ -1474,32 +1420,12 @@
 
   // ─── Citation Tab ───
   let citationLoaded = false;
-  let citationTopicCount = 0;
+  // citationTopicCount 제거됨 - 설정은 설정 페이지로 이동
 
   async function loadCitationTab() {
     try {
-      const setRes = await fetch(API_BASE + '/api/citation-settings');
-      const citSettings = await setRes.json();
-
-      document.getElementById('citChatgptKey').value = citSettings.chatgptApiKey || '';
-      document.getElementById('citClaudeKey').value = citSettings.claudeApiKey || '';
-      if (citSettings.geminiApiKey) {
-        document.getElementById('citGeminiKey').placeholder = citSettings.geminiApiKey;
-      }
-      document.getElementById('citTrackingFreq').value = citSettings.trackingFrequency || 'weekly';
-      document.getElementById('citRepeatCount').value = String(citSettings.repeatCount || 3);
-
-      const templates = citSettings.questionTemplates || ['{disease} 치료 잘하는 한의원 추천해줘'];
-      const tplContainer = document.getElementById('questionTemplates');
-      tplContainer.innerHTML = '';
-      templates.forEach(t => addTemplateRow(t));
-
-      const topicsRes = await fetch(API_BASE + '/api/topics');
-      const topics = await topicsRes.json();
-      citationTopicCount = (topics || []).length;
-
-      updateEstimatedCalls();
-      updateScheduleInfo();
+      // 상태 배너 업데이트
+      await loadCitationStatus();
 
       const resData = await fetch(API_BASE + '/api/citation-results');
       const results = await resData.json();
@@ -1511,43 +1437,32 @@
     }
   }
 
-  function addTemplateRow(value) {
-    const container = document.getElementById('questionTemplates');
-    const row = document.createElement('div');
-    row.style.cssText = 'display:flex;gap:8px;margin-bottom:6px;';
-    row.innerHTML = '<input type="text" class="search-input cit-template" style="flex:1;font-size:13px;" value="' + (value || '') + '" placeholder="{disease} 관련 질문을 입력하세요" oninput="updateEstimatedCalls()">' +
-      '<button class="btn btn-secondary" onclick="this.parentElement.remove();updateEstimatedCalls()" style="padding:6px 10px;font-size:12px;color:#dc2626;">삭제</button>';
-    container.appendChild(row);
+  async function loadCitationStatus() {
+    try {
+      const statusRes = await fetch(API_BASE + '/api/status');
+      const status = await statusRes.json();
+      const ct = status.citationTracking || {};
+      const freqLabels = { daily: '매일', weekly: '매주', biweekly: '격주', monthly: '매월' };
+      const freqLabel = freqLabels[ct.frequency] || '매주';
+      const isOn = ct.settingEnabled !== false;
+      const dot = document.getElementById('citStatusDot');
+      const text = document.getElementById('citStatusText');
+      const detail = document.getElementById('citStatusDetail');
+      const banner = document.getElementById('citStatusBanner');
+      if (isOn) {
+        dot.style.background = '#10b981';
+        text.textContent = '자동 추적 ON';
+        banner.style.background = '#f0f9ff'; banner.style.borderColor = '#bae6fd';
+        var nextStr = ct.nextTrackTime ? new Date(ct.nextTrackTime).toLocaleString('ko-KR') : '--';
+        detail.textContent = freqLabel + ' · 반복 ' + (ct.repeatCount || 3) + '회 · 다음 추적: ' + nextStr;
+      } else {
+        dot.style.background = '#d1d5db';
+        text.textContent = '자동 추적 OFF';
+        banner.style.background = '#f9fafb'; banner.style.borderColor = '#e5e7eb';
+        detail.textContent = '설정에서 인용추적을 활성화할 수 있습니다';
+      }
+    } catch (e) { console.error('Citation status load error:', e); }
   }
-
-  function updateEstimatedCalls() {
-    const templates = document.querySelectorAll('.cit-template');
-    const repeat = parseInt(document.getElementById('citRepeatCount').value) || 3;
-    const chatgptKey = document.getElementById('citChatgptKey').value;
-    const claudeKey = document.getElementById('citClaudeKey').value;
-    let aiCount = 1;
-    if (chatgptKey) aiCount++;
-    if (claudeKey) aiCount++;
-    const total = citationTopicCount * templates.length * repeat * aiCount;
-    document.getElementById('citEstimatedCalls').textContent = total + '회';
-  }
-
-  function updateScheduleInfo() {
-    var freq = document.getElementById('citTrackingFreq').value;
-    var msgs = {
-      daily: '매일 오전 6시(KST)에 자동 실행됩니다',
-      weekly: '매주 월요일 오전 6시(KST)에 자동 실행됩니다',
-      biweekly: '매월 1일, 15일 오전 6시(KST)에 자동 실행됩니다',
-      monthly: '매월 1일 오전 6시(KST)에 자동 실행됩니다'
-    };
-    var el = document.getElementById('citScheduleInfo');
-    if (el) el.innerHTML = '<span style="font-size:13px;color:#0c447c;">' + (msgs[freq] || msgs.weekly) + '</span>';
-  }
-
-  document.getElementById('citTrackingFreq').addEventListener('change', function() { updateEstimatedCalls(); updateScheduleInfo(); });
-  document.getElementById('citRepeatCount').addEventListener('change', updateEstimatedCalls);
-  document.getElementById('citChatgptKey').addEventListener('input', updateEstimatedCalls);
-  document.getElementById('citClaudeKey').addEventListener('input', updateEstimatedCalls);
 
   function renderCitationResults(results) {
     if (!results || results.length === 0) {
@@ -1686,39 +1601,12 @@
     }
   }
 
-  async function saveCitationSettings() {
-    const templates = [];
-    document.querySelectorAll('.cit-template').forEach(el => {
-      if (el.value.trim()) templates.push(el.value.trim());
-    });
-    const data = {
-      chatgptApiKey: document.getElementById('citChatgptKey').value.trim(),
-      claudeApiKey: document.getElementById('citClaudeKey').value.trim(),
-      questionTemplates: templates,
-      trackingFrequency: document.getElementById('citTrackingFreq').value,
-      repeatCount: parseInt(document.getElementById('citRepeatCount').value) || 3,
-    };
-    try {
-      const res = await fetch(API_BASE + '/api/citation-settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      const result = await res.json();
-      if (result.success) {
-        alert('인용추적 설정이 저장되었습니다.');
-      } else {
-        alert('저장 실패: ' + (result.error || ''));
-      }
-    } catch (e) {
-      alert('저장 실패: ' + e.message);
-    }
-  }
+  // saveCitationSettings는 설정 페이지(/settings)로 이동됨
 
   async function trackCitationNow() {
     const btn = document.getElementById('trackNowBtn');
     btn.disabled = true;
-    btn.textContent = '추적 중... (시간이 소요됩니다)';
+    btn.textContent = '추적 중...';
     try {
       const res = await fetch(API_BASE + '/api/citation-track', {
         method: 'POST',
@@ -1737,7 +1625,7 @@
       alert('추적 실패: ' + e.message);
     } finally {
       btn.disabled = false;
-      btn.textContent = '지금 추적하기';
+      btn.textContent = '수동 1회 실행';
     }
   }
 
