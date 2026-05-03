@@ -77,9 +77,10 @@ async function autoPublish(options) {
     const publish = await settings.get('publish') || {};
     const publishMode = publish.publishMode || 'auto';
 
-    // 발행 기간 체크 (테스트 발행은 기간 체크 건너뜀)
+    // 발행 기간 체크 (테스트 발행은 기간 체크 건너뜀, KST 기준)
     if (!isTest) {
-      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      const kstDate = new Date(Date.now() + 9*60*60*1000);
+      const today = kstDate.getUTCFullYear() + '-' + String(kstDate.getUTCMonth()+1).padStart(2,'0') + '-' + String(kstDate.getUTCDate()).padStart(2,'0');
       if (publish.startDate && today < publish.startDate) {
         console.log('[발행 대기] 시작일(' + publish.startDate + ') 전입니다. 발행 건너뜀.');
         return;
@@ -351,6 +352,10 @@ async function autoTrackCitations() {
 async function setupCitationCron() {
   if (citationCronJob) { citationCronJob.stop(); citationCronJob = null; }
   const citationSettings = await settings.get('citation') || {};
+  if (citationSettings.enabled === false) {
+    console.log('[Server] 인용추적 cron 비활성 (설정에서 OFF)');
+    return;
+  }
   const freq = citationSettings.trackingFrequency || 'weekly';
   const cronExpr = CITATION_CRON_MAP[freq] || CITATION_CRON_MAP['weekly'];
   citationCronJob = cron.schedule(cronExpr, autoTrackCitations, { timezone: 'Asia/Seoul' });
@@ -492,8 +497,9 @@ const server = http.createServer(async function(req, res) {
       const nextTopic = await resolveNextTopic(allTopics);
       const nextPublishTime = await getNextPublishTime();
 
-      // 발행 기간 정보 계산
-      const todayStr = new Date().toISOString().split('T')[0];
+      // 발행 기간 정보 계산 (KST 기준)
+      const kstToday = new Date(Date.now() + 9*60*60*1000);
+      const todayStr = kstToday.getUTCFullYear() + '-' + String(kstToday.getUTCMonth()+1).padStart(2,'0') + '-' + String(kstToday.getUTCDate()).padStart(2,'0');
       let publishPeriod = null;
       if (publishSettings.startDate || publishSettings.endDate) {
         const startDate = publishSettings.startDate || null;
@@ -544,7 +550,9 @@ const server = http.createServer(async function(req, res) {
         nextTopic: nextTopic,
         citationTracking: {
           enabled: !!citationCronJob,
+          settingEnabled: ((await settings.get('citation') || {}).enabled !== false),
           frequency: (await settings.get('citation') || {}).trackingFrequency || 'weekly',
+          repeatCount: (await settings.get('citation') || {}).repeatCount || 3,
           lastTrackTime: lastCitationTrackTime,
           nextTrackTime: (function() {
             try {
@@ -1020,6 +1028,7 @@ const server = http.createServer(async function(req, res) {
     if (pathname === '/api/citation-settings' && method === 'GET') {
       const citationSettings = await settings.get('citation') || {};
       var citDefaults = {
+        enabled: true,
         chatgptApiKey: '',
         claudeApiKey: '',
         geminiApiKey: env.GEMINI_API_KEY ? '(서버 설정됨)' : '',
