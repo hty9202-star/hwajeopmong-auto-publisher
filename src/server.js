@@ -502,13 +502,16 @@ const server = http.createServer(async function(req, res) {
       const publishSettings = await settings.get('publish') || {};
       const totalTarget = publishSettings.totalTarget || total;
 
-      // 발행 기간 내 실제 WordPress 발행 건수만 카운트
+      // 발행 기간 내 콘텐츠 제작 건수 + WordPress 발행 건수
+      let periodCreated = 0;
       let periodPublished = publishedComboIds.length;
       if (publishSettings.startDate) {
-        const periodLogs = await publishLogs.getByDateRange(
-          publishSettings.startDate,
-          publishSettings.endDate || '2099-12-31'
-        );
+        const periodEnd = publishSettings.endDate || '2099-12-31';
+        const periodQueue = await contentQueue.getByDateRange(publishSettings.startDate, periodEnd);
+        periodCreated = (periodQueue || []).filter(function(item) {
+          return item.status !== 'rejected';
+        }).length;
+        const periodLogs = await publishLogs.getByDateRange(publishSettings.startDate, periodEnd);
         periodPublished = (periodLogs || []).filter(function(item) {
           return item.status === 'published' || item.status === 'success';
         }).length;
@@ -562,10 +565,12 @@ const server = http.createServer(async function(req, res) {
           totalContentTypes: CONTENT_TYPES.length,
           totalCombinations: total,
           totalTarget: totalTarget,
+          periodCreated: periodCreated,
+          creationProgress: Math.round((periodCreated / totalTarget) * 100),
           published: periodPublished,
           publishedAll: publishedComboIds.length,
           remaining: totalTarget - periodPublished,
-          progress: Math.round((periodPublished / totalTarget) * 100) + '%',
+          uploadProgress: Math.round((periodPublished / totalTarget) * 100),
         },
         nextTopic: nextTopic,
         citationTracking: await (async function() {

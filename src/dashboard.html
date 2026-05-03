@@ -473,16 +473,16 @@
     <!-- Stats Cards -->
     <div class="grid">
       <div class="card">
-        <h3>전체 콘텐츠 진행률</h3>
-        <div class="value" id="progressPercent">--%</div>
-        <div class="sub" id="progressDetail">-- / -- 발행 완료</div>
-        <div class="progress-bar"><div class="fill" id="progressFill" style="width: 0%"></div></div>
+        <h3>콘텐츠 제작률</h3>
+        <div class="value" id="creationPercent" style="color:#2563eb">--%</div>
+        <div class="sub" id="creationDetail">-- / -- 제작 완료</div>
+        <div class="progress-bar"><div class="fill" id="creationFill" style="width:0%;background:linear-gradient(90deg,#3b82f6,#60a5fa)"></div></div>
       </div>
-      <div class="card" id="paceCard" style="display:none">
-        <h3>일정 소화율</h3>
-        <div class="value" id="pacePercent" style="color:#f59e0b">--%</div>
-        <div class="sub" id="paceDetail">-- / -- 일 경과</div>
-        <div class="progress-bar"><div class="fill" id="paceFill" style="width:0%;background:#f59e0b"></div></div>
+      <div class="card">
+        <h3>WordPress 업로드률</h3>
+        <div class="value" id="uploadPercent" style="color:#16a34a">--%</div>
+        <div class="sub" id="uploadDetail">-- / -- 업로드 완료</div>
+        <div class="progress-bar"><div class="fill" id="uploadFill" style="width:0%;background:linear-gradient(90deg,#22c55e,#4ade80)"></div></div>
       </div>
       <div class="card">
         <h3>등록 질환 수</h3>
@@ -857,10 +857,18 @@
         const statusRes = await fetch(`${API_BASE}/api/status`);
         const status = await statusRes.json();
 
-        document.getElementById('progressPercent').textContent = status.content.progress;
-        document.getElementById('progressDetail').textContent =
-          `${status.content.published} / ${status.content.totalTarget} 발행 완료`;
-        document.getElementById('progressFill').style.width = status.content.progress;
+        // 콘텐츠 제작률
+        const creationPct = status.content.creationProgress || 0;
+        document.getElementById('creationPercent').textContent = creationPct + '%';
+        document.getElementById('creationDetail').textContent =
+          `${status.content.periodCreated || 0} / ${status.content.totalTarget} 제작 완료`;
+        document.getElementById('creationFill').style.width = Math.min(creationPct, 100) + '%';
+        // WordPress 업로드률
+        const uploadPct = status.content.uploadProgress || 0;
+        document.getElementById('uploadPercent').textContent = uploadPct + '%';
+        document.getElementById('uploadDetail').textContent =
+          `${status.content.published} / ${status.content.totalTarget} 업로드 완료`;
+        document.getElementById('uploadFill').style.width = Math.min(uploadPct, 100) + '%';
         document.getElementById('topicCount').textContent = status.content.totalTopics;
 
         if (status.content.published >= status.content.totalTarget && status.content.totalTarget > 0) {
@@ -884,7 +892,6 @@
           }
         }
         renderPeriodBanner(status.publishPeriod);
-        renderPaceCard(status.publishPeriod);
         renderCitationStatusCard(status.citationTracking);
 
         setConnectionStatus('wp', status.wordpress.connected, status.wordpress.connected ? '연결됨' : '미연결');
@@ -939,20 +946,6 @@
         '<div style="font-size:15px;font-weight:600">' + sd.replace(/-/g,'.') + ' ~ ' + ed.replace(/-/g,'.') + '</div></div></div>' +
         '<div style="text-align:right"><div style="font-size:22px;font-weight:600;color:' + dotColor + '">' + daysText + '</div>' +
         '<div style="font-size:12px;color:#64748b">' + statusText + '</div></div>';
-    }
-
-    function renderPaceCard(period) {
-      const card = document.getElementById('paceCard');
-      if (!period || period.totalDays === null) { card.style.display = 'none'; return; }
-      card.style.display = '';
-      const pct = period.pacePercent || 0;
-      document.getElementById('pacePercent').textContent = pct + '%';
-      document.getElementById('paceDetail').textContent = (period.elapsedDays || 0) + ' / ' + period.totalDays + '일 경과';
-      document.getElementById('paceFill').style.width = pct + '%';
-      // 색상: 정상=파랑, 80%이상=주황, 만료=빨강
-      const color = pct >= 100 ? '#dc2626' : pct >= 80 ? '#f59e0b' : '#1B4F72';
-      document.getElementById('pacePercent').style.color = color;
-      document.getElementById('paceFill').style.background = color;
     }
 
     // loadCitationData는 citation 탭에서 처리
