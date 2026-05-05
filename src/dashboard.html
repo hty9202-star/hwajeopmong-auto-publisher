@@ -437,7 +437,7 @@
       <h1>화접몽 한의원 GEO Auto-Publisher</h1>
       <div class="subtitle">피부질환 콘텐츠 자동 생성 · 발행 대시보드</div>
     </div>
-    <div style="display:flex;align-items:center;gap:12px;"><a href="/settings" style="color:white;text-decoration:none;padding:8px 16px;border-radius:8px;font-size:14px;font-weight:500;background:rgba(255,255,255,0.15);transition:background 0.2s;">설정</a><div class="status-badge online" id="serverStatus">시스템 정상</div></div>
+    <div style="display:flex;align-items:center;gap:12px;"><a href="/settings" style="color:white;text-decoration:none;padding:8px 16px;border-radius:8px;font-size:14px;font-weight:500;background:rgba(255,255,255,0.15);transition:background 0.2s;">설정</a><div class="status-badge online" id="serverStatus">시스템 정상</div><button onclick="adminLogout()" style="color:white;background:rgba(255,255,255,0.15);border:none;padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer;transition:background 0.2s;">로그아웃</button></div>
   </div>
 
   <!-- Tab Navigation -->
@@ -863,6 +863,19 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <script>
+    // 관리자 인증 체크
+    const adminToken = sessionStorage.getItem('adminToken');
+    if (!adminToken) {
+      window.location.href = '/admin/login';
+    }
+    function adminHeaders() {
+      return { 'Authorization': 'Bearer ' + sessionStorage.getItem('adminToken'), 'Content-Type': 'application/json' };
+    }
+    function adminLogout() {
+      sessionStorage.removeItem('adminToken');
+      window.location.href = '/admin/login';
+    }
+
     const API_BASE = window.location.origin;
 
     async function loadData() {

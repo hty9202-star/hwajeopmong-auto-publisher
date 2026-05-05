@@ -156,6 +156,12 @@ body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-s
 </div>
 <div class="toast" id="toast"></div>
 <script>
+// 관리자 인증 체크
+const adminToken = sessionStorage.getItem('adminToken');
+if (!adminToken) {
+  window.location.href = '/admin/login';
+}
+
 let currentSettings=null;
 let allTopics=[];
 let editingTopicId=null;

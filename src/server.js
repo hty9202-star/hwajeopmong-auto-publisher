@@ -573,6 +573,35 @@ const server = http.createServer(async function(req, res) {
   }
 
   try {
+    // Admin login page
+    if (pathname === '/admin/login') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      return res.end(getHtml('admin-login.html'));
+    }
+
+    // Admin login API
+    if (pathname === '/api/admin/login' && method === 'POST') {
+      try {
+        const parsed = await parseBody(req);
+        const adminId = process.env.ADMIN_ID || 'admin';
+        const adminPw = process.env.ADMIN_PASSWORD || '123456';
+        if (parsed.id === adminId && parsed.password === adminPw) {
+          const tk = genToken();
+          ADMIN_TOKENS.set(tk, { id: parsed.id, at: new Date().toISOString() });
+          jsonRes(res, { success: true, token: tk });
+        } else {
+          jsonRes(res, { success: false, error: '아이디 또는 비밀번호가 일치하지 않습니다' }, 401);
+        }
+      } catch (e) { jsonRes(res, { error: e.message }, 400); }
+      return;
+    }
+
+    // Admin token verify API
+    if (pathname === '/api/admin/verify' && method === 'GET') {
+      jsonRes(res, { valid: verifyAdminToken(req) });
+      return;
+    }
+
     // Dashboard
     if (pathname === '/' || pathname === '/dashboard') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -1474,6 +1503,22 @@ async function askAI(model, question, citationSettings) {
   throw new Error('Unknown AI model: ' + model);
 }
 
+// === Admin Auth ===
+var ADMIN_TOKENS = new Map();
+
+function verifyAdminToken(req) {
+  var a = req.headers['authorization'];
+  if (!a) return false;
+  var tk = a.replace('Bearer ', '');
+  var entry = ADMIN_TOKENS.get(tk);
+  if (!entry) return false;
+  if (Date.now() - new Date(entry.at).getTime() > TOKEN_EXPIRY_MS) {
+    ADMIN_TOKENS.delete(tk);
+    return false;
+  }
+  return true;
+}
+
 // === Client Auth (1시간 만료 + 자동 정리) ===
 var CLIENT_TOKENS = new Map();
 var TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1시간
@@ -1500,6 +1545,9 @@ setInterval(function() {
   var now = Date.now();
   CLIENT_TOKENS.forEach(function(val, key) {
     if (now - new Date(val.at).getTime() > TOKEN_EXPIRY_MS) CLIENT_TOKENS.delete(key);
+  });
+  ADMIN_TOKENS.forEach(function(val, key) {
+    if (now - new Date(val.at).getTime() > TOKEN_EXPIRY_MS) ADMIN_TOKENS.delete(key);
   });
 }, 10 * 60 * 1000);
 
