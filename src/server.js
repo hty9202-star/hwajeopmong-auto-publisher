@@ -142,6 +142,10 @@ async function saveErrorLog(source, error) {
 async function autoPublish(options) {
   var opts = options || {};
   var isTest = opts.isTest || false;
+  var bypassPeriodCheck = opts.bypassPeriodCheck || false;
+  var forceTopic = opts.forceTopic || null;
+  var forceContentType = opts.forceContentType || null;
+  var republishedFrom = opts.republishedFrom || null;
 
   // ── 1단계: 초기 검증 ──
   const apiKey = process.env.GEMINI_API_KEY;
@@ -160,7 +164,7 @@ async function autoPublish(options) {
   }
 
   // ── 2단계: 발행 기간 체크 ──
-  if (!isTest) {
+  if (!isTest && !bypassPeriodCheck) {
     const kstDate = new Date(Date.now() + 9*60*60*1000);
     const today = kstDate.getUTCFullYear() + '-' + String(kstDate.getUTCMonth()+1).padStart(2,'0') + '-' + String(kstDate.getUTCDate()).padStart(2,'0');
     if (publish.startDate && today < publish.startDate) {
@@ -172,11 +176,11 @@ async function autoPublish(options) {
       return;
     }
   } else {
-    console.log('[테스트 발행] 기간 체크 건너뜀');
+    console.log(bypassPeriodCheck ? '[재발행] 기간 체크 건너뜀' : '[테스트 발행] 기간 체크 건너뜀');
   }
 
   // ── 2-2단계: 목표 콘텐츠 수 도달 체크 ──
-  if (!isTest && publish.totalTarget) {
+  if (!isTest && !bypassPeriodCheck && publish.totalTarget) {
     const counts = await contentQueue.getCounts();
     if (counts.total >= publish.totalTarget) {
       console.log('[목표 도달] 총 ' + counts.total + '/' + publish.totalTarget + '건 생성 완료. 발행 건너뜀.');
@@ -187,10 +191,16 @@ async function autoPublish(options) {
   // ── 3단계: 토픽 선택 ──
   var topic, contentType;
   try {
-    const next = await resolveNextTopic(allTopics);
-    if (!next) { console.log('No topic resolved'); return; }
-    topic = next.topic;
-    contentType = next.contentType;
+    if (forceTopic && forceContentType) {
+      topic = forceTopic;
+      contentType = forceContentType;
+      console.log('[재발행] 같은 주제로 재생성: ' + topic.name + ' / ' + contentType.name);
+    } else {
+      const next = await resolveNextTopic(allTopics);
+      if (!next) { console.log('No topic resolved'); return; }
+      topic = next.topic;
+      contentType = next.contentType;
+    }
   } catch (e) {
     console.error('[autoPublish] 토픽 선택 실패:', e);
     await saveErrorLog('autoPublish_토픽선택', e);
@@ -257,10 +267,11 @@ async function autoPublish(options) {
       eeat_details: eeat.details || {},
       status: 'pending',
       is_test: isTest,
+      republished_from: republishedFrom || null,
     });
 
     queueId = (inserted && inserted[0] && inserted[0].id) ? inserted[0].id : null;
-    console.log((isTest ? '[테스트] ' : '') + 'Queued: ' + result.title + ' (ID: ' + queueId + ')');
+    console.log((isTest ? '[테스트] ' : (republishedFrom ? '[재발행] ' : '')) + 'Queued: ' + result.title + ' (ID: ' + queueId + ')');
   } catch (e) {
     console.error('[autoPublish] DB 저장 실패:', e);
     await saveErrorLog('autoPublish_DB저장', e);
@@ -1030,7 +1041,16 @@ const server = http.createServer(async function(req, res) {
 
       jsonRes(res, { success: true });
 
-      autoPublish().catch(function(e) { console.error('Regen error:', e); saveErrorLog('재생성발행', e); });
+      // 같은 주제로 재생성 (기간 체크 우회)
+      const rejectTopics = await topicsDB.getAll();
+      const rejectedTopic = (rejectTopics || []).find(function(t) { return t.id === item.topic_id; });
+      const rejectedContentType = CONTENT_TYPES.find(function(ct) { return ct.id === item.content_type_id; });
+      autoPublish({
+        bypassPeriodCheck: true,
+        forceTopic: rejectedTopic || null,
+        forceContentType: rejectedContentType || null,
+        republishedFrom: { id: itemId, title: item.title, topic_name: item.topic_name, content_type_name: item.content_type_name, rejected_at: new Date().toISOString() },
+      }).catch(function(e) { console.error('Regen error:', e); saveErrorLog('재생성발행', e); });
       return;
     }
 

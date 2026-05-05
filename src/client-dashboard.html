@@ -344,6 +344,8 @@
   .badge-pending { background: #fef3c7; color: #92400e; }
   .badge-approved { background: #dcfce7; color: #166534; }
   .badge-rejected { background: #fee2e2; color: #991b1b; }
+  .badge-republish { background: #dbeafe; color: #1e40af; font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 600; margin-left: 8px; }
+  .republish-note { background: #f0f9ff; color: #1e40af; font-size: 12px; padding: 8px 16px 8px 24px; border-top: 1px solid #e0f2fe; }
   /* Buttons */
   .btn {
     padding: 8px 18px;
@@ -1144,10 +1146,17 @@ function renderContents() {
       var htmlContent = c.htmlContent || c.html_content || c.content || '';
       var isPending = status === 'pending';
 
+      var republishedFrom = c.republished_from || null;
+      var republishNote = '';
+      if (republishedFrom) {
+        var rejDate = republishedFrom.rejected_at ? formatDate(republishedFrom.rejected_at) : '';
+        republishNote = '<div class="republish-note">' + rejDate + ' "' + escapeHtml(republishedFrom.topic_name || '') + ' — ' + escapeHtml(republishedFrom.content_type_name || '') + '" 콘텐츠에 대한 재발행건입니다</div>';
+      }
+
       html += '<div class="content-card">' +
         '<div class="card-main">' +
           '<div class="card-info">' +
-            '<div class="card-title">' + escapeHtml(title) + '</div>' +
+            '<div class="card-title">' + escapeHtml(title) + (republishedFrom ? ' <span class="badge-republish">재발행</span>' : '') + '</div>' +
             '<div class="card-meta">' +
               '<span>' + created + '</span>' +
               (topic ? '<span>' + escapeHtml(topic) + '</span>' : '') +
@@ -1161,6 +1170,7 @@ function renderContents() {
             (isPending ? '<button class="btn btn-reject" onclick="rejectContent(\'' + id + '\', \'' + escapeAttr(title) + '\')">반려</button>' : '') +
           '</div>' +
         '</div>' +
+        republishNote +
         '<div class="preview-panel" id="preview-' + id + '">' +
           '<iframe class="preview-frame" srcdoc="' + escapeAttr(htmlContent) + '" sandbox="allow-same-origin" frameborder="0"></iframe>' +
         '</div>' +
