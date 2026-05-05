@@ -1024,6 +1024,18 @@ function formatDate(dateStr) {
   return y + '.' + m + '.' + day;
 }
 
+function formatDateTime(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  const h = String(d.getHours()).padStart(2,'0');
+  const min = String(d.getMinutes()).padStart(2,'0');
+  return y + '.' + m + '.' + day + ' ' + h + ':' + min;
+}
+
 // Status helpers
 function statusLabel(status) {
   const map = { pending: '대기중', approved: '승인완료', rejected: '반려' };
@@ -1149,8 +1161,8 @@ function renderContents() {
       var republishedFrom = c.republished_from || null;
       var republishNote = '';
       if (republishedFrom) {
-        var rejDate = republishedFrom.rejected_at ? formatDate(republishedFrom.rejected_at) : '';
-        republishNote = '<div class="republish-note">' + rejDate + ' "' + escapeHtml(republishedFrom.topic_name || '') + ' — ' + escapeHtml(republishedFrom.content_type_name || '') + '" 콘텐츠에 대한 재발행건입니다</div>';
+        var rejDate = republishedFrom.rejected_at ? formatDateTime(republishedFrom.rejected_at) : '';
+        republishNote = '<div class="republish-note">' + rejDate + ' "' + escapeHtml(republishedFrom.title || '') + '" 콘텐츠에 대한 재발행건입니다</div>';
       }
 
       html += '<div class="content-card">' +

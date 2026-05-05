@@ -707,6 +707,9 @@
           <option value="eeat-high">E-E-A-T 높은순</option>
           <option value="total-high">종합 높은순</option>
         </select>
+        <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#374151;margin-left:12px;cursor:pointer;white-space:nowrap;">
+          <input type="checkbox" id="qualityExcludeRejected" checked onchange="currentQualityPage=1;renderQualityPage()"> 반려 제외
+        </label>
       </div>
       <table class="quality-table">
         <thead>
@@ -1031,6 +1034,18 @@
       return d.toLocaleString('ko-KR');
     }
 
+    function formatDateTime(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return '';
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,'0');
+      const day = String(d.getDate()).padStart(2,'0');
+      const h = String(d.getHours()).padStart(2,'0');
+      const min = String(d.getMinutes()).padStart(2,'0');
+      return y + '.' + m + '.' + day + ' ' + h + ':' + min;
+    }
+
     function renderRecentPosts(posts) {
       const tbody = document.getElementById('recentPostsBody');
       if (!posts.length) {
@@ -1062,7 +1077,7 @@
           reviewHtml = `<span class="review-badge clean">정상</span>`;
         }
         return `<tr>
-          <td>${titleHtml}${republishedFrom ? '<div class="republish-note">' + formatDate(republishedFrom.rejected_at) + ' "' + (republishedFrom.topic_name||'') + ' — ' + (republishedFrom.content_type_name||'') + '" 재발행</div>' : ''}</td>
+          <td>${titleHtml}${republishedFrom ? '<div class="republish-note">' + formatDateTime(republishedFrom.rejected_at) + ' "' + (republishedFrom.title||'') + '" 콘텐츠에 대한 재발행건입니다</div>' : ''}</td>
           <td>${post.topic_name || '-'}</td>
           <td>${post.content_type_name || '-'}</td>
           <td><span class="status-tag ${statusClass}">${statusLabel}</span></td>
@@ -1313,6 +1328,10 @@
     const sort = (document.getElementById('qualitySortFilter') || {}).value || 'latest';
 
     let filtered = allQualityData;
+    const excludeRejected = document.getElementById('qualityExcludeRejected') && document.getElementById('qualityExcludeRejected').checked;
+    if (excludeRejected) {
+      filtered = filtered.filter(function(d) { return d.status !== 'rejected'; });
+    }
     if (search) {
       const q = search.toLowerCase();
       filtered = filtered.filter(function(d) { return (d.title || '').toLowerCase().indexOf(q) >= 0; });
