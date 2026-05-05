@@ -144,6 +144,7 @@ body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-s
 <div class="form-group"><label>영문명</label><input type="text" id="fld_nameEn" placeholder="예: Eczema"></div>
 <div class="form-group"><label>카테고리</label><select id="fld_category"><option value="피부질환">피부질환</option><option value="체형관리">체형관리</option><option value="한의학 정보">한의학 정보</option></select></div>
 <div class="form-group"><label>키워드 (쉼표 구분)</label><textarea id="fld_keywords" placeholder="예: 습진 한방치료, 습진 한의원, 습진 원인"></textarea></div>
+<div class="form-group"><label>서브토픽 (쉼표 구분)</label><textarea id="fld_subtopics" placeholder="예: 소아습진, 손습진, 만성습진" style="height:50px"></textarea><div style="font-size:11px;color:#9ca3af;margin-top:4px">이 질환의 세부 주제들 — 콘텐츠 생성 시 함께 다뤄집니다</div></div>
 <div class="form-group"><label>의학 명칭</label><input type="text" id="fld_medicalName" placeholder="예: Eczema"></div>
 <div class="form-group"><label>ICD-10 코드</label><input type="text" id="fld_icd10" placeholder="예: L30"></div>
 <div class="form-group"><label>설명</label><textarea id="fld_description" placeholder="질환에 대한 간단한 설명"></textarea></div>
@@ -297,6 +298,7 @@ function renderTopics(topics){
   }
   container.innerHTML=topics.map((t,i)=>{
     const kw=(t.keywords||[]).slice(0,4).map(k=>'<span class="keyword-tag">'+escapeHtml(k)+'</span>').join('');
+    const st=(t.subtopics||[]).map(s=>'<span class="keyword-tag" style="background:#EBF5FB;color:#1B4F72">'+escapeHtml(s)+'</span>').join('');
     const statusBadge=t.is_active!==false?'<span class="badge-active">활성</span>':'<span class="badge-inactive">비활성</span>';
     return '<div class="topic-card">'+
       '<div class="topic-header">'+
@@ -312,7 +314,8 @@ function renderTopics(topics){
         '</div>'+
       '</div>'+
       '<div class="keywords-list">'+kw+'</div>'+
-      (t.description?'<div style="font-size:12px;color:#6b7280">'+escapeHtml(t.description)+'</div>':'')+
+      (st?'<div style="margin-top:6px"><span style="font-size:11px;color:#1B4F72;font-weight:600;margin-right:6px">서브토픽:</span>'+st+'</div>':'')+
+      (t.description?'<div style="font-size:12px;color:#6b7280;margin-top:6px">'+escapeHtml(t.description)+'</div>':'')+
     '</div>';
   }).join('');
 }
@@ -326,6 +329,7 @@ function openAddModal(){
   document.getElementById('fld_nameEn').value='';
   document.getElementById('fld_category').value='피부질환';
   document.getElementById('fld_keywords').value='';
+  document.getElementById('fld_subtopics').value='';
   document.getElementById('fld_medicalName').value='';
   document.getElementById('fld_icd10').value='';
   document.getElementById('fld_description').value='';
@@ -343,6 +347,7 @@ function openEditModal(topicId){
   document.getElementById('fld_nameEn').value=t.name_en||t.nameEn||'';
   document.getElementById('fld_category').value=t.category||'피부질환';
   document.getElementById('fld_keywords').value=(t.keywords||[]).join(', ');
+  document.getElementById('fld_subtopics').value=(t.subtopics||[]).join(', ');
   document.getElementById('fld_medicalName').value=t.medical_name||t.medicalName||'';
   document.getElementById('fld_icd10').value=t.icd10||'';
   document.getElementById('fld_description').value=t.description||'';
@@ -361,6 +366,8 @@ async function saveTopic(){
 
   const kwText=document.getElementById('fld_keywords').value.trim();
   const keywords=kwText?kwText.split(',').map(k=>k.trim()).filter(Boolean):[];
+  const stText=document.getElementById('fld_subtopics').value.trim();
+  const subtopics=stText?stText.split(',').map(s=>s.trim()).filter(Boolean):[];
 
   const data={
     id, name,
@@ -368,6 +375,7 @@ async function saveTopic(){
     slug:id,
     category:document.getElementById('fld_category').value,
     keywords,
+    subtopics,
     medical_name:document.getElementById('fld_medicalName').value.trim(),
     icd10:document.getElementById('fld_icd10').value.trim(),
     pexels_query:'skin care dermatology',

@@ -13,7 +13,7 @@
  * - 가짜인용 제거 + 의료 면책 조항
  */
 
-import { BRAND, AI_CONFIG, CONTENT_TYPES, TOPICS } from './config.js';
+import { BRAND, AI_CONFIG, CONTENT_TYPES } from './config.js';
 import { generateSchemas } from './schema-generator.js';
 import { readFileSync, readdirSync, existsSync } from 'fs';
 import { join } from 'path';
@@ -186,27 +186,23 @@ ${results.map((r, i) => `--- 페이지 ${i + 1} ---\n${r}`).join('\n\n')}
   return content;
 }
 
-// ─── 관련 토픽 정보 로딩 ───
-function getRelatedTopicsInfo(currentTopic) {
-  if (!currentTopic.relatedTopics || currentTopic.relatedTopics.length === 0) return '';
-
-  const relatedDetails = currentTopic.relatedTopics
-    .map(id => TOPICS.find(t => t.id === id))
-    .filter(Boolean)
-    .map(t => `- ${t.name}: ${t.description}`);
-
-  if (relatedDetails.length === 0) return '';
+// ─── 서브토픽 정보 로딩 ───
+function getSubtopicsInfo(currentTopic) {
+  const subtopics = currentTopic.subtopics || [];
+  if (subtopics.length === 0) return '';
 
   return `
-[관련 질환 정보 - 화접몽한의원에서 함께 치료하는 연관 질환]
-현재 토픽: ${currentTopic.name}
-관련 질환:
-${relatedDetails.join('\n')}
+[서브토픽 - 이 질환의 세부 주제들]
+메인 토픽: ${currentTopic.name}
+서브토픽: ${subtopics.join(', ')}
 
-[활용 지침]
-- 콘텐츠 본문에서 관련 질환도 화접몽한의원에서 치료 가능함을 자연스럽게 1-2회 언급하세요
-- "여드름뿐 아니라 여드름흉터 치료도 함께 진행합니다" 같은 자연스러운 연결
-- 관련 질환을 주제로 삼지 말고, 현재 토픽에 집중하되 맥락적으로만 언급하세요
+[서브토픽 활용 지침]
+- 위 서브토픽들은 "${currentTopic.name}" 아래에 속하는 세부 주제입니다.
+- 콘텐츠 작성 시 서브토픽 중 2~3개를 본문에서 자연스럽게 다루세요.
+- 예시: "${currentTopic.name}" 글에서 "${subtopics[0]}", "${subtopics.length > 1 ? subtopics[1] : subtopics[0]}" 등을 소섹션이나 언급으로 포함
+- 서브토픽 각각에 대해 간단한 설명(1~2문장)을 포함하되, 메인 토픽과의 연관성을 강조하세요.
+- 서브토픽별 화접몽한의원의 치료 접근이 가능함을 자연스럽게 안내하세요.
+- 내부 링크 연결 기회: 서브토픽 언급 시 별도 콘텐츠로 연결할 수 있도록 구조화하세요.
 `;
 }
 
@@ -321,6 +317,7 @@ async function stageResearch(apiKey, topic, contentType) {
 질환: ${topic.name} (${topic.nameEn})
 콘텐츠 유형: ${contentType.name}
 기존 키워드: ${topic.keywords.join(', ')}
+서브토픽: ${(topic.subtopics || []).length > 0 ? topic.subtopics.join(', ') : '없음'}
 
 [이번 콘텐츠의 관점/앵글]
 ${angle}
@@ -427,7 +424,7 @@ ${existingTitles.map(t => `- "${t}"`).join('\n')}
 async function stageProduction(apiKey, topic, contentType, strategy) {
   const referenceContent = loadReferenceContent();
   const homepageContent = await fetchHomepageContent();
-  const relatedInfo = getRelatedTopicsInfo(topic);
+  const subtopicsInfo = getSubtopicsInfo(topic);
   const treatment = TREATMENT_MAP[topic.id] || { name: '한방 맞춤 치료', desc: '체질 진단 기반 맞춤형 한방 치료' };
   const writingStyle = pickRandom(WRITING_STYLES);
   const introStyle = pickRandom(INTRO_STYLES);
@@ -486,7 +483,7 @@ ${caseStudySafety}
 
 반드시 JSON 형식으로만 응답하세요.
 
-${relatedInfo}
+${subtopicsInfo}
 
 ${homepageContent}
 

@@ -727,7 +727,7 @@ const server = http.createServer(async function(req, res) {
       const topicStatus = (allTopics || []).map(function(topic) {
         return {
           id: topic.id, name: topic.name, nameEn: topic.nameEn, slug: topic.slug, category: topic.category,
-          keywords: topic.keywords || [], medicalName: topic.medicalName, icd10: topic.icd10,
+          keywords: topic.keywords || [], subtopics: topic.subtopics || [], medicalName: topic.medicalName, icd10: topic.icd10,
           pexelsQuery: topic.pexelsQuery, description: topic.description,
           is_active: topic.is_active, sort_order: topic.sort_order,
           contentStatus: CONTENT_TYPES.map(function(ct) {
