@@ -137,21 +137,23 @@
     .status-tag {
       display: inline-block;
       padding: 2px 8px;
-      border-radius: 8px;
-      font-size: 10px;
-      font-weight: 400;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
       white-space: nowrap;
-      line-height: 1;
+      line-height: 1.4;
     }
     .status-tag.publish, .status-tag.published { background: #dcfce7; color: #166534; }
     .status-tag.draft { background: #fef3c7; color: #92400e; }
     .status-tag.queued { background: #dbeafe; color: #1e40af; }
     .status-tag.pending { background: #fef3c7; color: #92400e; }
     .status-tag.rejected { background: #fee2e2; color: #991b1b; }
-    .review-badge { display:inline-block; font-size:11px; padding:1px 6px; border-radius:4px; margin-left:6px; }
+    .review-badge { display:inline-block; font-size:12px; padding:2px 8px; border-radius:4px; font-weight:500; }
     .review-badge.clean { background:#dcfce7; color:#166534; }
     .review-badge.fixed-critical { background:#fef3c7; color:#92400e; }
     .review-badge.fixed-minor { background:#e0f2fe; color:#0369a1; }
+    .badge-republish { display:inline-block; background:#dbeafe; color:#1e40af; font-size:11px; padding:2px 8px; border-radius:4px; font-weight:600; margin-left:6px; }
+    .republish-note { font-size:12px; color:#1e40af; padding:4px 0 0 8px; }
 
     /* ─── Preview Modal ─── */
     .modal-overlay {
@@ -213,7 +215,15 @@
     .btn-primary:hover { background: #1B4F72; }
     .btn-secondary { background: white; color: #374151; border: 1px solid #d1d5db; }
     .btn-secondary:hover { background: #f3f4f6; }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; pointer-events: none; }
+    .btn-loading { position: relative; padding-left: 32px !important; }
+    .btn-loading::before {
+      content: ''; position: absolute; left: 10px; top: 50%; margin-top: -7px;
+      width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    .btn-secondary.btn-loading::before { border-color: rgba(55,65,81,0.3); border-top-color: #374151; }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     /* ─── Search & Filter Bar ─── */
     .search-bar {
@@ -1031,6 +1041,7 @@
         const dateStr = formatDate(post.published_at || post.created_at);
         const statusClass = getStatusClass(post.status);
         const statusLabel = getStatusLabel(post.status);
+        const republishedFrom = post.republished_from || null;
         let titleHtml;
         if (post.wp_post_url) {
           titleHtml = `<a href="${post.wp_post_url}" target="_blank" style="color:#2E75B6; text-decoration:none;">${post.title}</a>`;
@@ -1039,12 +1050,23 @@
         } else {
           titleHtml = `<a href="#" onclick="showPreviewByTitle('${encodeURIComponent(post.title)}');return false;" style="color:#2E75B6; text-decoration:none;">${post.title}</a>`;
         }
+        if (republishedFrom) {
+          titleHtml += `<span class="badge-republish">재발행</span>`;
+        }
+        let reviewHtml;
+        if (post.review_status === 'fixed-critical') {
+          reviewHtml = `<span class="review-badge fixed-critical">${post.review_fixes || 0}건 치환</span>`;
+        } else if (post.review_status === 'fixed-minor') {
+          reviewHtml = `<span class="review-badge fixed-minor">${post.review_fixes || 0}건 치환</span>`;
+        } else {
+          reviewHtml = `<span class="review-badge clean">정상</span>`;
+        }
         return `<tr>
-          <td>${titleHtml}</td>
+          <td>${titleHtml}${republishedFrom ? '<div class="republish-note">' + formatDate(republishedFrom.rejected_at) + ' "' + (republishedFrom.topic_name||'') + ' — ' + (republishedFrom.content_type_name||'') + '" 재발행</div>' : ''}</td>
           <td>${post.topic_name || '-'}</td>
           <td>${post.content_type_name || '-'}</td>
           <td><span class="status-tag ${statusClass}">${statusLabel}</span></td>
-          <td>${post.review_status === 'fixed-critical' ? '<span class="review-badge fixed-critical">' + (post.review_fixes || 0) + '건 치환</span>' : post.review_status === 'fixed-minor' ? '<span class="review-badge fixed-minor">' + (post.review_fixes || 0) + '건 치환</span>' : '<span style="color:#22c55e;font-size:12px;">정상</span>'}</td>
+          <td>${reviewHtml}</td>
           <td style="color:#9ca3af; font-size:13px;">${dateStr}</td>
         </tr>`;
       }).join('');
@@ -1064,19 +1086,30 @@
       `).join('');
     }
 
+    let publishLock = false;
     async function publishNow() {
+      if (publishLock) return;
+      publishLock = true;
       const btn = document.getElementById('publishBtn');
       btn.disabled = true;
-      btn.textContent = '발행 중...';
+      btn.classList.add('btn-loading');
+      btn.textContent = '콘텐츠 생성 중...';
       try {
         const res = await fetch(`${API_BASE}/api/publish-now`, { method: 'POST' });
         const data = await res.json();
+        if (data.error) throw new Error(data.error);
         alert(`발행 시작: ${data.topic} - ${data.contentType}\n\n콘텐츠 생성에 1-2분 소요됩니다. 잠시 후 새로고침하세요.`);
+        // 발행 후 5초 쿨다운
+        btn.textContent = '완료! 잠시 대기...';
+        await new Promise(r => setTimeout(r, 5000));
+        loadData();
       } catch (e) {
         alert('발행 실패: ' + e.message);
       } finally {
         btn.disabled = false;
+        btn.classList.remove('btn-loading');
         btn.textContent = '1회 테스트 발행';
+        publishLock = false;
       }
     }
 
@@ -1449,13 +1482,18 @@
       document.getElementById('qualityTableBody').innerHTML = '<tr><td colspan="6" class="empty-state">로딩 실패: ' + e.message + '</td></tr>';
     }
   }
+  let recalcLock = false;
   async function recalculateScores() {
+    if (recalcLock) return;
+    recalcLock = true;
     const btn = document.getElementById('recalcBtn');
     btn.disabled = true;
+    btn.classList.add('btn-loading');
     btn.textContent = '재계산 중...';
     try {
       const res = await fetch(API_BASE + '/api/recalculate-scores', { method: 'POST' });
       const data = await res.json();
+      if (data.error) throw new Error(data.error);
       alert(data.message || '재계산 완료');
       qualityLoaded = false;
       loadQualityData();
@@ -1463,7 +1501,9 @@
       alert('재계산 실패: ' + e.message);
     } finally {
       btn.disabled = false;
+      btn.classList.remove('btn-loading');
       btn.textContent = '기존 콘텐츠 점수 재계산';
+      recalcLock = false;
     }
   }
 
@@ -1652,9 +1692,13 @@
 
   // saveCitationSettings는 설정 페이지(/settings)로 이동됨
 
+  let citationLock = false;
   async function trackCitationNow() {
+    if (citationLock) return;
+    citationLock = true;
     const btn = document.getElementById('trackNowBtn');
     btn.disabled = true;
+    btn.classList.add('btn-loading');
     btn.textContent = '추적 중...';
     try {
       const res = await fetch(API_BASE + '/api/citation-track', {
@@ -1674,7 +1718,9 @@
       alert('추적 실패: ' + e.message);
     } finally {
       btn.disabled = false;
+      btn.classList.remove('btn-loading');
       btn.textContent = '수동 1회 실행';
+      citationLock = false;
     }
   }
 

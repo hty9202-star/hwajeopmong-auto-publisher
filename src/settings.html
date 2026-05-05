@@ -297,7 +297,7 @@ function renderTopics(topics){
     return;
   }
   container.innerHTML=topics.map((t,i)=>{
-    const kw=(t.keywords||[]).slice(0,4).map(k=>'<span class="keyword-tag">'+escapeHtml(k)+'</span>').join('');
+    const kw=(t.keywords||[]).map(k=>'<span class="keyword-tag">'+escapeHtml(k)+'</span>').join('');
     const st=(t.subtopics||[]).map(s=>'<span class="keyword-tag" style="background:#EBF5FB;color:#1B4F72">'+escapeHtml(s)+'</span>').join('');
     const statusBadge=t.is_active!==false?'<span class="badge-active">활성</span>':'<span class="badge-inactive">비활성</span>';
     return '<div class="topic-card">'+
@@ -313,8 +313,8 @@ function renderTopics(topics){
           '<button class="btn-sm danger" onclick="deleteTopic(\''+t.id+'\',\''+escapeHtml(t.name)+'\')">삭제</button>'+
         '</div>'+
       '</div>'+
-      '<div class="keywords-list">'+kw+'</div>'+
-      (st?'<div style="margin-top:6px"><span style="font-size:11px;color:#1B4F72;font-weight:600;margin-right:6px">서브토픽:</span>'+st+'</div>':'')+
+      (kw?'<div style="margin-bottom:6px"><span style="font-size:11px;color:#374151;font-weight:600;margin-right:6px">키워드:</span><span class="keywords-list" style="display:inline-flex;flex-wrap:wrap;gap:6px">'+kw+'</span></div>':'')+
+      (st?'<div style="margin-top:6px"><span style="font-size:11px;color:#1B4F72;font-weight:600;margin-right:6px">서브토픽:</span><span style="display:inline-flex;flex-wrap:wrap;gap:6px">'+st+'</span></div>':'')+
       (t.description?'<div style="font-size:12px;color:#6b7280;margin-top:6px">'+escapeHtml(t.description)+'</div>':'')+
     '</div>';
   }).join('');
