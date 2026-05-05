@@ -1049,7 +1049,7 @@ const server = http.createServer(async function(req, res) {
         bypassPeriodCheck: true,
         forceTopic: rejectedTopic || null,
         forceContentType: rejectedContentType || null,
-        republishedFrom: { id: itemId, title: item.title, topic_name: item.topic_name, content_type_name: item.content_type_name, rejected_at: new Date().toISOString() },
+        republishedFrom: { id: itemId, title: item.title, topic_name: item.topic_name, content_type_name: item.content_type_name, rejected_at: item.created_at || new Date().toISOString() },
       }).catch(function(e) { console.error('Regen error:', e); saveErrorLog('재생성발행', e); });
       return;
     }
