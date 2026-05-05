@@ -799,9 +799,10 @@ export async function generateContent(env, topic, contentType, options = {}) {
   // 제목 후처리 (괄호 제거)
   cleanedProduction.title = cleanTitle(cleanedProduction.title);
 
-  // 이미지 가져오기 (검색어 다양화 적용)
+  // 이미지 가져오기 (검색어 다양화 적용, 설정값 반영)
+  const imageCount = options.imagesPerContent || 3;
   const diversifiedQuery = diversifyPexelsQuery(topic.pexelsQuery, topic.id);
-  const images = await fetchPexelsImages(pexelsKey, diversifiedQuery, 3);
+  const images = await fetchPexelsImages(pexelsKey, diversifiedQuery, imageCount);
 
   // 콘텐츠 조립
   let finalContent = cleanedProduction.content;

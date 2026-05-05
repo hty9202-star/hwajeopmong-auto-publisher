@@ -173,6 +173,15 @@ async function autoPublish(options) {
     console.log('[테스트 발행] 기간 체크 건너뜀');
   }
 
+  // ── 2-2단계: 목표 콘텐츠 수 도달 체크 ──
+  if (!isTest && publish.totalTarget) {
+    const counts = await contentQueue.getCounts();
+    if (counts.total >= publish.totalTarget) {
+      console.log('[목표 도달] 총 ' + counts.total + '/' + publish.totalTarget + '건 생성 완료. 발행 건너뜀.');
+      return;
+    }
+  }
+
   // ── 3단계: 토픽 선택 ──
   var topic, contentType;
   try {
@@ -195,7 +204,8 @@ async function autoPublish(options) {
     if (existingTitles.length > 0) {
       console.log('[중복 방지] 기존 ' + existingTitles.length + '건 제목 회피: ' + existingTitles.join(', '));
     }
-    result = await generateContent(process.env, topic, contentType, { existingTitles });
+    const imagesPerContent = publish.imagesPerContent || 3;
+    result = await generateContent(process.env, topic, contentType, { existingTitles, imagesPerContent });
     if (!result || !result.content) {
       console.log('[autoPublish] 콘텐츠 생성 결과 없음');
       return;
@@ -1473,7 +1483,7 @@ setInterval(function() {
 
 function jsonRes(res, data, status) {
   status = status || 200;
-  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
+  res.writeHead(status, { 'Content-Type': "application/json; charset=utf-8" });
   res.end(JSON.stringify(data));
 }
 
