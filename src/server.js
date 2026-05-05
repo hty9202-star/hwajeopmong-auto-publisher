@@ -100,7 +100,9 @@ async function resolveNextTopic(allTopics) {
   }
 
   if (publishMode === 'random') {
-    return { topic: allTopics[topicIdx % allTopics.length], contentType: CONTENT_TYPES[ctIdx % CONTENT_TYPES.length], mode: 'random' };
+    const randTopicIdx = Math.floor(Math.random() * allTopics.length);
+    const randCtIdx = Math.floor(Math.random() * CONTENT_TYPES.length);
+    return { topic: allTopics[randTopicIdx], contentType: CONTENT_TYPES[randCtIdx], mode: 'random' };
   }
   if (publishMode === 'balanced') {
     const counts = {};
