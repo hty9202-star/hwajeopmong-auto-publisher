@@ -106,6 +106,26 @@ async function resolveNextTopic(allTopics) {
   return { topic: allTopics[topicIdx % allTopics.length], contentType: CONTENT_TYPES[ctIdx % CONTENT_TYPES.length], mode: publishMode };
 }
 
+// ─── 에러 로그 저장 헬퍼 ───
+async function saveErrorLog(source, error) {
+  try {
+    const existing = await settings.get('error_logs');
+    const logs = Array.isArray(existing) ? existing : [];
+    const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+    logs.unshift({
+      timestamp: kst.toISOString(),
+      source: source,
+      message: error.message || String(error),
+      stack: error.stack ? error.stack.split('\n').slice(0, 3).join(' | ') : '',
+    });
+    // 최근 100건만 유지
+    if (logs.length > 100) logs.length = 100;
+    await settings.set('error_logs', logs);
+  } catch (logErr) {
+    console.error('에러 로그 저장 실패:', logErr);
+  }
+}
+
 // ─── 자동 발행 로직 ───
 async function autoPublish(options) {
   var opts = options || {};
@@ -243,7 +263,10 @@ async function autoPublish(options) {
         console.log('[테스트 발행] 인덱스 업데이트 건너뜀');
       }
     }
-  } catch (e) { console.error('autoPublish error:', e); }
+  } catch (e) {
+    console.error('autoPublish error:', e);
+    await saveErrorLog('autoPublish', e);
+  }
 }
 
 // ─── 발행 주기 프리셋 ───
@@ -371,6 +394,7 @@ async function autoTrackCitations() {
     console.log('[인용추적 자동] 완료: ' + trackingResults.length + '건 저장');
   } catch (e) {
     console.error('[인용추적 자동] 오류:', e);
+    await saveErrorLog('인용추적_자동', e);
   }
 }
 
@@ -749,7 +773,7 @@ const server = http.createServer(async function(req, res) {
       const allTopicsForPublish = await topicsDB.getAll();
       const next = await resolveNextTopic(allTopicsForPublish);
 
-      autoPublish({ isTest: true }).catch(console.error);
+      autoPublish({ isTest: true }).catch(function(e) { saveErrorLog('테스트발행', e); });
 
       return jsonRes(res, {
         message: '테스트 발행 시작됨 (기간/인덱스 영향 없음)',
@@ -949,7 +973,7 @@ const server = http.createServer(async function(req, res) {
 
       jsonRes(res, { success: true });
 
-      autoPublish().catch(function(e) { console.error('Regen error:', e); });
+      autoPublish().catch(function(e) { console.error('Regen error:', e); saveErrorLog('재생성발행', e); });
       return;
     }
 
@@ -1166,6 +1190,7 @@ const server = http.createServer(async function(req, res) {
           jsonRes(res, { success: true, results: trackingResults, message: targetTopics.length + '개 질환 x ' + models.length + '개 AI 추적 완료' });
       } catch (e) {
         console.error('[인용추적] 오류:', e);
+        await saveErrorLog('인용추적_수동', e);
         jsonRes(res, { error: e.message }, 500);
       }
       return;
@@ -1297,6 +1322,7 @@ const server = http.createServer(async function(req, res) {
       });
       } catch (reportErr) {
         console.error('Report API error:', reportErr);
+        await saveErrorLog('월간리포트', reportErr);
         return jsonRes(res, { error: reportErr.message }, 500);
       }
     }
@@ -1306,6 +1332,7 @@ const server = http.createServer(async function(req, res) {
     res.end('Not Found');
   } catch (error) {
     console.error('Server error:', error);
+    await saveErrorLog('서버오류', error);
     jsonRes(res, { error: error.message }, 500);
   }
 });
