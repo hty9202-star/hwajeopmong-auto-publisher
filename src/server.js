@@ -28,11 +28,21 @@ function getHtml(filename) {
   return HTML_CACHE[filename];
 }
 
-// 공용 body 파싱 유틸
+// 공용 body 파싱 유틸 (최대 1MB 제한)
+const MAX_BODY_SIZE = 1 * 1024 * 1024;
 function parseBody(req) {
   return new Promise(function(resolve, reject) {
     let body = '';
-    req.on('data', function(ch) { body += ch; });
+    let size = 0;
+    req.on('data', function(ch) {
+      size += ch.length;
+      if (size > MAX_BODY_SIZE) {
+        req.destroy();
+        reject(new Error('요청 크기 초과 (최대 1MB)'));
+        return;
+      }
+      body += ch;
+    });
     req.on('end', function() {
       try { resolve(JSON.parse(body)); }
       catch (e) { reject(e); }
@@ -130,142 +140,177 @@ async function saveErrorLog(source, error) {
 async function autoPublish(options) {
   var opts = options || {};
   var isTest = opts.isTest || false;
+
+  // ── 1단계: 초기 검증 ──
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) { console.log('No GEMINI_API_KEY'); return; }
+
+  var allTopics, publish, publishMode;
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) { console.log('No GEMINI_API_KEY'); return; }
-
-    // DB에서 활성 토픽 로드
-    const allTopics = await topicsDB.getAll();
+    allTopics = await topicsDB.getAll();
     if (!allTopics || allTopics.length === 0) { console.log('No active topics'); return; }
+    publish = await settings.get('publish') || {};
+    publishMode = publish.publishMode || 'auto';
+  } catch (e) {
+    console.error('[autoPublish] 초기 설정 로드 실패:', e);
+    await saveErrorLog('autoPublish_초기설정', e);
+    return;
+  }
 
-    // 설정 로드
-    const publish = await settings.get('publish') || {};
-    const publishMode = publish.publishMode || 'auto';
-
-    // 발행 기간 체크 (테스트 발행은 기간 체크 건너뜀, KST 기준)
-    if (!isTest) {
-      const kstDate = new Date(Date.now() + 9*60*60*1000);
-      const today = kstDate.getUTCFullYear() + '-' + String(kstDate.getUTCMonth()+1).padStart(2,'0') + '-' + String(kstDate.getUTCDate()).padStart(2,'0');
-      if (publish.startDate && today < publish.startDate) {
-        console.log('[발행 대기] 시작일(' + publish.startDate + ') 전입니다. 발행 건너뜀.');
-        return;
-      }
-      if (publish.endDate && today > publish.endDate) {
-        console.log('[계약 종료] 종료일(' + publish.endDate + ')이 지났습니다. 발행 건너뜀.');
-        return;
-      }
-    } else {
-      console.log('[테스트 발행] 기간 체크 건너뜀');
+  // ── 2단계: 발행 기간 체크 ──
+  if (!isTest) {
+    const kstDate = new Date(Date.now() + 9*60*60*1000);
+    const today = kstDate.getUTCFullYear() + '-' + String(kstDate.getUTCMonth()+1).padStart(2,'0') + '-' + String(kstDate.getUTCDate()).padStart(2,'0');
+    if (publish.startDate && today < publish.startDate) {
+      console.log('[발행 대기] 시작일(' + publish.startDate + ') 전입니다. 발행 건너뜀.');
+      return;
     }
+    if (publish.endDate && today > publish.endDate) {
+      console.log('[계약 종료] 종료일(' + publish.endDate + ')이 지났습니다. 발행 건너뜀.');
+      return;
+    }
+  } else {
+    console.log('[테스트 발행] 기간 체크 건너뜀');
+  }
 
-    // 토픽/콘텐츠유형 선택 (공용 함수)
+  // ── 3단계: 토픽 선택 ──
+  var topic, contentType;
+  try {
     const next = await resolveNextTopic(allTopics);
     if (!next) { console.log('No topic resolved'); return; }
-    const { topic, contentType } = next;
+    topic = next.topic;
+    contentType = next.contentType;
+  } catch (e) {
+    console.error('[autoPublish] 토픽 선택 실패:', e);
+    await saveErrorLog('autoPublish_토픽선택', e);
+    return;
+  }
 
-    // 인덱스 로드 (발행 후 업데이트용)
-    const idxData = await settings.get('topicIndex');
-    let topicIdx = idxData ? parseInt(idxData) : 0;
-    const ctIdxData = await settings.get('contentTypeIndex');
-    let ctIdx = ctIdxData ? parseInt(ctIdxData) : 0;
-
+  // ── 4단계: 콘텐츠 생성 ──
+  var result;
+  try {
     console.log('Generating: ' + topic.name + ' / ' + contentType.name);
     const comboId = topic.id + '__' + contentType.id;
     const existingTitles = await contentQueue.getTitlesByComboId(comboId);
     if (existingTitles.length > 0) {
       console.log('[중복 방지] 기존 ' + existingTitles.length + '건 제목 회피: ' + existingTitles.join(', '));
     }
-    const result = await generateContent(process.env, topic, contentType, { existingTitles });
-
-    if (result && result.content) {
-
-      // 검수 결과 로깅
-      const review = result.review || { total: 0, high: 0, medium: 0, status: 'clean' };
-      if (review.total > 0) {
-        console.log('[검수 완료] ' + review.total + '건 자동 치환 (의료법: ' + review.high + ', 과장광고: ' + review.medium + ')');
-      }
-
-      // GEO / E-E-A-T 품질 점수
-      const geo = result.geoScore || { score: 0, details: {} };
-      const eeat = result.eeatScore || { score: 0, details: {} };
-      if (geo.score || eeat.score) {
-        console.log('[품질] GEO: ' + geo.score + '/100, E-E-A-T: ' + eeat.score + '/100');
-      }
-
-      // Supabase에 콘텐츠 추가 (검수 결과 + 품질 점수 포함)
-      const inserted = await contentQueue.add({
-        combo_id: comboId,
-        topic_id: topic.id,
-        topic_name: topic.name,
-        content_type_id: contentType.id,
-        content_type_name: contentType.name,
-        title: result.title,
-        slug: result.slug,
-        content: result.content,
-        excerpt: result.excerpt,
-        meta_description: result.metaDescription,
-        category: result.category || topic.name,
-        tags: result.tags || [],
-        hero_image_url: (result.heroImage && result.heroImage.url) ? result.heroImage.url : null,
-        schemas: result.schemas || null,
-        faq: result.faq || null,
-        review_status: review.status,
-        review_fixes: review.total,
-        geo_score: geo.score || 0,
-        eeat_score: eeat.score || 0,
-        geo_details: geo.details || {},
-        eeat_details: eeat.details || {},
-        status: 'pending',
-        is_test: isTest,
-      });
-
-      var queueId = (inserted && inserted[0] && inserted[0].id) ? inserted[0].id : null;
-      console.log((isTest ? '[테스트] ' : '') + 'Queued: ' + result.title + ' (ID: ' + queueId + ')');
-
-      // 발행 로그 추가
-      await publishLogs.add({
-        queue_id: queueId,
-        combo_id: comboId,
-        topic_name: topic.name,
-        content_type_name: contentType.name,
-        title: result.title,
-        status: 'queued',
-        is_test: isTest,
-        created_at: new Date().toISOString(),
-      });
-
-      // 인덱스 업데이트 (테스트 발행은 인덱스 변경 안 함)
-      if (!isTest) {
-        if (publishMode === 'sequential') {
-          topicIdx = topicIdx + 1;
-          if (topicIdx >= allTopics.length) {
-            topicIdx = 0;
-            ctIdx = (ctIdx + 1) % CONTENT_TYPES.length;
-          }
-        } else if (publishMode === 'random') {
-          topicIdx = (topicIdx + 1) % allTopics.length;
-          ctIdx = (ctIdx + 1) % CONTENT_TYPES.length;
-        } else if (publishMode === 'balanced') {
-          ctIdx = (ctIdx + 1) % CONTENT_TYPES.length;
-        } else {
-          topicIdx = (topicIdx + 1) % allTopics.length;
-          ctIdx = (ctIdx + 1) % CONTENT_TYPES.length;
-        }
-        await settings.set('topicIndex', topicIdx);
-        await settings.set('contentTypeIndex', ctIdx);
-
-        // 개별 질환 지정이었으면 리셋
-        if (publish.nextTopic && !['auto','random','balanced','sequential'].includes(publish.nextTopic)) {
-          publish.nextTopic = 'auto';
-          await settings.set('publish', publish);
-        }
-      } else {
-        console.log('[테스트 발행] 인덱스 업데이트 건너뜀');
-      }
+    result = await generateContent(process.env, topic, contentType, { existingTitles });
+    if (!result || !result.content) {
+      console.log('[autoPublish] 콘텐츠 생성 결과 없음');
+      return;
     }
   } catch (e) {
-    console.error('autoPublish error:', e);
-    await saveErrorLog('autoPublish', e);
+    console.error('[autoPublish] 콘텐츠 생성 실패:', e);
+    await saveErrorLog('autoPublish_콘텐츠생성', e);
+    return;
+  }
+
+  // ── 5단계: DB 저장 ──
+  var queueId;
+  try {
+    const comboId = topic.id + '__' + contentType.id;
+    const review = result.review || { total: 0, high: 0, medium: 0, status: 'clean' };
+    if (review.total > 0) {
+      console.log('[검수 완료] ' + review.total + '건 자동 치환 (의료법: ' + review.high + ', 과장광고: ' + review.medium + ')');
+    }
+
+    const geo = result.geoScore || { score: 0, details: {} };
+    const eeat = result.eeatScore || { score: 0, details: {} };
+    if (geo.score || eeat.score) {
+      console.log('[품질] GEO: ' + geo.score + '/100, E-E-A-T: ' + eeat.score + '/100');
+    }
+
+    const inserted = await contentQueue.add({
+      combo_id: comboId,
+      topic_id: topic.id,
+      topic_name: topic.name,
+      content_type_id: contentType.id,
+      content_type_name: contentType.name,
+      title: result.title,
+      slug: result.slug,
+      content: result.content,
+      excerpt: result.excerpt,
+      meta_description: result.metaDescription,
+      category: result.category || topic.name,
+      tags: result.tags || [],
+      hero_image_url: (result.heroImage && result.heroImage.url) ? result.heroImage.url : null,
+      schemas: result.schemas || null,
+      faq: result.faq || null,
+      review_status: review.status,
+      review_fixes: review.total,
+      geo_score: geo.score || 0,
+      eeat_score: eeat.score || 0,
+      geo_details: geo.details || {},
+      eeat_details: eeat.details || {},
+      status: 'pending',
+      is_test: isTest,
+    });
+
+    queueId = (inserted && inserted[0] && inserted[0].id) ? inserted[0].id : null;
+    console.log((isTest ? '[테스트] ' : '') + 'Queued: ' + result.title + ' (ID: ' + queueId + ')');
+  } catch (e) {
+    console.error('[autoPublish] DB 저장 실패:', e);
+    await saveErrorLog('autoPublish_DB저장', e);
+    return;
+  }
+
+  // ── 6단계: 발행 로그 기록 ──
+  try {
+    const comboId = topic.id + '__' + contentType.id;
+    await publishLogs.add({
+      queue_id: queueId,
+      combo_id: comboId,
+      topic_name: topic.name,
+      content_type_name: contentType.name,
+      title: result.title,
+      status: 'queued',
+      is_test: isTest,
+      created_at: new Date().toISOString(),
+    });
+  } catch (e) {
+    console.error('[autoPublish] 발행 로그 기록 실패:', e);
+    await saveErrorLog('autoPublish_로그기록', e);
+    // 로그 실패는 치명적이지 않으므로 계속 진행
+  }
+
+  // ── 7단계: 인덱스 업데이트 ──
+  try {
+    if (!isTest) {
+      const idxData = await settings.get('topicIndex');
+      let topicIdx = idxData ? parseInt(idxData) : 0;
+      const ctIdxData = await settings.get('contentTypeIndex');
+      let ctIdx = ctIdxData ? parseInt(ctIdxData) : 0;
+
+      if (publishMode === 'sequential') {
+        topicIdx = topicIdx + 1;
+        if (topicIdx >= allTopics.length) {
+          topicIdx = 0;
+          ctIdx = (ctIdx + 1) % CONTENT_TYPES.length;
+        }
+      } else if (publishMode === 'random') {
+        topicIdx = (topicIdx + 1) % allTopics.length;
+        ctIdx = (ctIdx + 1) % CONTENT_TYPES.length;
+      } else if (publishMode === 'balanced') {
+        ctIdx = (ctIdx + 1) % CONTENT_TYPES.length;
+      } else {
+        topicIdx = (topicIdx + 1) % allTopics.length;
+        ctIdx = (ctIdx + 1) % CONTENT_TYPES.length;
+      }
+      await settings.set('topicIndex', topicIdx);
+      await settings.set('contentTypeIndex', ctIdx);
+
+      // 개별 질환 지정이었으면 리셋
+      if (publish.nextTopic && !['auto','random','balanced','sequential'].includes(publish.nextTopic)) {
+        publish.nextTopic = 'auto';
+        await settings.set('publish', publish);
+      }
+    } else {
+      console.log('[테스트 발행] 인덱스 업데이트 건너뜀');
+    }
+  } catch (e) {
+    console.error('[autoPublish] 인덱스 업데이트 실패:', e);
+    await saveErrorLog('autoPublish_인덱스', e);
   }
 }
 
@@ -1428,12 +1473,12 @@ setInterval(function() {
 
 function jsonRes(res, data, status) {
   status = status || 200;
-  res.writeHead(status, { 'Content-Type': "application/json; charset=utf-8" });
+  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(data));
 }
 
 server.listen(PORT, function() {
-  console.log('[Server] 화접몽 GEO Auto-Publisher 실행 중 (Supabase DB)');
+  console.log('[Server] 화접몹 GEO Auto-Publisher 실행 중 (Supabase DB)');
   console.log('[Server] 대시보드: http://localhost:' + PORT + '/dashboard');
   console.log('[Server] 광고주: http://localhost:' + PORT + '/client');
   console.log('[Server] API: http://localhost:' + PORT + '/api/status');
