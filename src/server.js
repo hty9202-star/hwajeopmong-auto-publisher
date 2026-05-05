@@ -9,6 +9,7 @@
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import cron from 'node-cron';
 import { CONTENT_TYPES, BRAND } from './config.js';
@@ -612,6 +613,12 @@ const server = http.createServer(async function(req, res) {
     if (pathname === '/settings') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       return res.end(getHtml('settings.html'));
+    }
+
+    // === Admin API 인증 체크 (클라이언트 API 제외) ===
+    var isAdminApi = pathname.startsWith('/api/') && !pathname.startsWith('/api/admin/') && !pathname.startsWith('/api/client/');
+    if (isAdminApi && !verifyAdminToken(req)) {
+      return jsonRes(res, { error: '인증이 필요합니다' }, 401);
     }
 
     // API: Status
@@ -1524,9 +1531,8 @@ var CLIENT_TOKENS = new Map();
 var TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1시간
 
 function genToken() {
-  var t = ''; var ch = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  for (var i = 0; i < 32; i++) t += ch[Math.floor(Math.random() * ch.length)];
-  return t;
+  try { return crypto.randomBytes(24).toString('hex'); }
+  catch(e) { var t='';var ch='abcdefghijklmnopqrstuvwxyz0123456789';for(var i=0;i<48;i++)t+=ch[Math.floor(Math.random()*ch.length)];return t; }
 }
 function verifyToken(req) {
   var a = req.headers['authorization'];
