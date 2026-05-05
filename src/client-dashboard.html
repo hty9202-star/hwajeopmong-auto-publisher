@@ -264,6 +264,32 @@
     color: #fff;
   }
 
+  /* Date divider */
+  .date-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 20px 0 10px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #64748b;
+  }
+  .date-divider:first-child { margin-top: 0; }
+  .date-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e5e7e5;
+  }
+  .date-count {
+    font-size: 11px;
+    font-weight: 400;
+    background: #f1f5f1;
+    padding: 2px 8px;
+    border-radius: 10px;
+    color: #64748b;
+  }
+
   /* Content cards */
   .content-list { display: flex; flex-direction: column; gap: 16px; }
   .content-card {
@@ -1063,6 +1089,27 @@ function rejectContent(id, title) {
 }
 
 // Render
+function getDateLabel(dateStr) {
+  if (!dateStr) return '';
+  var d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  var today = new Date(); today.setHours(0,0,0,0);
+  var target = new Date(d); target.setHours(0,0,0,0);
+  var diff = Math.round((today - target) / 86400000);
+  var days = ['일','월','화','수','목','금','토'];
+  var label = (d.getMonth()+1) + '월 ' + d.getDate() + '일 (' + days[d.getDay()] + ')';
+  if (diff === 0) label += ' · 오늘';
+  else if (diff === 1) label += ' · 어제';
+  return label;
+}
+
+function getDateKey(dateStr) {
+  if (!dateStr) return 'unknown';
+  var d = new Date(dateStr);
+  if (isNaN(d.getTime())) return 'unknown';
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
 function renderContents() {
   const list = document.getElementById('contentList');
 
@@ -1073,38 +1120,54 @@ function renderContents() {
     return;
   }
 
-  list.innerHTML = allContents.map(c => {
-    const id = c.id || c._id;
-    const title = c.title || '제목 없음';
-    const topic = c.topic_name || c.topic || c.diseaseName || c.disease_name || '';
-    const contentType = c.content_type_name || c.contentType || c.content_type || c.type || '';
-    const created = formatDate(c.createdAt || c.created_at || c.date);
-    const status = c.status || 'pending';
-    const htmlContent = c.htmlContent || c.html_content || c.content || '';
-    const isPending = status === 'pending';
+  // Group by date
+  var grouped = {};
+  var dateOrder = [];
+  allContents.forEach(function(c) {
+    var raw = c.createdAt || c.created_at || c.date || '';
+    var key = getDateKey(raw);
+    if (!grouped[key]) { grouped[key] = { label: getDateLabel(raw), items: [] }; dateOrder.push(key); }
+    grouped[key].items.push(c);
+  });
 
-    return '<div class="content-card">' +
-      '<div class="card-main">' +
-        '<div class="card-info">' +
-          '<div class="card-title">' + escapeHtml(title) + '</div>' +
-          '<div class="card-meta">' +
-            '<span>' + created + '</span>' +
-            (topic ? '<span>' + escapeHtml(topic) + '</span>' : '') +
-            (contentType ? '<span>' + escapeHtml(contentType) + '</span>' : '') +
+  var html = '';
+  dateOrder.forEach(function(key) {
+    var group = grouped[key];
+    html += '<div class="date-divider">' + group.label + ' <span class="date-count">' + group.items.length + '건</span></div>';
+    group.items.forEach(function(c) {
+      var id = c.id || c._id;
+      var title = c.title || '제목 없음';
+      var topic = c.topic_name || c.topic || c.diseaseName || c.disease_name || '';
+      var contentType = c.content_type_name || c.contentType || c.content_type || c.type || '';
+      var created = formatDate(c.createdAt || c.created_at || c.date);
+      var status = c.status || 'pending';
+      var htmlContent = c.htmlContent || c.html_content || c.content || '';
+      var isPending = status === 'pending';
+
+      html += '<div class="content-card">' +
+        '<div class="card-main">' +
+          '<div class="card-info">' +
+            '<div class="card-title">' + escapeHtml(title) + '</div>' +
+            '<div class="card-meta">' +
+              '<span>' + created + '</span>' +
+              (topic ? '<span>' + escapeHtml(topic) + '</span>' : '') +
+              (contentType ? '<span>' + escapeHtml(contentType) + '</span>' : '') +
+            '</div>' +
+          '</div>' +
+          '<div class="card-actions">' +
+            '<span class="badge ' + statusBadgeClass(status) + '">' + statusLabel(status) + '</span>' +
+            '<button class="btn btn-preview" onclick="togglePreview(\'' + id + '\')">미리보기</button>' +
+            (isPending ? '<button class="btn btn-approve" onclick="approveContent(\'' + id + '\', \'' + escapeAttr(title) + '\')">승인</button>' : '') +
+            (isPending ? '<button class="btn btn-reject" onclick="rejectContent(\'' + id + '\', \'' + escapeAttr(title) + '\')">반려</button>' : '') +
           '</div>' +
         '</div>' +
-        '<div class="card-actions">' +
-          '<span class="badge ' + statusBadgeClass(status) + '">' + statusLabel(status) + '</span>' +
-          '<button class="btn btn-preview" onclick="togglePreview(\'' + id + '\')">미리보기</button>' +
-          (isPending ? '<button class="btn btn-approve" onclick="approveContent(\'' + id + '\', \'' + escapeAttr(title) + '\')">승인</button>' : '') +
-          (isPending ? '<button class="btn btn-reject" onclick="rejectContent(\'' + id + '\', \'' + escapeAttr(title) + '\')">반려</button>' : '') +
+        '<div class="preview-panel" id="preview-' + id + '">' +
+          '<iframe class="preview-frame" srcdoc="' + escapeAttr(htmlContent) + '" sandbox="allow-same-origin" frameborder="0"></iframe>' +
         '</div>' +
-      '</div>' +
-      '<div class="preview-panel" id="preview-' + id + '">' +
-        '<iframe class="preview-frame" srcdoc="' + escapeAttr(htmlContent) + '" sandbox="allow-same-origin" frameborder="0"></iframe>' +
-      '</div>' +
-    '</div>';
-  }).join('');
+      '</div>';
+    });
+  });
+  list.innerHTML = html;
 }
 
 function escapeHtml(str) {
