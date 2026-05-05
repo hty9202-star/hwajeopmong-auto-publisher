@@ -92,6 +92,7 @@ export const TOPICS = [
     icd10: 'B07.8',
     pexelsQuery: 'skin care dermatology',
     description: 'HPV(인유두종바이러스)에 의해 발생하는 편평한 형태의 사마귀',
+    relatedTopics: ['keratosis-pilaris', 'folliculitis'],
   },
   {
     id: 'keratosis-pilaris',
@@ -104,6 +105,7 @@ export const TOPICS = [
     icd10: 'L85.8',
     pexelsQuery: 'skin texture smooth',
     description: '모낭 주위에 각질이 쌓여 닭살처럼 돌기가 생기는 피부 질환',
+    relatedTopics: ['flat-warts', 'folliculitis', 'atopic-dermatitis'],
   },
   {
     id: 'folliculitis',
@@ -116,6 +118,7 @@ export const TOPICS = [
     icd10: 'L73.9',
     pexelsQuery: 'skin health care',
     description: '모낭(털주머니)에 염증이 생기는 피부 감염 질환',
+    relatedTopics: ['acne', 'seborrheic-dermatitis'],
   },
   {
     id: 'acne',
@@ -128,6 +131,7 @@ export const TOPICS = [
     icd10: 'L70.0',
     pexelsQuery: 'clear skin face care',
     description: '피지선의 과다 분비와 모공 막힘으로 발생하는 염증성 피부 질환',
+    relatedTopics: ['acne-scars', 'folliculitis', 'seborrheic-dermatitis'],
   },
   {
     id: 'atopic-dermatitis',
@@ -140,6 +144,7 @@ export const TOPICS = [
     icd10: 'L20',
     pexelsQuery: 'skin care natural remedy',
     description: '만성적으로 재발하는 가려움증과 습진을 동반하는 피부 질환',
+    relatedTopics: ['seborrheic-dermatitis', 'dyshidrosis', 'psoriasis'],
   },
   {
     id: 'acne-scars',
@@ -152,6 +157,7 @@ export const TOPICS = [
     icd10: 'L90.5',
     pexelsQuery: 'skin recovery healing',
     description: '여드름 염증 후 남은 흉터 및 색소 침착',
+    relatedTopics: ['acne', 'folliculitis'],
   },
   {
     id: 'psoriasis',
@@ -164,6 +170,7 @@ export const TOPICS = [
     icd10: 'L40',
     pexelsQuery: 'skin health dermatology',
     description: '피부 세포가 비정상적으로 빠르게 증식하여 은백색 비늘이 생기는 만성 피부 질환',
+    relatedTopics: ['atopic-dermatitis', 'seborrheic-dermatitis'],
   },
   {
     id: 'dyshidrosis',
@@ -176,6 +183,7 @@ export const TOPICS = [
     icd10: 'L30.1',
     pexelsQuery: 'hand care skin',
     description: '손바닥, 손가락, 발바닥에 작은 물집이 생기는 습진성 피부 질환',
+    relatedTopics: ['atopic-dermatitis', 'psoriasis'],
   },
   {
     id: 'diet',
@@ -200,6 +208,7 @@ export const TOPICS = [
     icd10: 'L21',
     pexelsQuery: 'scalp care healthy hair',
     description: '피지 분비가 많은 부위에 발생하는 만성 염증성 피부 질환',
+    relatedTopics: ['acne', 'folliculitis', 'atopic-dermatitis'],
   },
 ];
 

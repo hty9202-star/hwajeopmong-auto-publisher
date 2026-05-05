@@ -13,7 +13,7 @@
  * - 가짜인용 제거 + 의료 면책 조항
  */
 
-import { BRAND, AI_CONFIG, CONTENT_TYPES } from './config.js';
+import { BRAND, AI_CONFIG, CONTENT_TYPES, TOPICS } from './config.js';
 import { generateSchemas } from './schema-generator.js';
 import { readFileSync, readdirSync, existsSync } from 'fs';
 import { join } from 'path';
@@ -110,6 +110,104 @@ ${samples.map((s, i) => `--- 샘플 ${i + 1} ---\n${s}`).join('\n\n')}
     console.error('레퍼런스 로딩 실패:', e.message);
     return '';
   }
+}
+
+// ─── 홈페이지 실시간 참조 시스템 ───
+const HOMEPAGE_URLS = [
+  'https://www.mongclinic.com/',
+  'https://www.mongclinic.com/index.php/html/7',
+  'https://www.mongclinic.com/index.php/html/10',
+  'https://www.mongclinic.com/index.php/html/13',
+  'https://www.mongclinic.com/index.php/html/16',
+  'https://www.mongclinic.com/index.php/html/132',
+];
+const HOMEPAGE_CACHE = { data: null, fetchedAt: 0 };
+const HOMEPAGE_CACHE_TTL = 6 * 60 * 60 * 1000; // 6시간 캐시
+
+async function fetchHomepageContent() {
+  // 캐시가 유효하면 재사용
+  if (HOMEPAGE_CACHE.data && (Date.now() - HOMEPAGE_CACHE.fetchedAt) < HOMEPAGE_CACHE_TTL) {
+    return HOMEPAGE_CACHE.data;
+  }
+
+  const results = [];
+  for (const url of HOMEPAGE_URLS) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'HwajeopmongBot/1.0 (content-generator)' },
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      if (!res.ok) continue;
+      const html = await res.text();
+
+      // HTML → 텍스트 추출 (태그 제거, 스크립트/스타일 제거)
+      const cleaned = html
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<nav[\s\S]*?<\/nav>/gi, '')
+        .replace(/<footer[\s\S]*?<\/footer>/gi, '')
+        .replace(/<header[\s\S]*?<\/header>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (cleaned.length > 100) {
+        results.push(cleaned.substring(0, 1500));
+      }
+    } catch (e) {
+      console.log(`[홈페이지 크롤링] ${url} 실패: ${e.message}`);
+    }
+  }
+
+  if (results.length === 0) return '';
+
+  const content = `
+[홈페이지 실시간 참조 - 아래는 화접몽한의원 공식 홈페이지에서 가져온 최신 정보입니다]
+${results.map((r, i) => `--- 페이지 ${i + 1} ---\n${r}`).join('\n\n')}
+--- 홈페이지 참조 끝 ---
+
+[홈페이지 참조 활용 지침]
+- 홈페이지에 명시된 진료 과목, 치료법, 원장 소개 정보를 정확하게 반영하세요
+- 홈페이지에 없는 치료법이나 서비스를 임의로 만들어내지 마세요
+- 연락처, 위치, 진료시간 등 팩트 정보는 홈페이지 내용을 그대로 사용하세요
+- 홈페이지 문구를 그대로 복사하지 말고, 자연스럽게 재구성하세요
+`;
+
+  HOMEPAGE_CACHE.data = content;
+  HOMEPAGE_CACHE.fetchedAt = Date.now();
+  return content;
+}
+
+// ─── 관련 토픽 정보 로딩 ───
+function getRelatedTopicsInfo(currentTopic) {
+  if (!currentTopic.relatedTopics || currentTopic.relatedTopics.length === 0) return '';
+
+  const relatedDetails = currentTopic.relatedTopics
+    .map(id => TOPICS.find(t => t.id === id))
+    .filter(Boolean)
+    .map(t => `- ${t.name}: ${t.description}`);
+
+  if (relatedDetails.length === 0) return '';
+
+  return `
+[관련 질환 정보 - 화접몽한의원에서 함께 치료하는 연관 질환]
+현재 토픽: ${currentTopic.name}
+관련 질환:
+${relatedDetails.join('\n')}
+
+[활용 지침]
+- 콘텐츠 본문에서 관련 질환도 화접몽한의원에서 치료 가능함을 자연스럽게 1-2회 언급하세요
+- "여드름뿐 아니라 여드름흉터 치료도 함께 진행합니다" 같은 자연스러운 연결
+- 관련 질환을 주제로 삼지 말고, 현재 토픽에 집중하되 맥락적으로만 언급하세요
+`;
 }
 
 // ─── 의료법 준수 규칙 ───
@@ -328,6 +426,8 @@ ${existingTitles.map(t => `- "${t}"`).join('\n')}
 // ─── Stage 3: 프로덕션 AI (핵심) ───
 async function stageProduction(apiKey, topic, contentType, strategy) {
   const referenceContent = loadReferenceContent();
+  const homepageContent = await fetchHomepageContent();
+  const relatedInfo = getRelatedTopicsInfo(topic);
   const treatment = TREATMENT_MAP[topic.id] || { name: '한방 맞춤 치료', desc: '체질 진단 기반 맞춤형 한방 치료' };
   const writingStyle = pickRandom(WRITING_STYLES);
   const introStyle = pickRandom(INTRO_STYLES);
@@ -385,6 +485,10 @@ ${introStyle}
 ${caseStudySafety}
 
 반드시 JSON 형식으로만 응답하세요.
+
+${relatedInfo}
+
+${homepageContent}
 
 ${referenceContent}`;
 
