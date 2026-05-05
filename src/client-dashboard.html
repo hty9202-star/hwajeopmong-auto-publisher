@@ -236,6 +236,33 @@
     color: #fff;
     border-color: #2D5A27;
   }
+  .filter-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 4px;
+    background: #e5e7e5;
+    color: #555;
+  }
+  .filter-tab.active .filter-badge {
+    background: rgba(255,255,255,0.25);
+    color: #fff;
+  }
+  .badge-warning { background: #fef3cd; color: #856404; }
+  .badge-success { background: #d4edda; color: #155724; }
+  .badge-danger { background: #f8d7da; color: #721c24; }
+  .filter-tab.active .badge-warning,
+  .filter-tab.active .badge-success,
+  .filter-tab.active .badge-danger {
+    background: rgba(255,255,255,0.25);
+    color: #fff;
+  }
 
   /* Content cards */
   .content-list { display: flex; flex-direction: column; gap: 16px; }
@@ -318,6 +345,29 @@
   }
   .btn-reject:hover { background: #fef2f2; }
   .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-loading {
+    position: relative;
+    color: transparent !important;
+    pointer-events: none;
+  }
+  .btn-loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 14px;
+    height: 14px;
+    margin: -7px 0 0 -7px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: btnSpin 0.6s linear infinite;
+  }
+  .btn-reject.btn-loading::after {
+    border-color: rgba(185,28,28,0.3);
+    border-top-color: #b91c1c;
+  }
+  @keyframes btnSpin { to { transform: rotate(360deg); } }
 
   /* Preview panel */
   .preview-panel {
@@ -761,10 +811,10 @@
     </div>
 
     <div class="filter-tabs">
-      <button class="filter-tab active" data-filter="all" onclick="setFilter('all', this)">전체</button>
-      <button class="filter-tab" data-filter="pending" onclick="setFilter('pending', this)">대기중</button>
-      <button class="filter-tab" data-filter="approved" onclick="setFilter('approved', this)">승인완료</button>
-      <button class="filter-tab" data-filter="rejected" onclick="setFilter('rejected', this)">반려</button>
+      <button class="filter-tab active" data-filter="all" onclick="setFilter('all', this)">전체 <span class="filter-badge" id="badgeAll"></span></button>
+      <button class="filter-tab" data-filter="pending" onclick="setFilter('pending', this)">대기중 <span class="filter-badge badge-warning" id="badgePending"></span></button>
+      <button class="filter-tab" data-filter="approved" onclick="setFilter('approved', this)">승인완료 <span class="filter-badge badge-success" id="badgeApproved"></span></button>
+      <button class="filter-tab" data-filter="rejected" onclick="setFilter('rejected', this)">반려 <span class="filter-badge badge-danger" id="badgeRejected"></span></button>
     </div>
 
     <div id="contentList" class="content-list">
@@ -843,9 +893,18 @@ function closeModal() {
   document.getElementById('confirmModal').classList.remove('open');
   pendingAction = null;
 }
-function confirmAction() {
-  if (pendingAction) pendingAction();
-  closeModal();
+async function confirmAction() {
+  if (!pendingAction) return;
+  var btn = document.getElementById('modalConfirmBtn');
+  btn.classList.add('btn-loading');
+  btn.disabled = true;
+  try {
+    await pendingAction();
+  } finally {
+    btn.classList.remove('btn-loading');
+    btn.disabled = false;
+    closeModal();
+  }
 }
 
 // Logout
@@ -959,7 +1018,7 @@ function togglePreview(id) {
 function approveContent(id, title) {
   openModal(
     '콘텐츠 승인',
-    '"' + title + '" 콘텐츠를 승인한시겠습니까?',
+    '"' + title + '" 콘텐츠를 승인하시겠습니까?',
     '승인',
     'btn-approve',
     async () => {
@@ -1065,6 +1124,12 @@ function updateStats(counts) {
   document.getElementById('statRejected').textContent = (counts.rejected || 0) + '건';
   var bellDot = document.getElementById('bellDot');
   if (bellDot) { bellDot.className = 'header-bell-dot' + ((counts.pending || 0) > 0 ? ' show' : ''); }
+  // Filter badge counts
+  var total = (counts.pending || 0) + (counts.approved || 0) + (counts.rejected || 0);
+  document.getElementById('badgeAll').textContent = total || '';
+  document.getElementById('badgePending').textContent = counts.pending || '';
+  document.getElementById('badgeApproved').textContent = counts.approved || '';
+  document.getElementById('badgeRejected').textContent = counts.rejected || '';
 }
 
 // Pagination renderer
