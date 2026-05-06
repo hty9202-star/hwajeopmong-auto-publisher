@@ -106,13 +106,20 @@ async function resolveNextTopic(allTopics) {
     return { topic: allTopics[randTopicIdx], contentType: CONTENT_TYPES[randCtIdx], mode: 'random' };
   }
   if (publishMode === 'balanced') {
-    const counts = {};
-    for (const t of allTopics) counts[t.id] = 0;
-    const allQueue = await contentQueue.getAll();
-    for (const item of (allQueue || [])) {
-      if (counts[item.topic_id] !== undefined) counts[item.topic_id]++;
+    const topicCounts = {};
+    for (const t of allTopics) topicCounts[t.id] = 0;
+    // 발행 기간이 설정된 경우 기간 내 콘텐츠만 카운트
+    let queueItems;
+    if (publish.startDate) {
+      const periodEnd = publish.endDate || '2099-12-31';
+      queueItems = await contentQueue.getByDateRange(publish.startDate, periodEnd);
+    } else {
+      queueItems = await contentQueue.getAll();
     }
-    const sorted = [...allTopics].sort(function(a, b) { return (counts[a.id] || 0) - (counts[b.id] || 0); });
+    for (const item of (queueItems || [])) {
+      if (!item.is_test && topicCounts[item.topic_id] !== undefined) topicCounts[item.topic_id]++;
+    }
+    const sorted = [...allTopics].sort(function(a, b) { return (topicCounts[a.id] || 0) - (topicCounts[b.id] || 0); });
     return { topic: sorted[0], contentType: CONTENT_TYPES[ctIdx % CONTENT_TYPES.length], mode: 'balanced' };
   }
   // auto / sequential
@@ -180,11 +187,21 @@ async function autoPublish(options) {
     console.log(bypassPeriodCheck ? '[재발행] 기간 체크 건너뜀' : '[테스트 발행] 기간 체크 건너뜀');
   }
 
-  // ── 2-2단계: 목표 콘텐츠 수 도달 체크 ──
+  // ── 2-2단계: 목표 콘텐츠 수 도달 체크 (기간 내 콘텐츠만 카운트) ──
   if (!isTest && !bypassPeriodCheck && publish.totalTarget) {
-    const counts = await contentQueue.getCounts();
-    if (counts.total >= publish.totalTarget) {
-      console.log('[목표 도달] 총 ' + counts.total + '/' + publish.totalTarget + '건 생성 완료. 발행 건너뜀.');
+    let periodCreatedCount = 0;
+    if (publish.startDate) {
+      const periodEnd = publish.endDate || '2099-12-31';
+      const periodQueue = await contentQueue.getByDateRange(publish.startDate, periodEnd);
+      periodCreatedCount = (periodQueue || []).filter(function(item) {
+        return item.status !== 'rejected' && !item.is_test;
+      }).length;
+    } else {
+      const counts = await contentQueue.getCounts();
+      periodCreatedCount = counts.total;
+    }
+    if (periodCreatedCount >= publish.totalTarget) {
+      console.log('[목표 도달] 기간 내 ' + periodCreatedCount + '/' + publish.totalTarget + '건 생성 완료. 발행 건너뜀.');
       return;
     }
   }
