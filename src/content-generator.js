@@ -528,7 +528,8 @@ ${faqInstruction}
 - references 필드는 포함하지 마세요 (가짜 인용 방지)
 - ${topic.name} 토픽에 깊이 집중하세요: 원인, 증상, 치료, 관리법 등을 구체적이고 실질적으로 다루세요
 - 기존 콘텐츠와 차별화: 새로운 비유, 예시, 표현을 적극 활용하세요
-- 언어 규칙: 전체 콘텐츠를 반드시 한국어로만 작성하세요. 영어 문장이나 영어 표현을 섞지 마세요. 의학 용어 영문 병기만 예외적으로 허용됩니다.`;
+- 언어 규칙: 전체 콘텐츠를 반드시 한국어로만 작성하세요. 영어 문장이나 영어 표현을 섞지 마세요. 의학 용어 영문 병기만 예외적으로 허용됩니다.
+- 지역 키워드 반영: 본문 중 자연스러운 문맥에서 "강남 ${BRAND.name}에서는", "역삼역 ${BRAND.name}" 등의 표현을 1~2회만 녹여주세요. 억지로 키워드를 나열하지 말고, 치료 설명이나 사례 소개 흐름 속에서 자연스럽게 언급하세요.`;
 
   const result = await callGemini(apiKey, systemPrompt, userPrompt, {
     maxTokens: 8192,
@@ -856,6 +857,27 @@ function reviewContent(html, title) {
 }
 
 
+// ─── 소제목 앞 단락 여백 추가 (가독성 향상) ───
+function addHeadingSpacing(html) {
+  if (!html) return html;
+  // <h2>, <h3> 태그 앞에 margin-top 스타일 추가 (이미 style 속성이 있으면 병합)
+  html = html.replace(/<h2(\s*)(>|(\s[^>]*)>)/g, function(match, space, rest, attrs) {
+    if (attrs && attrs.includes('margin-top')) return match;
+    if (attrs && attrs.includes('style="')) {
+      return match.replace('style="', 'style="margin-top:2.5em; ');
+    }
+    return '<h2 style="margin-top:2.5em"' + (attrs || '') + '>';
+  });
+  html = html.replace(/<h3(\s*)(>|(\s[^>]*)>)/g, function(match, space, rest, attrs) {
+    if (attrs && attrs.includes('margin-top')) return match;
+    if (attrs && attrs.includes('style="')) {
+      return match.replace('style="', 'style="margin-top:1.8em; ');
+    }
+    return '<h3 style="margin-top:1.8em"' + (attrs || '') + '>';
+  });
+  return html;
+}
+
 // ─── 제목 후처리 (괄호 내용 제거) ───
 function cleanTitle(title) {
   // 괄호와 그 안의 내용을 제거
@@ -907,6 +929,9 @@ export async function generateContent(env, topic, contentType, options = {}) {
 
   // 콘텐츠 조립
   let finalContent = cleanedProduction.content;
+
+  // 소제목 앞 단락 여백 추가 (가독성 향상)
+  finalContent = addHeadingSpacing(finalContent);
 
   // AI 콘텐츠 자동 검수 (의료법 위반 + 과장 광고 체크 및 자동 치환)
   const reviewResult = reviewContent(finalContent, cleanedProduction.title);
