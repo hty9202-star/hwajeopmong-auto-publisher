@@ -731,35 +731,38 @@ const server = http.createServer(async function(req, res) {
           lastTrackTime: lastCitationTrackTime,
           nextTrackTime: (function() {
             try {
-              var now = new Date();
-              var kst = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
-              var next = new Date(kst);
-              next.setHours(6, 0, 0, 0);
+              // KST 기준으로 계산 (UTC+9)
+              var nowMs = Date.now() + 9 * 60 * 60 * 1000;
+              var kst = new Date(nowMs);
+              var kstH = kst.getUTCHours();
+              var kstDay = kst.getUTCDay();
+              var kstDate = kst.getUTCDate();
+              // 다음 실행 시각: KST 06:00 = UTC 21:00 (전날)
+              var next = new Date(Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate(), 6, 0, 0));
+              // next는 UTC 기준 KST날짜 06:00 → 실제 UTC로 변환하려면 -9시간
               var freq = ((citationCronJob || {})._freq) || 'daily';
               if (freq === 'daily') {
-                if (next <= kst) next.setDate(next.getDate() + 1);
+                if (kstH >= 6) next.setUTCDate(next.getUTCDate() + 1);
               } else if (freq === 'weekly') {
-                // 매주 월요일
-                var day = kst.getDay();
-                var daysUntilMon = (1 - day + 7) % 7 || 7;
-                if (day === 1 && kst.getHours() < 6) daysUntilMon = 0;
-                next.setDate(kst.getDate() + daysUntilMon);
+                // 매주 월요일 06:00 KST
+                var daysUntilMon = (1 - kstDay + 7) % 7 || 7;
+                if (kstDay === 1 && kstH < 6) daysUntilMon = 0;
+                next.setUTCDate(kst.getUTCDate() + daysUntilMon);
               } else if (freq === 'biweekly') {
-                // 1일, 15일
-                var d = kst.getDate();
-                if (d < 1 || (d === 1 && kst.getHours() < 6)) { next.setDate(1); }
-                else if (d < 15 || (d === 15 && kst.getHours() < 6)) { next.setDate(15); }
-                else { next.setMonth(next.getMonth() + 1); next.setDate(1); }
+                if (kstDate < 1 || (kstDate === 1 && kstH < 6)) { next.setUTCDate(1); }
+                else if (kstDate < 15 || (kstDate === 15 && kstH < 6)) { next.setUTCDate(15); }
+                else { next.setUTCMonth(next.getUTCMonth() + 1); next.setUTCDate(1); }
               } else if (freq === 'monthly') {
-                // 매월 1일
-                if (kst.getDate() > 1 || (kst.getDate() === 1 && kst.getHours() >= 6)) {
-                  next.setMonth(next.getMonth() + 1);
+                if (kstDate > 1 || (kstDate === 1 && kstH >= 6)) {
+                  next.setUTCMonth(next.getUTCMonth() + 1);
                 }
-                next.setDate(1);
+                next.setUTCDate(1);
               } else {
-                if (next <= kst) next.setDate(next.getDate() + 1);
+                if (kstH >= 6) next.setUTCDate(next.getUTCDate() + 1);
               }
-              return next.toISOString();
+              // next는 KST 시각 → UTC로 변환 (-9시간)
+              var utcNext = new Date(next.getTime() - 9 * 60 * 60 * 1000);
+              return utcNext.toISOString();
             } catch(e) { return null; }
           })(),
           latestScores: await (async function() {
