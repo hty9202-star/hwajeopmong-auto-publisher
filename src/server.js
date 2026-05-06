@@ -1221,6 +1221,51 @@ const server = http.createServer(async function(req, res) {
       return jsonRes(res, results || []);
     }
 
+    // POST: API 키 연결 테스트
+    if (pathname === '/api/citation-test-key' && method === 'POST') {
+      try {
+        const parsed = await parseBody(req);
+        var testModel = parsed.model;
+        var testKey = parsed.apiKey;
+        if (!testModel || !testKey) return jsonRes(res, { success: false, error: 'model과 apiKey 필수' }, 400);
+
+        var testQuestion = '안녕하세요, 연결 테스트입니다. 짧게 답변해주세요.';
+        if (testModel === 'chatgpt') {
+          var tResp = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + testKey },
+            body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: testQuestion }], max_tokens: 50 }),
+          });
+          var tData = await tResp.json();
+          if (tData.error) return jsonRes(res, { success: false, error: tData.error.message || 'API 키 오류' });
+          return jsonRes(res, { success: true, model: 'ChatGPT' });
+        } else if (testModel === 'claude') {
+          var clResp = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-api-key': testKey, 'anthropic-version': '2023-06-01' },
+            body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 50, messages: [{ role: 'user', content: testQuestion }] }),
+          });
+          var clData = await clResp.json();
+          if (clData.error) return jsonRes(res, { success: false, error: clData.error.message || 'API 키 오류' });
+          return jsonRes(res, { success: true, model: 'Claude' });
+        } else if (testModel === 'gemini') {
+          var gKey = env.GEMINI_API_KEY;
+          if (!gKey) return jsonRes(res, { success: false, error: 'Gemini API 키 미설정 (서버 환경변수)' });
+          var gResp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + gKey, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: testQuestion }] }] }),
+          });
+          var gData = await gResp.json();
+          if (gData.error) return jsonRes(res, { success: false, error: gData.error.message || 'API 키 오류' });
+          return jsonRes(res, { success: true, model: 'Gemini' });
+        }
+        return jsonRes(res, { success: false, error: '알 수 없는 모델: ' + testModel }, 400);
+      } catch (e) {
+        return jsonRes(res, { success: false, error: e.message || '연결 실패' });
+      }
+    }
+
     // POST: 인용 추적 실행
     if (pathname === '/api/citation-track' && method === 'POST') {
       try {
