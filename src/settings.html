@@ -143,9 +143,9 @@ body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-s
 <div style="border-top:1px solid #e5e7eb;padding-top:14px">
   <div class="setting-label" style="margin-bottom:10px">AI 모델 API 키</div>
   <div style="display:flex;flex-direction:column;gap:10px">
-    <div style="display:flex;align-items:center;gap:8px"><label style="min-width:90px;font-size:13px;color:#555">ChatGPT</label><input type="password" id="citChatgptKey" placeholder="sk-..." autocomplete="one-time-code" name="cit-chatgpt-nofill" style="flex:1;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;outline:none"><button onclick="testApiKey('chatgpt')" class="btn-test" style="padding:5px 12px;font-size:11px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;white-space:nowrap">테스트</button><span id="citChatgptBadge" style="font-size:11px;padding:3px 10px;border-radius:6px;font-weight:500;white-space:nowrap"></span></div>
-    <div style="display:flex;align-items:center;gap:8px"><label style="min-width:90px;font-size:13px;color:#555">Gemini</label><input type="text" id="citGeminiKey" disabled value="(서버 설정됨)" autocomplete="off" style="flex:1;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;background:#f1f5f9;color:#888;outline:none"><button onclick="testApiKey('gemini')" class="btn-test" style="padding:5px 12px;font-size:11px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;white-space:nowrap">테스트</button><span id="citGeminiBadge" style="font-size:11px;padding:3px 10px;border-radius:6px;font-weight:500;white-space:nowrap"></span></div>
-    <div style="display:flex;align-items:center;gap:8px"><label style="min-width:90px;font-size:13px;color:#555">Claude</label><input type="password" id="citClaudeKey" placeholder="sk-ant-..." autocomplete="one-time-code" name="cit-claude-nofill" style="flex:1;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;outline:none"><button onclick="testApiKey('claude')" class="btn-test" style="padding:5px 12px;font-size:11px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;white-space:nowrap">테스트</button><span id="citClaudeBadge" style="font-size:11px;padding:3px 10px;border-radius:6px;font-weight:500;white-space:nowrap"></span></div>
+    <div style="display:flex;align-items:center;gap:8px"><label style="min-width:90px;font-size:13px;color:#555">ChatGPT</label><input type="password" id="citChatgptKey" placeholder="sk-..." autocomplete="one-time-code" name="cit-chatgpt-nofill" style="flex:1;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;outline:none"><button onclick="connectApiKey('chatgpt')" style="padding:5px 14px;font-size:11px;border:none;border-radius:6px;background:#E3002B;color:#fff;cursor:pointer;white-space:nowrap;font-weight:600">연결</button><span id="citChatgptBadge" style="font-size:11px;padding:3px 10px;border-radius:6px;font-weight:500;white-space:nowrap"></span></div>
+    <div style="display:flex;align-items:center;gap:8px"><label style="min-width:90px;font-size:13px;color:#555">Gemini</label><input type="text" id="citGeminiKey" disabled value="(서버 설정됨)" autocomplete="off" style="flex:1;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;background:#f1f5f9;color:#888;outline:none"><button onclick="connectApiKey('gemini')" style="padding:5px 14px;font-size:11px;border:none;border-radius:6px;background:#E3002B;color:#fff;cursor:pointer;white-space:nowrap;font-weight:600">연결</button><span id="citGeminiBadge" style="font-size:11px;padding:3px 10px;border-radius:6px;font-weight:500;white-space:nowrap"></span></div>
+    <div style="display:flex;align-items:center;gap:8px"><label style="min-width:90px;font-size:13px;color:#555">Claude</label><input type="password" id="citClaudeKey" placeholder="sk-ant-..." autocomplete="one-time-code" name="cit-claude-nofill" style="flex:1;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;outline:none"><button onclick="connectApiKey('claude')" style="padding:5px 14px;font-size:11px;border:none;border-radius:6px;background:#E3002B;color:#fff;cursor:pointer;white-space:nowrap;font-weight:600">연결</button><span id="citClaudeBadge" style="font-size:11px;padding:3px 10px;border-radius:6px;font-weight:500;white-space:nowrap"></span></div>
   </div>
 </div>
 </div>
@@ -555,28 +555,30 @@ function updateCitBadges(){
   });
 }
 
-async function testApiKey(model){
+async function connectApiKey(model){
   const badgeMap={gemini:'citGeminiBadge',chatgpt:'citChatgptBadge',claude:'citClaudeBadge'};
   const keyMap={gemini:'citGeminiKey',chatgpt:'citChatgptKey',claude:'citClaudeKey'};
   const badge=document.getElementById(badgeMap[model]);
   const keyEl=document.getElementById(keyMap[model]);
   var apiKey=model==='gemini'?'server':keyEl.value.trim();
-  if(model!=='gemini'&&!apiKey){badge.textContent='키 입력 필요';badge.style.background='#fee2e2';badge.style.color='#991b1b';badge.dataset.verified='';return;}
-  // 먼저 저장 (키를 서버에 보내야 테스트 가능)
-  if(model!=='gemini') await saveCitationSettings();
-  badge.textContent='테스트 중...';badge.style.background='#e0e7ff';badge.style.color='#3730a3';badge.dataset.verified='';
+  if(model!=='gemini'&&!apiKey){badge.textContent='키를 입력하세요';badge.style.background='#fee2e2';badge.style.color='#991b1b';badge.dataset.verified='';return;}
+  badge.textContent='연결 중...';badge.style.background='#e0e7ff';badge.style.color='#3730a3';badge.dataset.verified='';
   try{
+    // 1. 키 저장
+    if(model!=='gemini') await saveCitationSettings();
+    // 2. 실제 API 호출로 연결 확인
     const res=await fetch('/api/citation-test-key',{method:'POST',headers:authHeaders({'Content-Type':'application/json'}),body:JSON.stringify({model:model,apiKey:apiKey})});
     const data=await res.json();
     if(data.success){
       badge.textContent='연결됨';badge.style.background='#dcfce7';badge.style.color='#166534';badge.dataset.verified='true';
+      showToast(data.model+' 연결 성공','success');
     }else{
       badge.textContent='연결 실패';badge.style.background='#fee2e2';badge.style.color='#991b1b';badge.dataset.verified='';
       showToast(data.error||'연결 실패','error');
     }
   }catch(e){
-    badge.textContent='오류';badge.style.background='#fee2e2';badge.style.color='#991b1b';badge.dataset.verified='';
-    showToast('연결 테스트 실패: '+e.message,'error');
+    badge.textContent='연결 실패';badge.style.background='#fee2e2';badge.style.color='#991b1b';badge.dataset.verified='';
+    showToast('연결 실패: '+e.message,'error');
   }
 }
 
