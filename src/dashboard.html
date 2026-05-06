@@ -935,8 +935,23 @@
         } else {
           document.getElementById('nextPublishTime').textContent = status.nextPublishTime.date + ' ' + status.nextPublishTime.time;
           if (status.nextTopic) {
-            document.getElementById('nextTopic').textContent = status.nextTopic.topic.name;
-            document.getElementById('nextType').textContent = status.nextTopic.contentType.name;
+            var ntEl = document.getElementById('nextTopic');
+            var ntTypeEl = document.getElementById('nextType');
+            var mode = status.nextTopic.mode || '';
+            if (mode === 'random') {
+              ntEl.textContent = '랜덤 발행';
+              ntEl.style.color = '#8b5cf6';
+              ntTypeEl.textContent = '매 발행마다 토픽·유형 무작위 선택';
+            } else if (mode === 'balanced') {
+              ntEl.textContent = status.nextTopic.topic.name;
+              ntTypeEl.textContent = status.nextTopic.contentType.name + ' (균등분배)';
+            } else if (mode === 'manual') {
+              ntEl.textContent = status.nextTopic.topic.name;
+              ntTypeEl.textContent = status.nextTopic.contentType.name + ' (수동지정)';
+            } else {
+              ntEl.textContent = status.nextTopic.topic.name;
+              ntTypeEl.textContent = status.nextTopic.contentType.name;
+            }
           }
         }
         renderPeriodBanner(status.publishPeriod);
@@ -1790,10 +1805,7 @@
         if(v)v.textContent=freqLabels[p.publishFrequency]||'하루 5회';
         if(s){var ml={'auto':'자동','random':'랜덤','balanced':'균등분배','sequential':'질환별순서'};s.textContent=(daysLabels[p.publishDays]||'매일')+' \xb7 '+(ml[p.publishMode]||'자동');}
       }
-      var topicMap={'flat-warts':'편평사마귀','keratosis-pilaris':'모공각화증','folliculitis':'모낭염','acne':'여드름','atopic-dermatitis':'아토피','acne-scars':'여드름흉터','psoriasis':'건선','dyshidrosis':'한포진','diet':'다이어트','seborrheic-dermatitis':'지루성피부염'};
-      var nt=p.nextTopic||'auto';
-      var ntEl=document.getElementById('nextTopic');
-if(ntEl){var ml2={'auto':'자동','random':'랜덤','balanced':'균등분배','sequential':'질환별순서'};ntEl.textContent=['auto','random','balanced','sequential'].includes(nt)?ml2[p.publishMode||'auto']:topicMap[nt]||nt;}
+      // nextTopic 표시는 /api/status 응답에서 처리 (loadPublishSettings에서 덮어쓰지 않음)
     });
   }
   // ─── Report Tab ───
