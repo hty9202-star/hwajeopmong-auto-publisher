@@ -94,10 +94,13 @@ async function resolveNextTopic(allTopics) {
   const ctIdxData = await settings.get('contentTypeIndex');
   const ctIdx = ctIdxData ? parseInt(ctIdxData) : 0;
 
-  // 개별 질환 지정
-  if (publish.nextTopic && !['auto','random','balanced','sequential'].includes(publish.nextTopic)) {
-    const selected = allTopics.find(function(t) { return t.id === publish.nextTopic; });
-    if (selected) return { topic: selected, contentType: CONTENT_TYPES[ctIdx % CONTENT_TYPES.length], mode: 'manual' };
+  // 개별 질환/유형 지정
+  const manualTopic = publish.nextTopic && !['auto','random','balanced','sequential'].includes(publish.nextTopic);
+  const manualCT = publish.nextContentType && publish.nextContentType !== 'auto';
+  if (manualTopic || manualCT) {
+    const selectedTopic = manualTopic ? allTopics.find(function(t) { return t.id === publish.nextTopic; }) : allTopics[topicIdx % allTopics.length];
+    const selectedCT = manualCT ? (CONTENT_TYPES.find(function(ct) { return ct.id === publish.nextContentType; }) || CONTENT_TYPES[ctIdx % CONTENT_TYPES.length]) : CONTENT_TYPES[ctIdx % CONTENT_TYPES.length];
+    if (selectedTopic) return { topic: selectedTopic, contentType: selectedCT, mode: 'manual' };
   }
 
   if (publishMode === 'random') {
@@ -341,11 +344,17 @@ async function autoPublish(options) {
       await settings.set('topicIndex', topicIdx);
       await settings.set('contentTypeIndex', ctIdx);
 
-      // 개별 질환 지정이었으면 리셋
+      // 개별 질환/유형 지정이었으면 리셋
+      var needReset = false;
       if (publish.nextTopic && !['auto','random','balanced','sequential'].includes(publish.nextTopic)) {
         publish.nextTopic = 'auto';
-        await settings.set('publish', publish);
+        needReset = true;
       }
+      if (publish.nextContentType && publish.nextContentType !== 'auto') {
+        publish.nextContentType = 'auto';
+        needReset = true;
+      }
+      if (needReset) await settings.set('publish', publish);
     } else {
       console.log('[테스트 발행] 인덱스 업데이트 건너뜀');
     }
@@ -931,7 +940,7 @@ const server = http.createServer(async function(req, res) {
     // API: Get Settings
     if (pathname === '/api/settings' && method === 'GET') {
       const publishData = await settings.get('publish') || {};
-      const defaultPublish = { publishFrequency: '5', publishDays: 'everyday', publishMode: 'auto', totalTarget: 50, nextTopic: 'auto', imagesPerContent: 3 };
+      const defaultPublish = { publishFrequency: '5', publishDays: 'everyday', publishMode: 'auto', totalTarget: 50, nextTopic: 'auto', nextContentType: 'auto', imagesPerContent: 3 };
       var publishMerged = {};
       Object.keys(defaultPublish).forEach(function(k) { publishMerged[k] = defaultPublish[k]; });
       Object.keys(publishData).forEach(function(k) { publishMerged[k] = publishData[k]; });
@@ -940,7 +949,8 @@ const server = http.createServer(async function(req, res) {
       const topicsList = (allTopics || []).map(function(t) {
         return { id: t.id, name: t.name, category: t.category, keywords: t.keywords || [] };
       });
-      return jsonRes(res, { publish: publishMerged, topics: topicsList });
+      const ctList = CONTENT_TYPES.map(function(ct) { return { id: ct.id, name: ct.name }; });
+      return jsonRes(res, { publish: publishMerged, topics: topicsList, contentTypes: ctList });
     }
 
     // API: Save Settings
