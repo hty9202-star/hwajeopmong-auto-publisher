@@ -121,10 +121,20 @@ ${samples.map((s, i) => `--- 샘플 ${i + 1} ---\n${s}`).join('\n\n')}
 const HOMEPAGE_URLS = [
   'https://www.mongclinic.com/',
   'https://www.mongclinic.com/index.php/html/7',
+  'https://www.mongclinic.com/index.php/html/9',
+  'https://www.mongclinic.com/index.php/html/88',
+  'https://www.mongclinic.com/index.php/html/120',
   'https://www.mongclinic.com/index.php/html/10',
+  'https://www.mongclinic.com/index.php/html/122',
+  'https://www.mongclinic.com/index.php/html/130',
   'https://www.mongclinic.com/index.php/html/13',
+  'https://www.mongclinic.com/index.php/html/12',
+  'https://www.mongclinic.com/index.php/html/14',
+  'https://www.mongclinic.com/index.php/html/15',
   'https://www.mongclinic.com/index.php/html/16',
   'https://www.mongclinic.com/index.php/html/132',
+  'https://www.mongclinic.com/index.php/html/133',
+  'https://www.mongclinic.com/index.php/board/list/column/27',
 ];
 const HOMEPAGE_CACHE = { data: null, fetchedAt: 0 };
 const HOMEPAGE_CACHE_TTL = 6 * 60 * 60 * 1000; // 6시간 캐시
@@ -136,7 +146,32 @@ async function fetchHomepageContent() {
   }
 
   const results = [];
-  for (const url of HOMEPAGE_URLS) {
+  // 칼럼 게시판 개별 글 URL 수집
+  const allUrls = [...HOMEPAGE_URLS];
+  const columnListUrl = HOMEPAGE_URLS.find(u => u.includes('/board/list/column'));
+  if (columnListUrl) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 8000);
+      const listRes = await fetch(columnListUrl, {
+        headers: { 'User-Agent': 'HwajeopmongBot/1.0 (content-generator)' },
+        signal: ctrl.signal,
+      });
+      clearTimeout(t);
+      if (listRes.ok) {
+        const listHtml = await listRes.text();
+        // 칼럼 개별 글 링크 추출 (최근 5개)
+        const linkMatches = [...listHtml.matchAll(/href=["'](\/index\.php\/board\/view\/column\/\d+\/\d+)["']/gi)];
+        const columnUrls = linkMatches.slice(0, 5).map(m => `https://www.mongclinic.com${m[1]}`);
+        allUrls.push(...columnUrls);
+        console.log(`[홈페이지 크롤링] 칼럼 개별 글 ${columnUrls.length}건 추가`);
+      }
+    } catch (e) {
+      console.log(`[홈페이지 크롤링] 칼럼 목록 파싱 실패: ${e.message}`);
+    }
+  }
+
+  for (const url of allUrls) {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 8000);
@@ -149,13 +184,14 @@ async function fetchHomepageContent() {
       if (!res.ok) continue;
       const html = await res.text();
 
-      // HTML → 텍스트 추출 (태그 제거, 스크립트/스타일 제거)
+      // 이미지 alt 텍스트 보존 후 태그 제거
       const cleaned = html
         .replace(/<script[\s\S]*?<\/script>/gi, '')
         .replace(/<style[\s\S]*?<\/style>/gi, '')
         .replace(/<nav[\s\S]*?<\/nav>/gi, '')
         .replace(/<footer[\s\S]*?<\/footer>/gi, '')
         .replace(/<header[\s\S]*?<\/header>/gi, '')
+        .replace(/<img[^>]*alt=["']([^"']*)["'][^>]*>/gi, ' $1 ')
         .replace(/<[^>]+>/g, ' ')
         .replace(/&nbsp;/g, ' ')
         .replace(/&amp;/g, '&')
@@ -165,7 +201,7 @@ async function fetchHomepageContent() {
         .trim();
 
       if (cleaned.length > 100) {
-        results.push(cleaned.substring(0, 1500));
+        results.push(cleaned.substring(0, 1000));
       }
     } catch (e) {
       console.log(`[홈페이지 크롤링] ${url} 실패: ${e.message}`);
@@ -180,9 +216,10 @@ ${results.map((r, i) => `--- 페이지 ${i + 1} ---\n${r}`).join('\n\n')}
 --- 홈페이지 참조 끝 ---
 
 [홈페이지 참조 활용 지침]
-- 홈페이지에 명시된 진료 과목, 치료법, 원장 소개 정보를 정확하게 반영하세요
+- 홈페이지에 명시된 진료 과목, 치료법, 원장 소개, 질환 정보를 정확하게 반영하세요
 - 홈페이지에 없는 치료법이나 서비스를 임의로 만들어내지 마세요
 - 연락처, 위치, 진료시간 등 팩트 정보는 홈페이지 내용을 그대로 사용하세요
+- 칼럼 게시판의 전문 콘텐츠를 참고하여 깊이 있는 정보를 반영하세요
 - 홈페이지 문구를 그대로 복사하지 말고, 자연스럽게 재구성하세요
 `;
 
