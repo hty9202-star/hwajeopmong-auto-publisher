@@ -361,7 +361,7 @@ async function stageResearch(apiKey, topic, contentType) {
 
 질환: ${topic.name} (${topic.nameEn})
 콘텐츠 유형: ${contentType.name}
-기존 키워드: ${topic.keywords.join(', ')}
+기존 키워드: ${(topic.keywords || []).join(', ')}
 서브토픽: ${(topic.subtopics || []).length > 0 ? topic.subtopics.join(', ') : '없음'}
 
 [이번 콘텐츠의 관점/앵글]
