@@ -1168,7 +1168,7 @@ function renderContents() {
       html += '<div class="content-card">' +
         '<div class="card-main">' +
           '<div class="card-info">' +
-            '<div class="card-title">' + escapeHtml(title) + (republishedFrom ? ' <span class="badge-republish">재발행</span>' : '') + '</div>' +
+            '<div class="card-title">' + (c.is_test ? '<span style="display:inline-block;background:#94a3b8;color:#fff;font-size:11px;padding:1px 6px;border-radius:4px;margin-right:6px;vertical-align:middle">테스트</span>' : '') + escapeHtml(title) + (republishedFrom ? ' <span class="badge-republish">재발행</span>' : '') + '</div>' +
             '<div class="card-meta">' +
               '<span>' + created + '</span>' +
               (topic ? '<span>' + escapeHtml(topic) + '</span>' : '') +
