@@ -749,6 +749,7 @@ async function fetchPixabayImages(apiKey, query, count = 3) {
     return (data.hits || []).map((hit) => ({
       url: hit.webformatURL,
       alt: hit.tags || query,
+      tags: hit.tags || '',
       photographer: hit.user,
       photographerUrl: `https://pixabay.com/users/${hit.user}-${hit.user_id}/`,
       sourceUrl: hit.pageURL,
@@ -774,6 +775,7 @@ async function fetchUnsplashImages(apiKey, query, count = 3) {
     return (data.results || []).map((photo) => ({
       url: photo.urls.regular,
       alt: photo.alt_description || query,
+      tags: (photo.tags || []).map(t => t.title).join(', ') + ' ' + (photo.description || ''),
       photographer: photo.user.name,
       photographerUrl: photo.user.links.html,
       sourceUrl: photo.links.html,
@@ -799,6 +801,7 @@ async function fetchPexelsImages(apiKey, query, count = 3) {
     return data.photos.map((photo) => ({
       url: photo.src.large,
       alt: photo.alt || query,
+      tags: photo.alt || '',
       photographer: photo.photographer,
       photographerUrl: photo.photographer_url,
       sourceUrl: photo.url,
@@ -808,6 +811,40 @@ async function fetchPexelsImages(apiKey, query, count = 3) {
     console.error('Pexels API error:', error);
     return [];
   }
+}
+
+// ─── 부적절한 이미지 필터링 ───
+function isImageRelevant(image) {
+  // 서양 의료/병원 이미지를 걸러내는 블랙리스트 키워드
+  const blacklist = [
+    'hospital', 'iv ', 'iv-', 'infusion', 'drip', 'injection', 'syringe',
+    'surgery', 'surgeon', 'operating', 'stethoscope', 'ambulance',
+    'dental', 'dentist', 'tooth', 'teeth', 'orthodont',
+    'pill', 'pills', 'tablet', 'capsule', 'drug', 'pharmacy', 'pharmaceutical',
+    'vaccine', 'vaccination', 'blood test', 'x-ray', 'xray', 'mri', 'ct scan',
+    'wheelchair', 'crutch', 'bandage', 'gauze', 'cast',
+    'candy', 'sweet', 'sugar', 'chocolate', 'food', 'cook', 'recipe', 'meal',
+    'dandelion', 'flower', 'garden', 'forest', 'hiking',
+    'baby', 'infant', 'newborn', 'pregnant',
+    'dog', 'cat', 'pet', 'animal',
+    'saline', 'catheter', 'ventilator', 'oxygen mask', 'defibrillator',
+    'laboratory', 'microscope', 'test tube', 'specimen',
+    'cosmetic surgery', 'plastic surgery', 'botox', 'filler',
+    'salt lamp', 'candle', 'aroma', 'diffuser',
+    'model', 'fashion', 'makeup', 'lipstick', 'mascara',
+    'diy', 'homemade', 'craft',
+  ];
+
+  // alt, tags 텍스트를 합쳐서 검사
+  const textToCheck = `${image.alt || ''} ${image.tags || ''}`.toLowerCase();
+
+  for (const keyword of blacklist) {
+    if (textToCheck.includes(keyword)) {
+      console.log(`[이미지 필터] 제외: "${keyword}" 감지 → ${image.url}`);
+      return false;
+    }
+  }
+  return true;
 }
 
 // ─── 이미지 폴백 검색 (Pixabay → Unsplash → Pexels) ───
@@ -824,8 +861,10 @@ async function fetchImagesWithFallback(env, query, count = 3) {
     if (!src.key) continue;
     const needed = count - collected.length;
     console.log(`[이미지] ${src.name}에서 ${needed}장 검색: "${query}"`);
-    const result = await src.fn(src.key, query, needed);
-    collected = collected.concat(result);
+    const result = await src.fn(src.key, query, needed + 3); // 필터링 여유분 추가 요청
+    const filtered = result.filter(isImageRelevant);
+    console.log(`[이미지] ${src.name}: ${result.length}장 중 ${filtered.length}장 통과`);
+    collected = collected.concat(filtered);
   }
 
   if (collected.length > count) collected = collected.slice(0, count);
