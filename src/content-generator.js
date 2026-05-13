@@ -307,7 +307,7 @@ const TREATMENT_MAP = {
 
 // ─── Google Gemini API 호출 헬퍼 ───
 async function callGemini(apiKey, systemPrompt, userPrompt, options = {}) {
-  const FALLBACK_MODELS = [AI_CONFIG.model, 'gemini-2.5-flash'];
+  const FALLBACK_MODELS = [AI_CONFIG.model, 'gemini-2.5-flash-lite'];
   const MAX_RETRIES = 3;
   const RETRY_DELAYS = [5000, 15000, 30000];
 
@@ -615,11 +615,26 @@ ${faqInstruction}
 - 키워드 밀도: 제목에 포함된 핵심 단어(질환명, 치료법명 등)를 본문에서 각각 2~3회 이상 자연스럽게 반복 사용하세요. 예를 들어 제목에 "${topic.name}"이 있으면 본문 곳곳에서 "${topic.name}"을 자연스럽게 언급하세요. 단, 한 문단에 같은 키워드를 2번 이상 넣지는 마세요.`;
 
   const result = await callGemini(apiKey, systemPrompt, userPrompt, {
-    maxTokens: 8192,
+    maxTokens: 16384,
     temperature: 0.85,
   });
 
-  return JSON.parse(result);
+  try {
+    return JSON.parse(result);
+  } catch (e) {
+    // JSON이 잘린 경우 복구 시도
+    console.error('[Gemini] JSON 파싱 실패, 복구 시도:', e.message);
+    let fixed = result;
+    // 잘린 문자열 닫기
+    const openQuotes = (fixed.match(/"/g) || []).length;
+    if (openQuotes % 2 !== 0) fixed += '"';
+    // 닫히지 않은 중괄호/배열 닫기
+    const openBraces = (fixed.match(/\{/g) || []).length - (fixed.match(/\}/g) || []).length;
+    const openBrackets = (fixed.match(/\[/g) || []).length - (fixed.match(/\]/g) || []).length;
+    for (let i = 0; i < openBrackets; i++) fixed += ']';
+    for (let i = 0; i < openBraces; i++) fixed += '}';
+    return JSON.parse(fixed);
+  }
 }
 
 // ─── 이미지 검색어 다양화 (질환별 쿼리 풀) ───
