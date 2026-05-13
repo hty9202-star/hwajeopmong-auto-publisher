@@ -625,33 +625,33 @@ ${faqInstruction}
 // ─── 이미지 검색어 다양화 (질환별 쿼리 풀) ───
 // 주의: "herbal", "oriental", "wellness" 같은 모호한 키워드는 음식/소금램프 등 엉뚱한 결과를 반환함
 // 반드시 skin, clinic, doctor, patient, treatment 등 직접적 의료 키워드 사용
-// 키워드 규칙: [의료/클리닉] + [스킨케어 제품/적용] 혼합
-// 금지어: woman, man, girl 등 인물 중심어 (화보/자연배경 방지)
-// 필수어: clinic, white background, close up, product, bottle, jar, studio 등 환경 제한
+// 키워드 규칙: 의료 행위 + 스킨케어 적용 장면만 허용
+// 금지어: jar, bottle, product, studio, shelf, woman, man (엉뚱한 이미지 매칭 방지)
+// 필수어: dermatology, acupuncture, skin, cream, treatment, clinic 등 의료 맥락어
 const IMAGE_QUERY_POOLS = {
-  'flat-warts': ['dermatology clinic room', 'skin cream jar white background', 'acupuncture needle close up', 'skin ointment tube product', 'dermatologist gloves examination', 'skincare bottle product studio', 'hand cream applying close up'],
-  'plantar-warts': ['foot care cream product', 'podiatry clinic room', 'acupuncture needle foot close up', 'foot cream tube white background', 'medical foot examination gloves', 'foot care products studio', 'reflexology chart clinic'],
-  'genital-warts': ['doctor desk stethoscope', 'prescription medicine bottle', 'clinic consultation room interior', 'medical chart clipboard', 'skincare cream tube product', 'acupuncture needles tray', 'pharmacy medicine shelf'],
-  'warts-treatment': ['dermatology clinic equipment', 'acupuncture needle tray close up', 'skin cream product white background', 'medical examination room', 'ointment cream tube studio', 'skincare serum bottle dropper', 'doctor desk medical tools'],
-  'atopic-dermatitis': ['moisturizer cream jar product', 'body lotion bottle white background', 'skin cream applying arm close up', 'hypoallergenic skincare products', 'cream tube product studio', 'lotion pump bottle product', 'dermatology clinic shelf'],
-  'acne-treatment': ['facial cream product white background', 'skincare serum bottle dropper', 'face wash product studio', 'dermatology clinic mirror', 'acne cream tube close up', 'skincare products shelf organized', 'facial cleanser bottle product'],
-  'acne': ['facial cream product white background', 'skincare serum bottle dropper', 'face wash product studio', 'dermatology clinic mirror', 'acne cream tube close up', 'skincare products shelf organized', 'facial cleanser bottle product'],
-  'acne-scars': ['facial serum dropper bottle', 'dermatology treatment room', 'skin rejuvenation cream product', 'skincare ampoule bottle studio', 'facial cream jar white background', 'dermatologist tools tray', 'vitamin c serum bottle product'],
-  'urticaria': ['antihistamine medicine pills', 'skin cream tube product', 'allergy medicine bottle', 'dermatology clinic desk', 'soothing gel tube white background', 'calamine lotion bottle product', 'acupuncture needles close up tray'],
-  'psoriasis': ['scalp treatment shampoo bottle', 'dermatology ointment tube product', 'skin cream jar studio', 'medical examination dermatology', 'therapeutic cream white background', 'acupuncture scalp close up', 'medicated shampoo product bottle'],
-  'hair-loss': ['hair tonic bottle product', 'scalp treatment serum dropper', 'hair growth product studio', 'trichology clinic tools', 'hair care serum white background', 'scalp massage device product', 'minoxidil bottle product studio'],
-  'seborrheic-dermatitis': ['medicated shampoo bottle product', 'scalp treatment serum bottle', 'anti dandruff shampoo studio', 'dermatology scalp clinic', 'shampoo bottle white background', 'scalp care product dropper', 'hair care bottles shelf'],
-  'keratosis-pilaris': ['body exfoliant cream jar', 'body lotion pump bottle product', 'skin smoothing cream studio', 'moisturizer tube white background', 'body scrub jar product', 'urea cream tube product', 'body care products shelf'],
-  'folliculitis': ['antibacterial cream tube product', 'dermatology clinic tools', 'medicated body wash bottle', 'skin cleanser product studio', 'antiseptic gel bottle product', 'acupuncture therapy close up', 'medical cream white background'],
-  'dyshidrosis': ['hand cream tube product', 'hand moisturizer bottle studio', 'dermatology hand examination', 'hand care cream white background', 'barrier cream product close up', 'acupuncture hand close up', 'medicated hand cream product'],
-  'diet': ['healthy salad bowl top view', 'measuring tape flat lay', 'acupuncture abdomen close up', 'green juice glass studio', 'diet supplement bottle product', 'herbal tea cup overhead', 'weight scale flat lay'],
+  'flat-warts': ['dermatology skin examination', 'acupuncture treatment skin', 'applying cream on hand skin', 'dermatologist checking skin', 'skin treatment acupuncture needle', 'hand skin dermatology checkup'],
+  'plantar-warts': ['foot dermatology examination', 'acupuncture foot therapy', 'foot skin treatment cream', 'podiatrist examining foot', 'foot reflexology treatment', 'foot care dermatology'],
+  'genital-warts': ['dermatologist consultation office', 'acupuncture therapy treatment', 'medical consultation dermatology', 'doctor stethoscope clipboard', 'dermatology office interior', 'medical prescription writing'],
+  'warts-treatment': ['acupuncture needle treatment skin', 'dermatology skin procedure', 'applying ointment on skin', 'skin treatment dermatology room', 'acupuncture back therapy', 'dermatologist gloves examining'],
+  'atopic-dermatitis': ['applying moisturizer on arm', 'skin cream applying close up', 'dermatology eczema treatment', 'lotion applying on dry skin', 'moisturizing cream on skin', 'dermatologist examining arm'],
+  'acne-treatment': ['dermatology facial treatment', 'applying cream on face skin', 'facial skin dermatology', 'acne skin treatment close up', 'dermatologist facial examination', 'facial skincare treatment'],
+  'acne': ['dermatology facial treatment', 'applying cream on face skin', 'facial skin dermatology', 'acne skin treatment close up', 'dermatologist facial examination', 'facial skincare treatment'],
+  'acne-scars': ['facial dermatology treatment', 'skin rejuvenation treatment', 'applying serum on face', 'dermatologist facial procedure', 'facial skin treatment close up', 'skin care facial dermatology'],
+  'urticaria': ['skin allergy dermatology', 'applying cream on skin rash', 'dermatologist examining rash', 'acupuncture allergy treatment', 'skin inflammation treatment', 'dermatology allergy checkup'],
+  'psoriasis': ['scalp dermatology treatment', 'skin condition dermatology', 'applying ointment on skin', 'dermatologist examining scalp', 'acupuncture therapy scalp', 'chronic skin treatment dermatology'],
+  'hair-loss': ['scalp treatment trichology', 'scalp examination dermatology', 'hair growth treatment scalp', 'acupuncture scalp therapy', 'scalp massage treatment', 'trichology hair examination'],
+  'seborrheic-dermatitis': ['scalp dermatology examination', 'scalp treatment close up', 'medicated shampoo scalp', 'dermatologist scalp checkup', 'scalp care treatment', 'dandruff treatment dermatology'],
+  'keratosis-pilaris': ['arm skin dermatology', 'applying lotion on arm skin', 'skin exfoliation treatment', 'dermatologist examining arm', 'body skin treatment cream', 'moisturizing arm skin close up'],
+  'folliculitis': ['skin infection treatment dermatology', 'dermatologist skin examination', 'acupuncture therapy session', 'antibacterial skin treatment', 'skin hygiene dermatology', 'dermatology skin checkup'],
+  'dyshidrosis': ['hand dermatology examination', 'applying cream on hand', 'hand skin treatment close up', 'dermatologist examining hand', 'acupuncture hand therapy', 'hand eczema treatment'],
+  'diet': ['healthy food salad plate', 'acupuncture abdomen treatment', 'measuring tape weight loss', 'healthy green smoothie', 'yoga stretching exercise', 'herbal tea health drink'],
 };
 
 const IMAGE_GENERAL_POOL = [
-  'acupuncture needle close up tray', 'dermatology clinic examination room', 'skincare cream product white background',
-  'medical stethoscope desk', 'skin cream jar studio product', 'acupuncture treatment close up needle',
-  'skincare products bottles shelf organized', 'lotion bottle pump product studio', 'dermatologist medical tools',
-  'ointment tube cream product', 'clinic interior clean modern', 'serum dropper bottle skincare product',
+  'acupuncture needle treatment', 'dermatologist examining patient skin', 'applying cream on skin close up',
+  'dermatology examination room', 'acupuncture back treatment therapy', 'skin treatment dermatology clinic',
+  'dermatologist with stethoscope', 'applying lotion on skin', 'acupuncture therapy close up',
+  'dermatology skin checkup', 'medical consultation dermatologist', 'skin care treatment applying',
 ];
 
 function diversifyImageQuery(baseQuery, topicId) {
@@ -728,7 +728,7 @@ async function fetchPixabayImages(apiKey, query, count = 3) {
   try {
     const randomPage = Math.floor(Math.random() * 3) + 1;
     const response = await fetch(
-      `https://pixabay.com/api/?key=${encodeURIComponent(apiKey)}&q=${encodeURIComponent(query)}&per_page=${Math.max(count, 3)}&page=${randomPage}&orientation=horizontal&image_type=photo&safesearch=true`
+      `https://pixabay.com/api/?key=${encodeURIComponent(apiKey)}&q=${encodeURIComponent(query)}&per_page=${Math.max(count, 3)}&page=${randomPage}&orientation=horizontal&image_type=photo&safesearch=true&category=health`
     );
     if (!response.ok) return [];
     const data = await response.json();
