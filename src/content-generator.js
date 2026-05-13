@@ -625,30 +625,33 @@ ${faqInstruction}
 // ─── 이미지 검색어 다양화 (질환별 쿼리 풀) ───
 // 주의: "herbal", "oriental", "wellness" 같은 모호한 키워드는 음식/소금램프 등 엉뚱한 결과를 반환함
 // 반드시 skin, clinic, doctor, patient, treatment 등 직접적 의료 키워드 사용
+// 키워드 규칙: [의료/클리닉] + [스킨케어 제품/적용] 혼합
+// 금지어: woman, man, girl 등 인물 중심어 (화보/자연배경 방지)
+// 필수어: clinic, white background, close up, product, bottle, jar, studio 등 환경 제한
 const IMAGE_QUERY_POOLS = {
-  'flat-warts': ['dermatologist skin check', 'hand skin close up', 'skin cream applying hand', 'acupuncture needle skin', 'dermatology skin treatment', 'woman applying lotion hand', 'skin examination dermatologist'],
-  'plantar-warts': ['foot skin care cream', 'foot massage therapy', 'acupuncture foot treatment', 'feet skin care woman', 'foot sole skin close', 'reflexology foot therapy', 'podiatrist foot exam'],
-  'genital-warts': ['dermatologist consultation skin', 'skin care consultation woman', 'acupuncture therapy back', 'dermatology office skin', 'skin treatment consultation', 'doctor writing prescription', 'skin care products shelf'],
-  'warts-treatment': ['skin treatment dermatology', 'acupuncture needle close up', 'skin cream jar apply', 'dermatologist patient skin', 'skin lotion applying arm', 'acupuncture back treatment', 'skin ointment tube'],
-  'atopic-dermatitis': ['moisturizer applying skin arm', 'sensitive skin lotion woman', 'skin care cream jar', 'woman applying body lotion', 'skin hydration cream apply', 'gentle skin care lotion', 'body moisturizer applying'],
-  'acne-treatment': ['clear skin face care', 'facial skincare routine woman', 'face cream applying mirror', 'skin care serum face', 'clean face skin glow', 'facial treatment skincare', 'face wash skin care'],
-  'acne': ['clear skin face care', 'facial skincare routine woman', 'face cream applying mirror', 'skin care serum face', 'clean face skin glow', 'facial treatment skincare', 'face wash skin care'],
-  'acne-scars': ['facial skin treatment', 'face serum applying woman', 'dermatologist face exam', 'skin rejuvenation face', 'face cream skincare routine', 'smooth skin face woman', 'face skin care products'],
-  'urticaria': ['skin rash arm close', 'skin allergy cream apply', 'acupuncture treatment arm', 'skin soothing cream jar', 'dermatologist skin exam', 'skin care lotion applying', 'body skin care woman'],
-  'psoriasis': ['scalp skin treatment', 'skin condition arm close', 'dermatologist examining skin', 'skin therapy cream apply', 'skin care specialist dermatology', 'acupuncture scalp treatment', 'skin ointment applying'],
-  'hair-loss': ['hair scalp massage', 'hair growth serum apply', 'scalp acupuncture treatment', 'healthy shiny hair woman', 'hair care oil treatment', 'scalp tonic applying', 'hair brush care routine'],
-  'seborrheic-dermatitis': ['scalp care shampoo wash', 'hair washing woman', 'scalp treatment serum', 'healthy scalp hair care', 'dandruff shampoo treatment', 'scalp massage therapy', 'hair care routine woman'],
-  'keratosis-pilaris': ['arm skin care lotion', 'body lotion applying arm', 'smooth skin care woman', 'skin exfoliation body scrub', 'moisturizer body skin', 'arm skin close up care', 'body cream applying woman'],
-  'folliculitis': ['scalp skin treatment care', 'skin care antibacterial cream', 'dermatologist skin check up', 'acupuncture therapy session', 'skin soothing gel apply', 'body skin care routine', 'skin care clean hygiene'],
-  'dyshidrosis': ['hand skin care cream', 'hand moisturizer applying', 'acupuncture hand treatment', 'hand skin close up care', 'dermatologist hand exam', 'hand lotion applying woman', 'hand skin soothing cream'],
-  'diet': ['healthy food salad bowl', 'measuring tape weight loss', 'acupuncture body treatment', 'healthy lifestyle woman', 'green smoothie healthy drink', 'yoga exercise woman', 'herbal diet tea cup'],
+  'flat-warts': ['dermatology clinic room', 'skin cream jar white background', 'acupuncture needle close up', 'skin ointment tube product', 'dermatologist gloves examination', 'skincare bottle product studio', 'hand cream applying close up'],
+  'plantar-warts': ['foot care cream product', 'podiatry clinic room', 'acupuncture needle foot close up', 'foot cream tube white background', 'medical foot examination gloves', 'foot care products studio', 'reflexology chart clinic'],
+  'genital-warts': ['doctor desk stethoscope', 'prescription medicine bottle', 'clinic consultation room interior', 'medical chart clipboard', 'skincare cream tube product', 'acupuncture needles tray', 'pharmacy medicine shelf'],
+  'warts-treatment': ['dermatology clinic equipment', 'acupuncture needle tray close up', 'skin cream product white background', 'medical examination room', 'ointment cream tube studio', 'skincare serum bottle dropper', 'doctor desk medical tools'],
+  'atopic-dermatitis': ['moisturizer cream jar product', 'body lotion bottle white background', 'skin cream applying arm close up', 'hypoallergenic skincare products', 'cream tube product studio', 'lotion pump bottle product', 'dermatology clinic shelf'],
+  'acne-treatment': ['facial cream product white background', 'skincare serum bottle dropper', 'face wash product studio', 'dermatology clinic mirror', 'acne cream tube close up', 'skincare products shelf organized', 'facial cleanser bottle product'],
+  'acne': ['facial cream product white background', 'skincare serum bottle dropper', 'face wash product studio', 'dermatology clinic mirror', 'acne cream tube close up', 'skincare products shelf organized', 'facial cleanser bottle product'],
+  'acne-scars': ['facial serum dropper bottle', 'dermatology treatment room', 'skin rejuvenation cream product', 'skincare ampoule bottle studio', 'facial cream jar white background', 'dermatologist tools tray', 'vitamin c serum bottle product'],
+  'urticaria': ['antihistamine medicine pills', 'skin cream tube product', 'allergy medicine bottle', 'dermatology clinic desk', 'soothing gel tube white background', 'calamine lotion bottle product', 'acupuncture needles close up tray'],
+  'psoriasis': ['scalp treatment shampoo bottle', 'dermatology ointment tube product', 'skin cream jar studio', 'medical examination dermatology', 'therapeutic cream white background', 'acupuncture scalp close up', 'medicated shampoo product bottle'],
+  'hair-loss': ['hair tonic bottle product', 'scalp treatment serum dropper', 'hair growth product studio', 'trichology clinic tools', 'hair care serum white background', 'scalp massage device product', 'minoxidil bottle product studio'],
+  'seborrheic-dermatitis': ['medicated shampoo bottle product', 'scalp treatment serum bottle', 'anti dandruff shampoo studio', 'dermatology scalp clinic', 'shampoo bottle white background', 'scalp care product dropper', 'hair care bottles shelf'],
+  'keratosis-pilaris': ['body exfoliant cream jar', 'body lotion pump bottle product', 'skin smoothing cream studio', 'moisturizer tube white background', 'body scrub jar product', 'urea cream tube product', 'body care products shelf'],
+  'folliculitis': ['antibacterial cream tube product', 'dermatology clinic tools', 'medicated body wash bottle', 'skin cleanser product studio', 'antiseptic gel bottle product', 'acupuncture therapy close up', 'medical cream white background'],
+  'dyshidrosis': ['hand cream tube product', 'hand moisturizer bottle studio', 'dermatology hand examination', 'hand care cream white background', 'barrier cream product close up', 'acupuncture hand close up', 'medicated hand cream product'],
+  'diet': ['healthy salad bowl top view', 'measuring tape flat lay', 'acupuncture abdomen close up', 'green juice glass studio', 'diet supplement bottle product', 'herbal tea cup overhead', 'weight scale flat lay'],
 };
 
 const IMAGE_GENERAL_POOL = [
-  'acupuncture needle therapy back', 'dermatologist examining skin patient', 'skin care cream applying woman',
-  'skin lotion body care applying', 'acupuncture treatment close up needle', 'dermatology skin examination doctor',
-  'skin care products bottles shelf', 'woman skincare routine face mirror', 'body lotion moisturizer applying',
-  'face skin care serum woman', 'arm skin care lotion applying', 'acupuncture back therapy session',
+  'acupuncture needle close up tray', 'dermatology clinic examination room', 'skincare cream product white background',
+  'medical stethoscope desk', 'skin cream jar studio product', 'acupuncture treatment close up needle',
+  'skincare products bottles shelf organized', 'lotion bottle pump product studio', 'dermatologist medical tools',
+  'ointment tube cream product', 'clinic interior clean modern', 'serum dropper bottle skincare product',
 ];
 
 function diversifyImageQuery(baseQuery, topicId) {
@@ -659,6 +662,64 @@ function diversifyImageQuery(baseQuery, topicId) {
   // 30% 확률로 일반 풀에서 선택
   const generalQuery = pickRandom(IMAGE_GENERAL_POOL);
   return generalQuery;
+}
+
+// 제목/내용에서 이미지 검색 키워드 추출
+function extractImageKeywords(title, topicName) {
+  // 제목에서 핵심 단어 추출 (한글 2글자 이상 단어)
+  const words = title.replace(/[^가-힣\s]/g, '').split(/\s+/).filter(w => w.length >= 2);
+  // 질환명 + 치료/관리/증상 관련 단어 우선
+  const medicalTerms = words.filter(w =>
+    w.includes('치료') || w.includes('관리') || w.includes('증상') ||
+    w.includes('원인') || w.includes('예방') || w.includes('개선') ||
+    w === topicName
+  );
+  return medicalTerms.length > 0 ? medicalTerms.slice(0, 2).join(' ') : topicName;
+}
+
+// 이미지 3장을 각각 다른 쿼리로 가져오기 (중복 URL 방지)
+async function fetchDiverseImages(env, topicId, topicName, title, count = 3) {
+  const pool = IMAGE_QUERY_POOLS[topicId] || IMAGE_GENERAL_POOL;
+  const usedQueries = new Set();
+  const usedUrls = new Set();
+  const allImages = [];
+
+  // 쿼리 목록 생성: 풀에서 중복 없이 count개 뽑기
+  const shuffledPool = [...pool].sort(() => Math.random() - 0.5);
+  const queries = [];
+  for (const q of shuffledPool) {
+    if (queries.length >= count) break;
+    if (!usedQueries.has(q)) {
+      queries.push(q);
+      usedQueries.add(q);
+    }
+  }
+  // 부족하면 일반 풀에서 보충
+  if (queries.length < count) {
+    const shuffledGeneral = [...IMAGE_GENERAL_POOL].sort(() => Math.random() - 0.5);
+    for (const q of shuffledGeneral) {
+      if (queries.length >= count) break;
+      if (!usedQueries.has(q)) {
+        queries.push(q);
+        usedQueries.add(q);
+      }
+    }
+  }
+
+  // 각 쿼리로 1장씩 가져오기 (중복 URL 필터)
+  for (const query of queries) {
+    const images = await fetchImagesWithFallback(env, query, 2); // 2장 가져와서 중복 필터 여유
+    for (const img of images) {
+      if (allImages.length >= count) break;
+      if (!usedUrls.has(img.url)) {
+        usedUrls.add(img.url);
+        allImages.push(img);
+      }
+    }
+  }
+
+  console.log(`[이미지] 다양화: ${allImages.length}장 확보 (쿼리 ${queries.length}개 사용)`);
+  return allImages;
 }
 
 // ─── 이미지 가져오기 (Pixabay — 1순위) ───
@@ -1084,10 +1145,9 @@ export async function generateContent(env, topic, contentType, options = {}) {
   // 제목 후처리 (괄호 제거)
   cleanedProduction.title = cleanTitle(cleanedProduction.title);
 
-  // 이미지 가져오기 (3종 API 폴백: Pixabay → Unsplash → Pexels)
+  // 이미지 가져오기 (각 이미지마다 다른 쿼리 + 중복 URL 방지)
   const imageCount = options.imagesPerContent || 3;
-  const diversifiedQuery = diversifyImageQuery(topic.pexelsQuery, topic.id);
-  const images = await fetchImagesWithFallback(env, diversifiedQuery, imageCount);
+  const images = await fetchDiverseImages(env, topic.id, topic.name, cleanedProduction.title, imageCount);
 
   // 콘텐츠 조립
   let finalContent = cleanedProduction.content;
