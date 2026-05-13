@@ -625,33 +625,33 @@ ${faqInstruction}
 // ─── 이미지 검색어 다양화 (질환별 쿼리 풀) ───
 // 주의: "herbal", "oriental", "wellness" 같은 모호한 키워드는 음식/소금램프 등 엉뚱한 결과를 반환함
 // 반드시 skin, clinic, doctor, patient, treatment 등 직접적 의료 키워드 사용
-// 키워드 규칙: 의료 행위 + 스킨케어 적용 장면만 허용
-// 금지어: jar, bottle, product, studio, shelf, woman, man (엉뚱한 이미지 매칭 방지)
-// 필수어: dermatology, acupuncture, skin, cream, treatment, clinic 등 의료 맥락어
+// 키워드 규칙: acupuncture + dermatologist 계열만 허용
+// 금지어: cream, lotion, jar, bottle, product, studio, shelf, woman, man, skin care
+// 이유: 위 단어들은 뷰티/스파/DIY/음식 이미지와 반드시 섞임
 const IMAGE_QUERY_POOLS = {
-  'flat-warts': ['dermatology skin examination', 'acupuncture treatment skin', 'applying cream on hand skin', 'dermatologist checking skin', 'skin treatment acupuncture needle', 'hand skin dermatology checkup'],
-  'plantar-warts': ['foot dermatology examination', 'acupuncture foot therapy', 'foot skin treatment cream', 'podiatrist examining foot', 'foot reflexology treatment', 'foot care dermatology'],
-  'genital-warts': ['dermatologist consultation office', 'acupuncture therapy treatment', 'medical consultation dermatology', 'doctor stethoscope clipboard', 'dermatology office interior', 'medical prescription writing'],
-  'warts-treatment': ['acupuncture needle treatment skin', 'dermatology skin procedure', 'applying ointment on skin', 'skin treatment dermatology room', 'acupuncture back therapy', 'dermatologist gloves examining'],
-  'atopic-dermatitis': ['applying moisturizer on arm', 'skin cream applying close up', 'dermatology eczema treatment', 'lotion applying on dry skin', 'moisturizing cream on skin', 'dermatologist examining arm'],
-  'acne-treatment': ['dermatology facial treatment', 'applying cream on face skin', 'facial skin dermatology', 'acne skin treatment close up', 'dermatologist facial examination', 'facial skincare treatment'],
-  'acne': ['dermatology facial treatment', 'applying cream on face skin', 'facial skin dermatology', 'acne skin treatment close up', 'dermatologist facial examination', 'facial skincare treatment'],
-  'acne-scars': ['facial dermatology treatment', 'skin rejuvenation treatment', 'applying serum on face', 'dermatologist facial procedure', 'facial skin treatment close up', 'skin care facial dermatology'],
-  'urticaria': ['skin allergy dermatology', 'applying cream on skin rash', 'dermatologist examining rash', 'acupuncture allergy treatment', 'skin inflammation treatment', 'dermatology allergy checkup'],
-  'psoriasis': ['scalp dermatology treatment', 'skin condition dermatology', 'applying ointment on skin', 'dermatologist examining scalp', 'acupuncture therapy scalp', 'chronic skin treatment dermatology'],
-  'hair-loss': ['scalp treatment trichology', 'scalp examination dermatology', 'hair growth treatment scalp', 'acupuncture scalp therapy', 'scalp massage treatment', 'trichology hair examination'],
-  'seborrheic-dermatitis': ['scalp dermatology examination', 'scalp treatment close up', 'medicated shampoo scalp', 'dermatologist scalp checkup', 'scalp care treatment', 'dandruff treatment dermatology'],
-  'keratosis-pilaris': ['arm skin dermatology', 'applying lotion on arm skin', 'skin exfoliation treatment', 'dermatologist examining arm', 'body skin treatment cream', 'moisturizing arm skin close up'],
-  'folliculitis': ['skin infection treatment dermatology', 'dermatologist skin examination', 'acupuncture therapy session', 'antibacterial skin treatment', 'skin hygiene dermatology', 'dermatology skin checkup'],
-  'dyshidrosis': ['hand dermatology examination', 'applying cream on hand', 'hand skin treatment close up', 'dermatologist examining hand', 'acupuncture hand therapy', 'hand eczema treatment'],
-  'diet': ['healthy food salad plate', 'acupuncture abdomen treatment', 'measuring tape weight loss', 'healthy green smoothie', 'yoga stretching exercise', 'herbal tea health drink'],
+  'flat-warts': ['dermatologist examining hand', 'acupuncture needle treatment', 'dermatology clinic examination', 'doctor wearing gloves medical', 'acupuncture therapy back'],
+  'plantar-warts': ['podiatrist examining foot', 'acupuncture foot treatment', 'doctor examining foot medical', 'dermatology clinic interior', 'acupuncture needle close up'],
+  'genital-warts': ['doctor patient consultation', 'dermatologist office desk', 'acupuncture therapy session', 'medical stethoscope doctor', 'doctor writing prescription'],
+  'warts-treatment': ['acupuncture needle close up', 'dermatologist wearing gloves', 'doctor examining patient', 'acupuncture back treatment', 'dermatology clinic room'],
+  'atopic-dermatitis': ['dermatologist examining arm', 'doctor patient consultation', 'acupuncture treatment session', 'dermatology clinic examination', 'medical doctor stethoscope'],
+  'acne-treatment': ['dermatologist examining face', 'acupuncture facial treatment', 'doctor patient dermatology', 'dermatology clinic mirror', 'acupuncture needle therapy'],
+  'acne': ['dermatologist examining face', 'acupuncture facial treatment', 'doctor patient dermatology', 'dermatology clinic mirror', 'acupuncture needle therapy'],
+  'acne-scars': ['dermatologist facial examination', 'acupuncture face treatment', 'dermatology doctor patient', 'doctor examining face skin', 'acupuncture therapy session'],
+  'urticaria': ['dermatologist examining rash', 'doctor patient allergy', 'acupuncture treatment arm', 'dermatology examination clinic', 'medical doctor consultation'],
+  'psoriasis': ['dermatologist examining scalp', 'acupuncture scalp treatment', 'doctor patient dermatology', 'dermatology clinic examination', 'acupuncture needle therapy'],
+  'hair-loss': ['trichologist examining scalp', 'acupuncture scalp treatment', 'doctor examining hair', 'dermatology hair clinic', 'scalp examination medical'],
+  'seborrheic-dermatitis': ['dermatologist scalp examination', 'doctor examining scalp', 'acupuncture head treatment', 'dermatology clinic checkup', 'medical scalp examination'],
+  'keratosis-pilaris': ['dermatologist examining arm skin', 'doctor patient consultation', 'acupuncture treatment session', 'dermatology arm examination', 'medical doctor checkup'],
+  'folliculitis': ['dermatologist skin examination', 'acupuncture therapy session', 'doctor examining patient skin', 'dermatology clinic checkup', 'medical examination doctor'],
+  'dyshidrosis': ['dermatologist examining hand', 'acupuncture hand treatment', 'doctor hand examination medical', 'dermatology clinic visit', 'medical hand checkup'],
+  'diet': ['acupuncture abdomen treatment', 'healthy salad plate overhead', 'doctor measuring waist', 'acupuncture body treatment', 'nutritionist consultation doctor'],
 };
 
 const IMAGE_GENERAL_POOL = [
-  'acupuncture needle treatment', 'dermatologist examining patient skin', 'applying cream on skin close up',
-  'dermatology examination room', 'acupuncture back treatment therapy', 'skin treatment dermatology clinic',
-  'dermatologist with stethoscope', 'applying lotion on skin', 'acupuncture therapy close up',
-  'dermatology skin checkup', 'medical consultation dermatologist', 'skin care treatment applying',
+  'acupuncture needle close up', 'dermatologist examining patient', 'acupuncture back treatment',
+  'dermatology clinic interior', 'acupuncture therapy session', 'doctor patient consultation medical',
+  'dermatologist wearing gloves', 'acupuncture needle therapy', 'doctor stethoscope medical',
+  'dermatology examination room', 'acupuncture treatment close up', 'medical doctor consultation',
 ];
 
 function diversifyImageQuery(baseQuery, topicId) {
