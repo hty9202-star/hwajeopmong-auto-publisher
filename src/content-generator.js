@@ -626,23 +626,23 @@ ${faqInstruction}
 // 주의: "herbal", "oriental", "wellness" 같은 모호한 키워드는 음식/소금램프 등 엉뚱한 결과를 반환함
 // 반드시 skin, clinic, doctor, patient, treatment 등 직접적 의료 키워드 사용
 const IMAGE_QUERY_POOLS = {
-  'flat-warts': ['skin treatment doctor', 'dermatology consultation patient', 'hand skin examination', 'skin clinic treatment room', 'doctor examining skin', 'acupuncture needle therapy', 'skin care cream apply'],
-  'plantar-warts': ['foot doctor examination', 'podiatry treatment clinic', 'foot skin care', 'medical foot treatment', 'doctor patient foot', 'physical therapy foot', 'clean foot care spa'],
-  'genital-warts': ['doctor patient consultation', 'medical clinic interior', 'doctor explaining treatment', 'hospital consultation room', 'patient doctor office', 'medical professional care', 'clinic waiting room'],
-  'warts-treatment': ['skin doctor treatment', 'dermatologist examining patient', 'acupuncture therapy session', 'skin cream application', 'medical skin procedure', 'doctor skin examination', 'clinic treatment bed'],
-  'atopic-dermatitis': ['moisturizer skin application', 'sensitive skin care woman', 'skin allergy treatment', 'dermatology patient care', 'skin lotion apply arm', 'eczema skin treatment', 'gentle skin care routine'],
-  'acne-treatment': ['clear skin face woman', 'facial skin care routine', 'dermatologist face treatment', 'skin care products face', 'clean face skin woman', 'face mask skin care', 'mirror skin care routine'],
-  'urticaria': ['skin allergy rash treatment', 'doctor patient allergy', 'skin reaction treatment', 'antihistamine medicine', 'skin clinic doctor patient', 'allergy test clinic', 'immune system health'],
-  'psoriasis': ['scalp treatment clinic', 'skin condition treatment', 'dermatology doctor patient', 'skin therapy session', 'medical skin examination', 'skin care specialist', 'chronic skin treatment'],
-  'hair-loss': ['hair scalp treatment', 'hair growth therapy', 'scalp examination doctor', 'hair clinic treatment', 'healthy hair woman', 'hair care products', 'trichology scalp care'],
-  'seborrheic-dermatitis': ['scalp care treatment', 'hair washing routine', 'scalp examination clinic', 'shampoo hair treatment', 'dermatology scalp doctor', 'healthy scalp care', 'dandruff treatment care'],
+  'flat-warts': ['dermatologist skin check', 'hand skin close up', 'skin cream applying hand', 'acupuncture needle skin', 'dermatology skin treatment', 'woman applying lotion hand', 'skin examination dermatologist'],
+  'plantar-warts': ['foot skin care cream', 'foot massage therapy', 'acupuncture foot treatment', 'feet skin care woman', 'foot sole skin close', 'herbal foot soak bath', 'reflexology foot therapy'],
+  'genital-warts': ['dermatologist consultation skin', 'skin care consultation woman', 'acupuncture therapy back', 'herbal medicine pills', 'dermatology office skin', 'skin treatment consultation', 'herbal tea medicine cup'],
+  'warts-treatment': ['skin treatment dermatology', 'acupuncture needle close up', 'skin cream jar apply', 'dermatologist patient skin', 'herbal medicine preparation', 'skin lotion applying arm', 'acupuncture back treatment'],
+  'atopic-dermatitis': ['moisturizer applying skin arm', 'sensitive skin lotion woman', 'skin care cream jar', 'woman applying body lotion', 'skin hydration cream apply', 'gentle skin care lotion', 'body moisturizer applying'],
+  'acne-treatment': ['clear skin face care', 'facial skincare routine woman', 'face cream applying mirror', 'skin care serum face', 'clean face skin glow', 'facial treatment skincare', 'face wash skin care'],
+  'urticaria': ['skin rash arm close', 'skin allergy cream apply', 'herbal tea remedy cup', 'acupuncture treatment arm', 'skin soothing cream jar', 'dermatologist skin exam', 'antihistamine herbal remedy'],
+  'psoriasis': ['scalp skin treatment', 'skin condition arm close', 'dermatologist examining skin', 'skin therapy cream apply', 'herbal ointment skin', 'skin care specialist dermatology', 'acupuncture scalp treatment'],
+  'hair-loss': ['hair scalp massage', 'hair growth serum apply', 'scalp acupuncture treatment', 'healthy shiny hair woman', 'hair care oil treatment', 'scalp tonic applying', 'herbal hair treatment'],
+  'seborrheic-dermatitis': ['scalp care shampoo wash', 'hair washing woman', 'scalp treatment serum', 'healthy scalp hair care', 'dandruff shampoo treatment', 'scalp massage therapy', 'herbal shampoo hair'],
 };
 
 const IMAGE_GENERAL_POOL = [
-  'acupuncture treatment session', 'doctor patient consultation clinic', 'skin care treatment woman',
-  'medical clinic interior clean', 'dermatology doctor examination', 'skin treatment cream apply',
-  'patient doctor office visit', 'health clinic reception', 'medical professional stethoscope',
-  'pharmacy medicine bottles', 'physical therapy treatment', 'hospital corridor clean',
+  'acupuncture needle therapy back', 'dermatologist examining skin patient', 'skin care cream applying woman',
+  'herbal medicine traditional preparation', 'skin lotion body care', 'acupuncture treatment close up',
+  'dermatology skin examination', 'herbal tea health drink', 'skin care products bottles',
+  'woman skincare routine face', 'massage therapy relaxation', 'herbal remedy natural medicine',
 ];
 
 function diversifyImageQuery(baseQuery, topicId) {
@@ -650,7 +650,7 @@ function diversifyImageQuery(baseQuery, topicId) {
   if (Math.random() < 0.7) {
     return pickRandom(pool);
   }
-  // 일반 풀에서 선택 시에도 동양 키워드 보강
+  // 30% 확률로 일반 풀에서 선택
   const generalQuery = pickRandom(IMAGE_GENERAL_POOL);
   return generalQuery;
 }
