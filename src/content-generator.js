@@ -655,10 +655,10 @@ const IMAGE_QUERY_POOLS = {
   'psoriasis': ['acupuncture scalp treatment', 'acupuncture head therapy', 'acupuncture back treatment', 'acupuncture skin therapy', 'acupuncture needle therapy'],
   'hair-loss': ['acupuncture scalp therapy', 'acupuncture head treatment', 'acupuncture hair treatment', 'acupuncture scalp needles', 'acupuncture traditional scalp'],
   'seborrheic-dermatitis': ['acupuncture head therapy', 'acupuncture scalp treatment', 'acupuncture needle head', 'acupuncture traditional scalp', 'acupuncture therapy session'],
-  'keratosis-pilaris': ['acupuncture arm treatment', 'acupuncture body therapy', 'acupuncture skin treatment', 'acupuncture needle arm', 'acupuncture traditional body'],
-  'folliculitis': ['acupuncture skin therapy', 'acupuncture body treatment', 'acupuncture needle therapy', 'acupuncture back treatment', 'acupuncture traditional skin'],
+  'keratosis-pilaris': ['acupuncture arm treatment', 'acupuncture herbal therapy', 'acupuncture skin treatment', 'acupuncture needle arm', 'acupuncture traditional clinic'],
+  'folliculitis': ['acupuncture skin therapy', 'acupuncture herbal treatment', 'acupuncture needle therapy', 'acupuncture back treatment', 'acupuncture traditional skin'],
   'dyshidrosis': ['acupuncture hand therapy', 'acupuncture wrist treatment', 'acupuncture hand needles', 'acupuncture finger therapy', 'acupuncture traditional hand'],
-  'diet': ['acupuncture abdomen treatment', 'acupuncture weight loss', 'acupuncture belly therapy', 'acupuncture body slimming', 'acupuncture metabolism treatment'],
+  'diet': ['acupuncture abdomen treatment', 'acupuncture herbal medicine', 'acupuncture moxibustion therapy', 'acupuncture pulse diagnosis', 'acupuncture cupping treatment'],
 };
 
 const IMAGE_GENERAL_POOL = [
@@ -833,6 +833,11 @@ function isImageRelevant(image) {
     'salt lamp', 'candle', 'aroma', 'diffuser',
     'model', 'fashion', 'makeup', 'lipstick', 'mascara',
     'diy', 'homemade', 'craft',
+    'muscle', 'bodybuilder', 'bodybuilding', 'fitness', 'gym', 'workout',
+    'shirtless', 'abs', 'bicep', 'weightlifting', 'exercise', 'athlete',
+    'yoga', 'pilates', 'stretching', 'jogging', 'running',
+    'sexy', 'lingerie', 'swimsuit', 'bikini', 'underwear',
+    'tattoo', 'piercing',
   ];
 
   // alt, tags 텍스트를 합쳐서 검사
