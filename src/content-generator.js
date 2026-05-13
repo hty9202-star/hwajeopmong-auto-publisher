@@ -79,8 +79,8 @@ function pickRandom(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-// ─── 레퍼런스 콘텐츠 로딩 시스템 ───
-function loadReferenceContent() {
+// ─── 레퍼런스 콘텐츠 로딩 시스템 (토픽 매칭 우선) ───
+function loadReferenceContent(topic) {
   const refDir = join(process.cwd(), 'data', 'reference');
   if (!existsSync(refDir)) return '';
 
@@ -88,9 +88,24 @@ function loadReferenceContent() {
     const files = readdirSync(refDir).filter(f => f.endsWith('.txt'));
     if (files.length === 0) return '';
 
-    const shuffled = [...files].sort(() => Math.random() - 0.5);
-    const sampleCount = Math.min(3 + Math.floor(Math.random() * 2), shuffled.length);
-    const samples = shuffled.slice(0, sampleCount).map(f => {
+    const sampleCount = Math.min(3 + Math.floor(Math.random() * 2), files.length);
+    const selected = [];
+
+    // 토픽명으로 관련 레퍼런스 우선 선택
+    if (topic && topic.name) {
+      const matched = files.filter(f => f.includes(topic.name));
+      const shuffledMatched = [...matched].sort(() => Math.random() - 0.5);
+      const matchCount = Math.min(2, shuffledMatched.length, sampleCount);
+      selected.push(...shuffledMatched.slice(0, matchCount));
+    }
+
+    // 나머지는 다른 파일에서 랜덤 채우기
+    const remaining = files.filter(f => !selected.includes(f));
+    const shuffledRemaining = [...remaining].sort(() => Math.random() - 0.5);
+    const fillCount = sampleCount - selected.length;
+    selected.push(...shuffledRemaining.slice(0, fillCount));
+
+    const samples = selected.map(f => {
       const content = readFileSync(join(refDir, f), 'utf-8');
       return content.substring(0, 4000);
     });
@@ -482,7 +497,7 @@ ${existingTitles.map(t => `- "${t}"`).join('\n')}
 
 // ─── Stage 3: 프로덕션 AI (핵심) ───
 async function stageProduction(apiKey, topic, contentType, strategy) {
-  const referenceContent = loadReferenceContent();
+  const referenceContent = loadReferenceContent(topic);
   const homepageContent = await fetchHomepageContent();
   const subtopicsInfo = getSubtopicsInfo(topic);
   const treatment = TREATMENT_MAP[topic.id] || { name: '한방 맞춤 치료', desc: '체질 진단 기반 맞춤형 한방 치료' };
