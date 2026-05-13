@@ -611,7 +611,7 @@ ${faqInstruction}
 - 헤딩 구조: <h2>는 대주제로 3~5개 사용하고, 내용이 풍부한 <h2> 섹션 2~3곳에서 <h3>를 활용해 세부 항목을 나누세요. <h3>는 해당 <h2> 흐름 안에서 자연스럽게 이어지는 소주제여야 합니다. 모든 <h2>에 <h3>를 넣을 필요는 없고, 종류·유형·단계 등 세분화가 자연스러운 부분에만 넣으세요.
 - 기존 콘텐츠와 차별화: 새로운 비유, 예시, 표현을 적극 활용하세요
 - 언어 규칙: 전체 콘텐츠를 반드시 한국어로만 작성하세요. 영어 문장이나 영어 표현을 섞지 마세요. 의학 용어 영문 병기만 예외적으로 허용됩니다.
-- 지역 키워드 반영: ${(topic.keywords || []).length > 0 ? '본문 중 자연스러운 문맥에서 다음 키워드를 1~2회만 녹여주세요: ' + topic.keywords.map(k => '"' + k + '"').join(', ') + '. 억지로 키워드를 나열하지 말고, 치료 설명이나 사례 소개 흐름 속에서 자연스럽게 언급하세요.' : '별도 지역 키워드 없음.'}
+- 지역 키워드 반영: ${(() => { const kws = topic.keywords || []; if (kws.length === 0) return '별도 지역 키워드 없음.'; const shuffled = [...kws].sort(() => Math.random() - 0.5).slice(0, 3); return '다음 키워드 중 2개를 골라 본문에 자연스럽게 녹여주세요: ' + shuffled.map(k => '"' + k + '"').join(', ') + '. 예시: "강남 지역에서 모공각화증 치료를 고민하시는 분들이 많습니다" 처럼 문장 흐름 속에 자연스럽게 배치하세요. 한 문단에 지역 키워드를 2개 이상 넣지 마세요.'; })()}
 - 키워드 밀도: 제목에 포함된 핵심 단어(질환명, 치료법명 등)를 본문에서 각각 2~3회 이상 자연스럽게 반복 사용하세요. 예를 들어 제목에 "${topic.name}"이 있으면 본문 곳곳에서 "${topic.name}"을 자연스럽게 언급하세요. 단, 한 문단에 같은 키워드를 2번 이상 넣지는 마세요.`;
 
   const result = await callGemini(apiKey, systemPrompt, userPrompt, {
@@ -627,22 +627,28 @@ ${faqInstruction}
 // 반드시 skin, clinic, doctor, patient, treatment 등 직접적 의료 키워드 사용
 const IMAGE_QUERY_POOLS = {
   'flat-warts': ['dermatologist skin check', 'hand skin close up', 'skin cream applying hand', 'acupuncture needle skin', 'dermatology skin treatment', 'woman applying lotion hand', 'skin examination dermatologist'],
-  'plantar-warts': ['foot skin care cream', 'foot massage therapy', 'acupuncture foot treatment', 'feet skin care woman', 'foot sole skin close', 'herbal foot soak bath', 'reflexology foot therapy'],
-  'genital-warts': ['dermatologist consultation skin', 'skin care consultation woman', 'acupuncture therapy back', 'herbal medicine pills', 'dermatology office skin', 'skin treatment consultation', 'herbal tea medicine cup'],
-  'warts-treatment': ['skin treatment dermatology', 'acupuncture needle close up', 'skin cream jar apply', 'dermatologist patient skin', 'herbal medicine preparation', 'skin lotion applying arm', 'acupuncture back treatment'],
+  'plantar-warts': ['foot skin care cream', 'foot massage therapy', 'acupuncture foot treatment', 'feet skin care woman', 'foot sole skin close', 'reflexology foot therapy', 'podiatrist foot exam'],
+  'genital-warts': ['dermatologist consultation skin', 'skin care consultation woman', 'acupuncture therapy back', 'dermatology office skin', 'skin treatment consultation', 'doctor writing prescription', 'skin care products shelf'],
+  'warts-treatment': ['skin treatment dermatology', 'acupuncture needle close up', 'skin cream jar apply', 'dermatologist patient skin', 'skin lotion applying arm', 'acupuncture back treatment', 'skin ointment tube'],
   'atopic-dermatitis': ['moisturizer applying skin arm', 'sensitive skin lotion woman', 'skin care cream jar', 'woman applying body lotion', 'skin hydration cream apply', 'gentle skin care lotion', 'body moisturizer applying'],
   'acne-treatment': ['clear skin face care', 'facial skincare routine woman', 'face cream applying mirror', 'skin care serum face', 'clean face skin glow', 'facial treatment skincare', 'face wash skin care'],
-  'urticaria': ['skin rash arm close', 'skin allergy cream apply', 'herbal tea remedy cup', 'acupuncture treatment arm', 'skin soothing cream jar', 'dermatologist skin exam', 'antihistamine herbal remedy'],
-  'psoriasis': ['scalp skin treatment', 'skin condition arm close', 'dermatologist examining skin', 'skin therapy cream apply', 'herbal ointment skin', 'skin care specialist dermatology', 'acupuncture scalp treatment'],
-  'hair-loss': ['hair scalp massage', 'hair growth serum apply', 'scalp acupuncture treatment', 'healthy shiny hair woman', 'hair care oil treatment', 'scalp tonic applying', 'herbal hair treatment'],
-  'seborrheic-dermatitis': ['scalp care shampoo wash', 'hair washing woman', 'scalp treatment serum', 'healthy scalp hair care', 'dandruff shampoo treatment', 'scalp massage therapy', 'herbal shampoo hair'],
+  'acne': ['clear skin face care', 'facial skincare routine woman', 'face cream applying mirror', 'skin care serum face', 'clean face skin glow', 'facial treatment skincare', 'face wash skin care'],
+  'acne-scars': ['facial skin treatment', 'face serum applying woman', 'dermatologist face exam', 'skin rejuvenation face', 'face cream skincare routine', 'smooth skin face woman', 'face skin care products'],
+  'urticaria': ['skin rash arm close', 'skin allergy cream apply', 'acupuncture treatment arm', 'skin soothing cream jar', 'dermatologist skin exam', 'skin care lotion applying', 'body skin care woman'],
+  'psoriasis': ['scalp skin treatment', 'skin condition arm close', 'dermatologist examining skin', 'skin therapy cream apply', 'skin care specialist dermatology', 'acupuncture scalp treatment', 'skin ointment applying'],
+  'hair-loss': ['hair scalp massage', 'hair growth serum apply', 'scalp acupuncture treatment', 'healthy shiny hair woman', 'hair care oil treatment', 'scalp tonic applying', 'hair brush care routine'],
+  'seborrheic-dermatitis': ['scalp care shampoo wash', 'hair washing woman', 'scalp treatment serum', 'healthy scalp hair care', 'dandruff shampoo treatment', 'scalp massage therapy', 'hair care routine woman'],
+  'keratosis-pilaris': ['arm skin care lotion', 'body lotion applying arm', 'smooth skin care woman', 'skin exfoliation body scrub', 'moisturizer body skin', 'arm skin close up care', 'body cream applying woman'],
+  'folliculitis': ['scalp skin treatment care', 'skin care antibacterial cream', 'dermatologist skin check up', 'acupuncture therapy session', 'skin soothing gel apply', 'body skin care routine', 'skin care clean hygiene'],
+  'dyshidrosis': ['hand skin care cream', 'hand moisturizer applying', 'acupuncture hand treatment', 'hand skin close up care', 'dermatologist hand exam', 'hand lotion applying woman', 'hand skin soothing cream'],
+  'diet': ['healthy food salad bowl', 'measuring tape weight loss', 'acupuncture body treatment', 'healthy lifestyle woman', 'green smoothie healthy drink', 'yoga exercise woman', 'herbal diet tea cup'],
 };
 
 const IMAGE_GENERAL_POOL = [
   'acupuncture needle therapy back', 'dermatologist examining skin patient', 'skin care cream applying woman',
-  'herbal medicine traditional preparation', 'skin lotion body care', 'acupuncture treatment close up',
-  'dermatology skin examination', 'herbal tea health drink', 'skin care products bottles',
-  'woman skincare routine face', 'massage therapy relaxation', 'herbal remedy natural medicine',
+  'skin lotion body care applying', 'acupuncture treatment close up needle', 'dermatology skin examination doctor',
+  'skin care products bottles shelf', 'woman skincare routine face mirror', 'body lotion moisturizer applying',
+  'face skin care serum woman', 'arm skin care lotion applying', 'acupuncture back therapy session',
 ];
 
 function diversifyImageQuery(baseQuery, topicId) {
@@ -661,7 +667,7 @@ async function fetchPixabayImages(apiKey, query, count = 3) {
   try {
     const randomPage = Math.floor(Math.random() * 3) + 1;
     const response = await fetch(
-      `https://pixabay.com/api/?key=${encodeURIComponent(apiKey)}&q=${encodeURIComponent(query)}&per_page=${Math.max(count, 3)}&page=${randomPage}&orientation=horizontal&image_type=photo&lang=ko`
+      `https://pixabay.com/api/?key=${encodeURIComponent(apiKey)}&q=${encodeURIComponent(query)}&per_page=${Math.max(count, 3)}&page=${randomPage}&orientation=horizontal&image_type=photo&safesearch=true`
     );
     if (!response.ok) return [];
     const data = await response.json();
