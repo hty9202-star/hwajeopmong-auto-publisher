@@ -622,29 +622,28 @@ ${faqInstruction}
   return JSON.parse(result);
 }
 
-// ─── Pexels 검색어 다양화 (질환별 쿼리 풀) ───
+// ─── 이미지 검색어 다양화 (질환별 쿼리 풀) ───
+// 주의: "herbal", "oriental", "wellness" 같은 모호한 키워드는 음식/소금램프 등 엉뚱한 결과를 반환함
+// 반드시 skin, clinic, doctor, patient, treatment 등 직접적 의료 키워드 사용
 const IMAGE_QUERY_POOLS = {
-  'flat-warts': ['asian dermatology clinic', 'korean herbal medicine skin', 'acupuncture therapy asian', 'hand skin care asian woman', 'traditional medicine consultation', 'oriental medicine herbs skin', 'moxibustion treatment'],
-  'plantar-warts': ['foot care asian clinic', 'acupuncture foot treatment', 'herbal foot soak oriental', 'foot massage therapy asian', 'traditional medicine foot care', 'oriental herbal remedy', 'asian wellness foot'],
-  'genital-warts': ['asian medical consultation', 'herbal medicine preparation oriental', 'traditional korean medicine clinic', 'immune health asian wellness', 'oriental medicine doctor', 'herbal tea asian health', 'medical privacy care'],
-  'warts-treatment': ['oriental medicine herbs treatment', 'acupuncture session asian', 'korean herbal cream remedy', 'traditional medicine skin care', 'asian dermatology treatment', 'moxibustion therapy skin', 'herbal medicine preparation'],
-  'atopic-dermatitis': ['asian sensitive skin care', 'herbal bath therapy oriental', 'korean skincare routine', 'traditional medicine eczema', 'oriental herbal moisturizer', 'asian woman skin care', 'gentle herbal remedy skin'],
-  'acne-treatment': ['asian skincare routine acne', 'herbal face mask oriental', 'korean beauty skin care', 'traditional medicine acne', 'asian clear skin facial', 'oriental herbal skin detox', 'asian woman clean skin'],
-  'urticaria': ['asian allergy treatment herbal', 'oriental medicine immune', 'herbal tea remedy asian', 'acupuncture allergy asian', 'traditional medicine wellness', 'asian calming herbal tea', 'oriental health lifestyle'],
-  'psoriasis': ['oriental medicine scalp treatment', 'asian herbal medicine chronic', 'acupuncture psoriasis asian', 'traditional korean medicine herbs', 'herbal skin renewal oriental', 'asian holistic health', 'moxibustion therapy'],
-  'hair-loss': ['asian scalp treatment clinic', 'korean herbal hair remedy', 'acupuncture scalp asian', 'oriental medicine hair growth', 'asian hair care traditional', 'herbal hair treatment oriental', 'asian woman healthy hair'],
-  'seborrheic-dermatitis': ['asian scalp care herbal', 'oriental medicine scalp', 'korean herbal shampoo treatment', 'traditional medicine dandruff', 'asian gentle scalp care', 'herbal scalp remedy oriental', 'asian skin microbiome'],
+  'flat-warts': ['skin treatment doctor', 'dermatology consultation patient', 'hand skin examination', 'skin clinic treatment room', 'doctor examining skin', 'acupuncture needle therapy', 'skin care cream apply'],
+  'plantar-warts': ['foot doctor examination', 'podiatry treatment clinic', 'foot skin care', 'medical foot treatment', 'doctor patient foot', 'physical therapy foot', 'clean foot care spa'],
+  'genital-warts': ['doctor patient consultation', 'medical clinic interior', 'doctor explaining treatment', 'hospital consultation room', 'patient doctor office', 'medical professional care', 'clinic waiting room'],
+  'warts-treatment': ['skin doctor treatment', 'dermatologist examining patient', 'acupuncture therapy session', 'skin cream application', 'medical skin procedure', 'doctor skin examination', 'clinic treatment bed'],
+  'atopic-dermatitis': ['moisturizer skin application', 'sensitive skin care woman', 'skin allergy treatment', 'dermatology patient care', 'skin lotion apply arm', 'eczema skin treatment', 'gentle skin care routine'],
+  'acne-treatment': ['clear skin face woman', 'facial skin care routine', 'dermatologist face treatment', 'skin care products face', 'clean face skin woman', 'face mask skin care', 'mirror skin care routine'],
+  'urticaria': ['skin allergy rash treatment', 'doctor patient allergy', 'skin reaction treatment', 'antihistamine medicine', 'skin clinic doctor patient', 'allergy test clinic', 'immune system health'],
+  'psoriasis': ['scalp treatment clinic', 'skin condition treatment', 'dermatology doctor patient', 'skin therapy session', 'medical skin examination', 'skin care specialist', 'chronic skin treatment'],
+  'hair-loss': ['hair scalp treatment', 'hair growth therapy', 'scalp examination doctor', 'hair clinic treatment', 'healthy hair woman', 'hair care products', 'trichology scalp care'],
+  'seborrheic-dermatitis': ['scalp care treatment', 'hair washing routine', 'scalp examination clinic', 'shampoo hair treatment', 'dermatology scalp doctor', 'healthy scalp care', 'dandruff treatment care'],
 };
 
 const IMAGE_GENERAL_POOL = [
-  'korean traditional medicine clinic', 'oriental herbal medicine preparation', 'acupuncture treatment asian',
-  'asian wellness herbal tea', 'traditional korean medicine doctor', 'oriental medicine herbs mortar',
-  'asian patient care clinic', 'moxibustion therapy treatment', 'korean herbal medicine cabinet',
-  'asian holistic health care', 'traditional oriental medicine', 'herbal medicine asian clinic',
+  'acupuncture treatment session', 'doctor patient consultation clinic', 'skin care treatment woman',
+  'medical clinic interior clean', 'dermatology doctor examination', 'skin treatment cream apply',
+  'patient doctor office visit', 'health clinic reception', 'medical professional stethoscope',
+  'pharmacy medicine bottles', 'physical therapy treatment', 'hospital corridor clean',
 ];
-
-// 동양 이미지 보강 키워드 (검색어에 자동 추가)
-const ORIENTAL_BOOST = ['asian', 'korean', 'oriental', 'traditional medicine'];
 
 function diversifyImageQuery(baseQuery, topicId) {
   const pool = IMAGE_QUERY_POOLS[topicId] || IMAGE_GENERAL_POOL;
@@ -662,7 +661,7 @@ async function fetchPixabayImages(apiKey, query, count = 3) {
   try {
     const randomPage = Math.floor(Math.random() * 3) + 1;
     const response = await fetch(
-      `https://pixabay.com/api/?key=${encodeURIComponent(apiKey)}&q=${encodeURIComponent(query)}&per_page=${Math.max(count, 3)}&page=${randomPage}&orientation=horizontal&image_type=photo&lang=ko&category=health`
+      `https://pixabay.com/api/?key=${encodeURIComponent(apiKey)}&q=${encodeURIComponent(query)}&per_page=${Math.max(count, 3)}&page=${randomPage}&orientation=horizontal&image_type=photo&lang=ko`
     );
     if (!response.ok) return [];
     const data = await response.json();
