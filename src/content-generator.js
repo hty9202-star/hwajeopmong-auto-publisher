@@ -829,14 +829,31 @@ function optimizeImageAlt(originalAlt, topic, index) {
 }
 
 // ─── 이미지를 HTML에 삽입 ───
+// 1번째 이미지: 글 맨 위 (본문 시작 전)
+// 2~3번째 이미지: 2번째, 4번째 h2 뒤
 function insertInlineImages(html, images, topic) {
   if (!images || images.length === 0) return html;
+
+  // 첫 번째 이미지를 글 맨 위에 배치
+  const firstImg = images[0];
+  const firstAlt = optimizeImageAlt(firstImg.alt, topic, 0);
+  const firstSource = firstImg.source || 'Pexels';
+  const firstSourceUrl = firstImg.sourceUrl || firstImg.pexelsUrl || '#';
+  const topImageHtml = `<figure class="wp-block-image">
+  <img src="${firstImg.url}" alt="${firstAlt}" loading="lazy" />
+  <figcaption>사진: <a href="${firstImg.photographerUrl}" target="_blank">${firstImg.photographer}</a> / <a href="${firstSourceUrl}" target="_blank">${firstSource}</a></figcaption>
+</figure>\n`;
+
+  html = topImageHtml + html;
+
+  // 나머지 이미지를 h2 뒤에 삽입
+  if (images.length <= 1) return html;
 
   const h2Tags = html.match(/<\/h2>/gi);
   if (!h2Tags || h2Tags.length < 2) return html;
 
   let insertCount = 0;
-  let imageIndex = 0;
+  let imageIndex = 1; // 2번째 이미지부터
   return html.replace(/<\/h2>/gi, (match) => {
     insertCount++;
     if ((insertCount === 2 || insertCount === 4) && images[imageIndex]) {
