@@ -240,7 +240,7 @@ async function autoPublish(options) {
       console.log('[중복 방지] 기존 ' + existingTitles.length + '건 제목 회피: ' + existingTitles.join(', '));
     }
     const imagesPerContent = publish.imagesPerContent || 3;
-    result = await generateContent(process.env, topic, contentType, { existingTitles, imagesPerContent });
+    result = await generateContent(env, topic, contentType, { existingTitles, imagesPerContent });
     if (!result || !result.content) {
       console.log('[autoPublish] 콘텐츠 생성 결과 없음');
       return;
