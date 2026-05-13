@@ -342,7 +342,7 @@ async function saveSettings(){
     };
     const res=await fetch('/api/settings',{method:'POST',headers:authHeaders({'Content-Type':'application/json'}),body:JSON.stringify({publish})});
     const d=await res.json();
-    if(d.success){await saveCitationSettings();showToast('설정 저장 완료!','success');}
+    if(d.success){await saveCitationSettings();await saveImageApiSettings();showToast('설정 저장 완료!','success');}
     else showToast('저장 실패','error');
   }catch(e){showToast('저장 실패: '+e.message,'error');}
   finally{
@@ -602,6 +602,35 @@ function updateCitBadges(){
   });
 }
 
+// ─── 이미지 API 키 저장/로드 ───
+async function saveImageApiSettings(){
+  try{
+    const data={
+      pixabayApiKey:document.getElementById('pixabayApiKey').value.trim(),
+      unsplashAccessKey:document.getElementById('unsplashApiKey').value.trim(),
+      pexelsApiKey:document.getElementById('pexelsApiKey').value.trim()
+    };
+    await fetch('/api/image-settings',{method:'POST',headers:authHeaders({'Content-Type':'application/json'}),body:JSON.stringify(data)});
+  }catch(e){}
+}
+async function loadImageApiSettings(){
+  try{
+    const res=await fetch('/api/image-settings',{headers:authHeaders()});
+    const data=await res.json();
+    if(data.pixabayApiKey) document.getElementById('pixabayApiKey').value=data.pixabayApiKey;
+    if(data.unsplashAccessKey) document.getElementById('unsplashApiKey').value=data.unsplashAccessKey;
+    if(data.pexelsApiKey) document.getElementById('pexelsApiKey').value=data.pexelsApiKey;
+    // 배지 업데이트
+    ['pixabay','unsplash','pexels'].forEach(p=>{
+      const keyId=p==='unsplash'?'unsplashApiKey':p+'ApiKey';
+      const val=document.getElementById(keyId).value;
+      const badge=document.getElementById(p+'Badge');
+      if(val&&badge){badge.textContent='저장됨';badge.style.background='#dcfce7';badge.style.color='#166534';}
+    });
+  }catch(e){}
+}
+loadImageApiSettings();
+
 // 페이지 로드 시 서버에서 인용추적 API 키 상태를 가져와 배지 초기화
 async function loadCitApiStatus(){
   try{
@@ -662,7 +691,7 @@ async function testImageApi(provider){
   try{
     let testUrl,headers={};
     if(provider==='pixabay'){
-      testUrl='https://pixabay.com/api/?key='+encodeURIComponent(apiKey)+'&q=skin+care&per_page=1&image_type=photo';
+      testUrl='https://pixabay.com/api/?key='+encodeURIComponent(apiKey)+'&q=skin+care&per_page=3&image_type=photo';
     }else if(provider==='unsplash'){
       testUrl='https://api.unsplash.com/search/photos?query=skin+care&per_page=1';
       headers={Authorization:'Client-ID '+apiKey};

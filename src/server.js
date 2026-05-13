@@ -405,6 +405,19 @@ async function setupCronSchedule() {
 
 setupCronSchedule();
 
+// ─── DB에 저장된 이미지 API 키를 환경변수에 병합 ───
+(async function loadImageApiKeys() {
+  try {
+    const imgSettings = await settings.get('imageApis');
+    if (imgSettings) {
+      if (imgSettings.pixabayApiKey && !env.PIXABAY_API_KEY) env.PIXABAY_API_KEY = imgSettings.pixabayApiKey;
+      if (imgSettings.unsplashAccessKey && !env.UNSPLASH_ACCESS_KEY) env.UNSPLASH_ACCESS_KEY = imgSettings.unsplashAccessKey;
+      if (imgSettings.pexelsApiKey && !env.PEXELS_API_KEY) env.PEXELS_API_KEY = imgSettings.pexelsApiKey;
+      console.log('[Server] DB 이미지 API 키 로드 완료');
+    }
+  } catch (e) { console.error('[Server] 이미지 API 키 로드 실패:', e.message); }
+})();
+
 // ─── 인용추적 자동 cron ───
 let citationCronJob = null;
 let lastCitationTrackTime = null;
@@ -1194,6 +1207,29 @@ const server = http.createServer(async function(req, res) {
       await contentQueue.delete(itemId);
       jsonRes(res, { success: true });
       return;
+    }
+
+    // === 이미지 API 설정 ===
+
+    if (pathname === '/api/image-settings' && method === 'GET') {
+      const imgSettings = await settings.get('imageApis') || {};
+      return jsonRes(res, {
+        pixabayApiKey: imgSettings.pixabayApiKey || '',
+        unsplashAccessKey: imgSettings.unsplashAccessKey || '',
+        pexelsApiKey: imgSettings.pexelsApiKey || '',
+      });
+    }
+
+    if (pathname === '/api/image-settings' && method === 'POST') {
+      try {
+        const data = await parseBody(req);
+        await settings.set('imageApis', data);
+        // 환경변수에도 반영 (런타임)
+        if (data.pixabayApiKey) env.PIXABAY_API_KEY = data.pixabayApiKey;
+        if (data.unsplashAccessKey) env.UNSPLASH_ACCESS_KEY = data.unsplashAccessKey;
+        if (data.pexelsApiKey) env.PEXELS_API_KEY = data.pexelsApiKey;
+        return jsonRes(res, { success: true });
+      } catch (e) { return jsonRes(res, { error: e.message }, 400); }
     }
 
     // === 인용 추적 API ===

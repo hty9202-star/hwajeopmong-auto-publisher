@@ -662,7 +662,7 @@ async function fetchPixabayImages(apiKey, query, count = 3) {
   try {
     const randomPage = Math.floor(Math.random() * 3) + 1;
     const response = await fetch(
-      `https://pixabay.com/api/?key=${encodeURIComponent(apiKey)}&q=${encodeURIComponent(query)}&per_page=${count}&page=${randomPage}&orientation=horizontal&image_type=photo&lang=ko`
+      `https://pixabay.com/api/?key=${encodeURIComponent(apiKey)}&q=${encodeURIComponent(query)}&per_page=${Math.max(count, 3)}&page=${randomPage}&orientation=horizontal&image_type=photo&lang=ko`
     );
     if (!response.ok) return [];
     const data = await response.json();
