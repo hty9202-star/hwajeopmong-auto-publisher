@@ -591,10 +591,8 @@ function updateCitBadges(){
   keys.forEach(k=>{
     const val=document.getElementById(k.id).value;
     const badge=document.getElementById(k.badge);
-    // 이미 테스트 완료된 배지는 건드리지 않음
     if(badge.dataset.verified==='true') return;
     if(k.server){
-      // Gemini는 서버 환경변수 — 입력값 없어도 서버에 설정돼 있을 수 있음
       badge.textContent='미확인';badge.style.background='#fef3c7';badge.style.color='#92400e';
     } else if(val&&val!==''){
       badge.textContent='미확인';badge.style.background='#fef3c7';badge.style.color='#92400e';
@@ -603,6 +601,28 @@ function updateCitBadges(){
     }
   });
 }
+
+// 페이지 로드 시 서버에서 인용추적 API 키 상태를 가져와 배지 초기화
+async function loadCitApiStatus(){
+  try{
+    const res=await fetch('/api/citation-settings',{headers:authHeaders()});
+    const data=await res.json();
+    const checks=[
+      {key:data.geminiApiKey,badge:'citGeminiBadge',label:'서버 설정됨'},
+      {key:data.chatgptApiKey,badge:'citChatgptBadge',label:'키 설정됨'},
+      {key:data.claudeApiKey,badge:'citClaudeBadge',label:'키 설정됨'}
+    ];
+    checks.forEach(c=>{
+      const badge=document.getElementById(c.badge);
+      if(!badge) return;
+      if(badge.dataset.verified==='true') return;
+      if(c.key&&c.key!==''){
+        badge.textContent=c.label;badge.style.background='#dcfce7';badge.style.color='#166534';badge.dataset.verified='true';
+      }
+    });
+  }catch(e){}
+}
+loadCitApiStatus();
 
 async function connectApiKey(model){
   const badgeMap={gemini:'citGeminiBadge',chatgpt:'citChatgptBadge',claude:'citClaudeBadge'};

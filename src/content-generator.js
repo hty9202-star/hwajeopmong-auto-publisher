@@ -623,33 +623,37 @@ ${faqInstruction}
 }
 
 // ─── Pexels 검색어 다양화 (질환별 쿼리 풀) ───
-const PEXELS_QUERY_POOLS = {
-  'flat-warts': ['dermatology treatment', 'skin clinic consultation', 'hand skin close up', 'korean herbal medicine', 'acupuncture therapy', 'skin examination doctor', 'natural skin remedy'],
-  'plantar-warts': ['foot care treatment', 'podiatry clinic', 'walking barefoot healthy', 'foot massage therapy', 'herbal foot soak', 'acupuncture foot treatment', 'foot skin health'],
-  'genital-warts': ['medical consultation clinic', 'immune system health', 'herbal medicine preparation', 'doctor patient trust', 'traditional medicine clinic', 'wellness lifestyle healthy', 'medical privacy care'],
-  'warts-treatment': ['skin treatment dermatology', 'herbal cream remedy', 'oriental medicine herbs', 'acupuncture session', 'healthy skin glow', 'medical treatment progress', 'natural healing process'],
-  'atopic-dermatitis': ['sensitive skin care', 'moisturizer application', 'herbal bath therapy', 'eczema treatment natural', 'skin barrier repair', 'allergy free lifestyle', 'gentle skincare routine'],
-  'acne-treatment': ['clear skin facial', 'acne skincare routine', 'herbal face mask', 'skin detox treatment', 'teenage skincare healthy', 'facial treatment spa', 'clean beauty natural'],
-  'urticaria': ['allergy relief treatment', 'immune health wellness', 'stress relief relaxation', 'herbal tea remedy', 'antihistamine natural', 'skin rash treatment', 'calming lifestyle wellness'],
-  'psoriasis': ['chronic skin condition', 'scalp treatment care', 'moisturizing therapy skin', 'autoimmune health wellness', 'herbal medicine oriental', 'skin renewal treatment', 'holistic health approach'],
-  'hair-loss': ['healthy hair growth', 'scalp massage therapy', 'hair treatment clinic', 'herbal hair remedy', 'hair care natural', 'trichology consultation', 'hair restoration treatment'],
-  'seborrheic-dermatitis': ['scalp care shampoo', 'sebum control treatment', 'dandruff remedy natural', 'scalp health examination', 'gentle cleansing routine', 'herbal scalp treatment', 'skin microbiome balance'],
+const IMAGE_QUERY_POOLS = {
+  'flat-warts': ['asian dermatology clinic', 'korean herbal medicine skin', 'acupuncture therapy asian', 'hand skin care asian woman', 'traditional medicine consultation', 'oriental medicine herbs skin', 'moxibustion treatment'],
+  'plantar-warts': ['foot care asian clinic', 'acupuncture foot treatment', 'herbal foot soak oriental', 'foot massage therapy asian', 'traditional medicine foot care', 'oriental herbal remedy', 'asian wellness foot'],
+  'genital-warts': ['asian medical consultation', 'herbal medicine preparation oriental', 'traditional korean medicine clinic', 'immune health asian wellness', 'oriental medicine doctor', 'herbal tea asian health', 'medical privacy care'],
+  'warts-treatment': ['oriental medicine herbs treatment', 'acupuncture session asian', 'korean herbal cream remedy', 'traditional medicine skin care', 'asian dermatology treatment', 'moxibustion therapy skin', 'herbal medicine preparation'],
+  'atopic-dermatitis': ['asian sensitive skin care', 'herbal bath therapy oriental', 'korean skincare routine', 'traditional medicine eczema', 'oriental herbal moisturizer', 'asian woman skin care', 'gentle herbal remedy skin'],
+  'acne-treatment': ['asian skincare routine acne', 'herbal face mask oriental', 'korean beauty skin care', 'traditional medicine acne', 'asian clear skin facial', 'oriental herbal skin detox', 'asian woman clean skin'],
+  'urticaria': ['asian allergy treatment herbal', 'oriental medicine immune', 'herbal tea remedy asian', 'acupuncture allergy asian', 'traditional medicine wellness', 'asian calming herbal tea', 'oriental health lifestyle'],
+  'psoriasis': ['oriental medicine scalp treatment', 'asian herbal medicine chronic', 'acupuncture psoriasis asian', 'traditional korean medicine herbs', 'herbal skin renewal oriental', 'asian holistic health', 'moxibustion therapy'],
+  'hair-loss': ['asian scalp treatment clinic', 'korean herbal hair remedy', 'acupuncture scalp asian', 'oriental medicine hair growth', 'asian hair care traditional', 'herbal hair treatment oriental', 'asian woman healthy hair'],
+  'seborrheic-dermatitis': ['asian scalp care herbal', 'oriental medicine scalp', 'korean herbal shampoo treatment', 'traditional medicine dandruff', 'asian gentle scalp care', 'herbal scalp remedy oriental', 'asian skin microbiome'],
 };
 
-const PEXELS_GENERAL_POOL = [
-  'korean traditional medicine', 'herbal medicine clinic', 'acupuncture treatment session',
-  'wellness health lifestyle', 'doctor consultation friendly', 'oriental medicine herbs',
-  'patient care clinic', 'holistic health approach', 'therapeutic massage treatment',
-  'healthy living nature', 'medical professional care', 'natural healing herbs',
+const IMAGE_GENERAL_POOL = [
+  'korean traditional medicine clinic', 'oriental herbal medicine preparation', 'acupuncture treatment asian',
+  'asian wellness herbal tea', 'traditional korean medicine doctor', 'oriental medicine herbs mortar',
+  'asian patient care clinic', 'moxibustion therapy treatment', 'korean herbal medicine cabinet',
+  'asian holistic health care', 'traditional oriental medicine', 'herbal medicine asian clinic',
 ];
 
-function diversifyPexelsQuery(baseQuery, topicId) {
-  const pool = PEXELS_QUERY_POOLS[topicId] || PEXELS_GENERAL_POOL;
-  // 70% 확률로 질환별 풀에서 랜덤 선택, 30%로 일반 풀
+// 동양 이미지 보강 키워드 (검색어에 자동 추가)
+const ORIENTAL_BOOST = ['asian', 'korean', 'oriental', 'traditional medicine'];
+
+function diversifyImageQuery(baseQuery, topicId) {
+  const pool = IMAGE_QUERY_POOLS[topicId] || IMAGE_GENERAL_POOL;
   if (Math.random() < 0.7) {
     return pickRandom(pool);
   }
-  return pickRandom(PEXELS_GENERAL_POOL);
+  // 일반 풀에서 선택 시에도 동양 키워드 보강
+  const generalQuery = pickRandom(IMAGE_GENERAL_POOL);
+  return generalQuery;
 }
 
 // ─── 이미지 가져오기 (Pixabay — 1순위) ───
@@ -1077,7 +1081,7 @@ export async function generateContent(env, topic, contentType, options = {}) {
 
   // 이미지 가져오기 (3종 API 폴백: Pixabay → Unsplash → Pexels)
   const imageCount = options.imagesPerContent || 3;
-  const diversifiedQuery = diversifyPexelsQuery(topic.pexelsQuery, topic.id);
+  const diversifiedQuery = diversifyImageQuery(topic.pexelsQuery, topic.id);
   const images = await fetchImagesWithFallback(env, diversifiedQuery, imageCount);
 
   // 콘텐츠 조립
