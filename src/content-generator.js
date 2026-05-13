@@ -652,32 +652,101 @@ function diversifyPexelsQuery(baseQuery, topicId) {
   return pickRandom(PEXELS_GENERAL_POOL);
 }
 
-// ─── 이미지 가져오기 (Pexels) ───
+// ─── 이미지 가져오기 (Pixabay — 1순위) ───
+async function fetchPixabayImages(apiKey, query, count = 3) {
+  if (!apiKey) return [];
+  try {
+    const randomPage = Math.floor(Math.random() * 3) + 1;
+    const response = await fetch(
+      `https://pixabay.com/api/?key=${encodeURIComponent(apiKey)}&q=${encodeURIComponent(query)}&per_page=${count}&page=${randomPage}&orientation=horizontal&image_type=photo&lang=ko`
+    );
+    if (!response.ok) return [];
+    const data = await response.json();
+    return (data.hits || []).map((hit) => ({
+      url: hit.webformatURL,
+      alt: hit.tags || query,
+      photographer: hit.user,
+      photographerUrl: `https://pixabay.com/users/${hit.user}-${hit.user_id}/`,
+      sourceUrl: hit.pageURL,
+      source: 'Pixabay',
+    }));
+  } catch (error) {
+    console.error('Pixabay API error:', error);
+    return [];
+  }
+}
+
+// ─── 이미지 가져오기 (Unsplash — 2순위) ───
+async function fetchUnsplashImages(apiKey, query, count = 3) {
+  if (!apiKey) return [];
+  try {
+    const randomPage = Math.floor(Math.random() * 3) + 1;
+    const response = await fetch(
+      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=${count}&page=${randomPage}&orientation=landscape`,
+      { headers: { Authorization: `Client-ID ${apiKey}` } }
+    );
+    if (!response.ok) return [];
+    const data = await response.json();
+    return (data.results || []).map((photo) => ({
+      url: photo.urls.regular,
+      alt: photo.alt_description || query,
+      photographer: photo.user.name,
+      photographerUrl: photo.user.links.html,
+      sourceUrl: photo.links.html,
+      source: 'Unsplash',
+    }));
+  } catch (error) {
+    console.error('Unsplash API error:', error);
+    return [];
+  }
+}
+
+// ─── 이미지 가져오기 (Pexels — 3순위) ───
 async function fetchPexelsImages(apiKey, query, count = 3) {
   if (!apiKey) return [];
-
   try {
-    // 랜덤 페이지로 매번 다른 이미지 세트 가져오기
     const randomPage = Math.floor(Math.random() * 5) + 1;
     const response = await fetch(
       `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=${count}&page=${randomPage}&orientation=landscape`,
       { headers: { Authorization: apiKey } }
     );
-
     if (!response.ok) return [];
-
     const data = await response.json();
     return data.photos.map((photo) => ({
       url: photo.src.large,
       alt: photo.alt || query,
       photographer: photo.photographer,
       photographerUrl: photo.photographer_url,
-      pexelsUrl: photo.url,
+      sourceUrl: photo.url,
+      source: 'Pexels',
     }));
   } catch (error) {
     console.error('Pexels API error:', error);
     return [];
   }
+}
+
+// ─── 이미지 폴백 검색 (Pixabay → Unsplash → Pexels) ───
+async function fetchImagesWithFallback(env, query, count = 3) {
+  const sources = [
+    { name: 'Pixabay', key: env.PIXABAY_API_KEY, fn: fetchPixabayImages },
+    { name: 'Unsplash', key: env.UNSPLASH_ACCESS_KEY, fn: fetchUnsplashImages },
+    { name: 'Pexels', key: env.PEXELS_API_KEY, fn: fetchPexelsImages },
+  ];
+
+  let collected = [];
+  for (const src of sources) {
+    if (collected.length >= count) break;
+    if (!src.key) continue;
+    const needed = count - collected.length;
+    console.log(`[이미지] ${src.name}에서 ${needed}장 검색: "${query}"`);
+    const result = await src.fn(src.key, query, needed);
+    collected = collected.concat(result);
+  }
+
+  if (collected.length > count) collected = collected.slice(0, count);
+  console.log(`[이미지] 최종 ${collected.length}장 확보 (소스: ${[...new Set(collected.map(i => i.source))].join(', ') || '없음'})`);
+  return collected;
 }
 
 // ─── 이미지 alt 텍스트 SEO 최적화 ───
@@ -705,10 +774,12 @@ function insertInlineImages(html, images, topic) {
       const img = images[imageIndex];
       const altText = optimizeImageAlt(img.alt, topic, imageIndex);
       imageIndex++;
+      const sourceName = img.source || 'Pexels';
+      const sourceUrl = img.sourceUrl || img.pexelsUrl || '#';
       const imgHtml = `</h2>
 <figure class="wp-block-image">
   <img src="${img.url}" alt="${altText}" loading="lazy" />
-  <figcaption>사진: <a href="${img.photographerUrl}" target="_blank">${img.photographer}</a> / <a href="${img.pexelsUrl}" target="_blank">Pexels</a></figcaption>
+  <figcaption>사진: <a href="${img.photographerUrl}" target="_blank">${img.photographer}</a> / <a href="${sourceUrl}" target="_blank">${sourceName}</a></figcaption>
 </figure>`;
       return imgHtml;
     }
@@ -985,7 +1056,6 @@ function removeFakeReferences(content) {
 // ─── 메인 생성 함수 (외부에서 호출) ───
 export async function generateContent(env, topic, contentType, options = {}) {
   const geminiKey = env.GEMINI_API_KEY;
-  const pexelsKey = env.PEXELS_API_KEY;
   const isFaqType = contentType.id === 'faq';
 
   if (!geminiKey) throw new Error('GEMINI_API_KEY 환경변수가 설정되지 않았습니다');
@@ -1005,10 +1075,10 @@ export async function generateContent(env, topic, contentType, options = {}) {
   // 제목 후처리 (괄호 제거)
   cleanedProduction.title = cleanTitle(cleanedProduction.title);
 
-  // 이미지 가져오기 (검색어 다양화 적용, 설정값 반영)
+  // 이미지 가져오기 (3종 API 폴백: Pixabay → Unsplash → Pexels)
   const imageCount = options.imagesPerContent || 3;
   const diversifiedQuery = diversifyPexelsQuery(topic.pexelsQuery, topic.id);
-  const images = await fetchPexelsImages(pexelsKey, diversifiedQuery, imageCount);
+  const images = await fetchImagesWithFallback(env, diversifiedQuery, imageCount);
 
   // 콘텐츠 조립
   let finalContent = cleanedProduction.content;

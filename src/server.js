@@ -80,6 +80,8 @@ const env = {
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
   WP_SITE_ID: process.env.WP_SITE_ID || 'mongclinictest.wordpress.com',
   WP_ACCESS_TOKEN: process.env.WP_ACCESS_TOKEN,
+  PIXABAY_API_KEY: process.env.PIXABAY_API_KEY,
+  UNSPLASH_ACCESS_KEY: process.env.UNSPLASH_ACCESS_KEY,
   PEXELS_API_KEY: process.env.PEXELS_API_KEY,
 };
 
@@ -716,7 +718,11 @@ const server = http.createServer(async function(req, res) {
         nextPublishTime: nextPublishTime,
         publishPeriod: publishPeriod,
         ai: { model: 'gemini-2.5-flash-lite', status: env.GEMINI_API_KEY ? 'configured' : 'missing' },
-        pexels: { status: env.PEXELS_API_KEY ? 'configured' : 'missing' },
+        imageApis: {
+          pixabay: { status: env.PIXABAY_API_KEY ? 'configured' : 'missing', priority: 1 },
+          unsplash: { status: env.UNSPLASH_ACCESS_KEY ? 'configured' : 'missing', priority: 2 },
+          pexels: { status: env.PEXELS_API_KEY ? 'configured' : 'missing', priority: 3 },
+        },
         content: {
           totalTopics: topicCount,
           totalContentTypes: CONTENT_TYPES.length,

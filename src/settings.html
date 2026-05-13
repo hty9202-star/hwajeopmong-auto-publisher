@@ -102,8 +102,44 @@ body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-s
 <div class="setting-row"><div><div class="setting-label">발행 주기</div><div class="setting-desc">하루에 자동 발행할 횟수와 시간대</div></div><div style="display:flex;align-items:center;gap:8px"><select id="publishFrequency" style="padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;color:#1B4F72;font-weight:600;outline:none"><option value="1">하루 1회 (09:00)</option><option value="2">하루 2회 (09:00, 15:00)</option><option value="3">하루 3회 (09:00, 13:00, 17:00)</option><option value="5">하루 5회 (09:00~17:00, 2시간 간격)</option></select></div></div>
 <div class="setting-row"><div><div class="setting-label">발행 요일</div><div class="setting-desc">콘텐츠를 발행할 요일 설정</div></div><div style="display:flex;align-items:center;gap:8px"><select id="publishDays" style="padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;color:#1B4F72;font-weight:600;outline:none"><option value="everyday">매일</option><option value="weekdays">평일만 (월~금)</option></select></div></div>
 <div class="setting-row"><div><div class="setting-label">총 발행 목표</div><div class="setting-desc">전체 콘텐츠 발행 목표 건수 (진행률 계산 기준)</div></div><div style="display:flex;align-items:center;gap:8px"><input type="number" class="num-input" id="totalTarget" min="1" max="9999" value="50"><span class="unit">건</span><button class="btn-add" onclick="autoFillTarget()" style="padding:6px 12px;font-size:12px">자동계산</button></div></div>
-<div class="setting-row"><div><div class="setting-label">콘텐츠당 이미지 수</div><div class="setting-desc">Pexels에서 검색할 이미지 개수</div></div><div style="display:flex;align-items:center;gap:8px"><input type="number" class="num-input" id="imagesPerContent" min="0" max="10" value="3"><span class="unit">개</span></div></div>
+<div class="setting-row"><div><div class="setting-label">콘텐츠당 이미지 수</div><div class="setting-desc">우선순위 API에서 검색할 총 이미지 개수</div></div><div style="display:flex;align-items:center;gap:8px"><input type="number" class="num-input" id="imagesPerContent" min="0" max="10" value="3"><span class="unit">개</span></div></div>
 <div id="periodInfo" style="padding:4px 20px 4px;font-size:13px;color:#64748b;line-height:1.7;background:#f0f9ff;border-radius:8px;margin:8px 0 0"></div>
+</div>
+<div class="section">
+<div class="section-title">🖼️ 이미지 API 설정</div>
+<div style="font-size:12px;color:#64748b;margin-bottom:14px;padding:0 4px">우선순위 순서대로 이미지를 검색합니다. API 키가 없는 서비스는 건너뜁니다.</div>
+<div style="display:flex;flex-direction:column;gap:10px">
+  <div style="display:flex;align-items:center;gap:8px">
+    <span style="min-width:22px;height:22px;border-radius:50%;background:#58B265;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center">1</span>
+    <label style="min-width:80px;font-size:13px;color:#555;font-weight:600">Pixabay</label>
+    <input type="password" id="pixabayApiKey" placeholder="API 키 입력..." autocomplete="one-time-code" name="pixabay-nofill" style="flex:1;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;outline:none">
+    <button onclick="testImageApi('pixabay')" style="padding:5px 14px;font-size:11px;border:none;border-radius:6px;background:#E3002B;color:#fff;cursor:pointer;font-weight:600;white-space:nowrap">연결</button>
+    <span id="pixabayBadge" style="font-size:11px;padding:3px 10px;border-radius:6px;font-weight:500;white-space:nowrap"></span>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <span style="min-width:22px;height:22px;border-radius:50%;background:#3B82F6;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center">2</span>
+    <label style="min-width:80px;font-size:13px;color:#555;font-weight:600">Unsplash</label>
+    <input type="password" id="unsplashApiKey" placeholder="Access Key 입력..." autocomplete="one-time-code" name="unsplash-nofill" style="flex:1;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;outline:none">
+    <button onclick="testImageApi('unsplash')" style="padding:5px 14px;font-size:11px;border:none;border-radius:6px;background:#E3002B;color:#fff;cursor:pointer;font-weight:600;white-space:nowrap">연결</button>
+    <span id="unsplashBadge" style="font-size:11px;padding:3px 10px;border-radius:6px;font-weight:500;white-space:nowrap"></span>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <span style="min-width:22px;height:22px;border-radius:50%;background:#F59E0B;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center">3</span>
+    <label style="min-width:80px;font-size:13px;color:#555;font-weight:600">Pexels</label>
+    <input type="password" id="pexelsApiKey" placeholder="API 키 입력..." autocomplete="one-time-code" name="pexels-nofill" style="flex:1;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;outline:none">
+    <button onclick="testImageApi('pexels')" style="padding:5px 14px;font-size:11px;border:none;border-radius:6px;background:#E3002B;color:#fff;cursor:pointer;font-weight:600;white-space:nowrap">연결</button>
+    <span id="pexelsBadge" style="font-size:11px;padding:3px 10px;border-radius:6px;font-weight:500;white-space:nowrap"></span>
+  </div>
+</div>
+<div style="background:#f8fafc;border-radius:8px;padding:8px 14px;margin-top:12px;border:1px solid #e2e8f0">
+  <div style="font-size:11px;color:#64748b;line-height:1.6">
+    <strong style="color:#334155">검색 순서:</strong> Pixabay(1순위) → Unsplash(2순위) → Pexels(3순위)<br>
+    <strong style="color:#334155">API 키 발급:</strong>
+    <a href="https://pixabay.com/api/docs/" target="_blank" style="color:#58B265">Pixabay</a> ·
+    <a href="https://unsplash.com/developers" target="_blank" style="color:#3B82F6">Unsplash</a> ·
+    <a href="https://www.pexels.com/api/" target="_blank" style="color:#F59E0B">Pexels</a>
+  </div>
+</div>
 </div>
 <div class="section">
 <div class="section-title">📋 발행 모드 & 토픽 설정</div>
@@ -595,6 +631,60 @@ async function connectApiKey(model){
   }
 }
 
+// ─── 이미지 API 연결 테스트 ───
+async function testImageApi(provider){
+  const keyMap={pixabay:'pixabayApiKey',unsplash:'unsplashApiKey',pexels:'pexelsApiKey'};
+  const badgeMap={pixabay:'pixabayBadge',unsplash:'unsplashBadge',pexels:'pexelsBadge'};
+  const badge=document.getElementById(badgeMap[provider]);
+  const apiKey=document.getElementById(keyMap[provider]).value.trim();
+  if(!apiKey){badge.textContent='키를 입력하세요';badge.style.background='#fee2e2';badge.style.color='#991b1b';return;}
+  badge.textContent='테스트 중...';badge.style.background='#e0e7ff';badge.style.color='#3730a3';
+  try{
+    let testUrl,headers={};
+    if(provider==='pixabay'){
+      testUrl='https://pixabay.com/api/?key='+encodeURIComponent(apiKey)+'&q=skin+care&per_page=1&image_type=photo';
+    }else if(provider==='unsplash'){
+      testUrl='https://api.unsplash.com/search/photos?query=skin+care&per_page=1';
+      headers={Authorization:'Client-ID '+apiKey};
+    }else{
+      testUrl='https://api.pexels.com/v1/search?query=skin+care&per_page=1';
+      headers={Authorization:apiKey};
+    }
+    const resp=await fetch(testUrl,{headers});
+    if(resp.ok){
+      badge.textContent='연결됨';badge.style.background='#dcfce7';badge.style.color='#166534';
+      showToast(provider+' API 연결 성공','success');
+    }else{
+      badge.textContent='인증 실패';badge.style.background='#fee2e2';badge.style.color='#991b1b';
+      showToast(provider+' API 키가 올바르지 않습니다','error');
+    }
+  }catch(e){
+    badge.textContent='연결 실패';badge.style.background='#fee2e2';badge.style.color='#991b1b';
+    showToast(provider+' 연결 실패: '+e.message,'error');
+  }
+}
+
+// 이미지 API 상태 로드
+async function loadImageApiStatus(){
+  try{
+    const res=await fetch('/api/status',{headers:authHeaders()});
+    const data=await res.json();
+    if(data.imageApis){
+      ['pixabay','unsplash','pexels'].forEach(p=>{
+        const badge=document.getElementById(p+'Badge');
+        if(!badge)return;
+        const s=data.imageApis[p];
+        if(s&&s.status==='configured'){
+          badge.textContent='서버 설정됨';badge.style.background='#dcfce7';badge.style.color='#166534';
+        }else{
+          badge.textContent='미설정';badge.style.background='#fef3c7';badge.style.color='#d97706';
+        }
+      });
+    }
+  }catch(e){}
+}
+loadImageApiStatus();
+
 // API 키 입력 시 배지 초기화
 document.addEventListener('DOMContentLoaded',()=>{
   ['citChatgptKey','citClaudeKey'].forEach(id=>{
@@ -604,6 +694,14 @@ document.addEventListener('DOMContentLoaded',()=>{
       const badge=document.getElementById(badgeId);
       badge.dataset.verified='';
       updateCitBadges();
+    });
+  });
+  ['pixabayApiKey','unsplashApiKey','pexelsApiKey'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.addEventListener('input',()=>{
+      const p=id.replace('ApiKey','').replace('Api','');
+      const badge=document.getElementById(p+'Badge');
+      if(badge){badge.textContent='미확인';badge.style.background='#fef3c7';badge.style.color='#d97706';}
     });
   });
 });

@@ -547,11 +547,23 @@
           <span>Gemini AI</span>
           <span id="aiStatus" style="margin-left:auto; font-size:12px; color:#9ca3af">확인 중...</span>
         </div>
+        <div style="border-top:1px solid #f1f5f9;margin:4px 0;padding-top:6px"><span style="font-size:11px;color:#94a3b8;font-weight:600;letter-spacing:0.3px">이미지 API</span></div>
+        <div class="conn-item">
+          <div class="conn-dot" id="pixabayDot"></div>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:16px;height:16px;border-radius:50%;background:#58B265;color:#fff;font-size:8px;font-weight:700;display:flex;align-items:center;justify-content:center">1</span>Pixabay</span>
+          <span id="pixabayStatus" style="margin-left:auto; font-size:12px; color:#9ca3af">확인 중...</span>
+        </div>
+        <div class="conn-item">
+          <div class="conn-dot" id="unsplashDot"></div>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:16px;height:16px;border-radius:50%;background:#3B82F6;color:#fff;font-size:8px;font-weight:700;display:flex;align-items:center;justify-content:center">2</span>Unsplash</span>
+          <span id="unsplashStatus" style="margin-left:auto; font-size:12px; color:#9ca3af">확인 중...</span>
+        </div>
         <div class="conn-item">
           <div class="conn-dot" id="pexelsDot"></div>
-          <span>Pexels</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:16px;height:16px;border-radius:50%;background:#F59E0B;color:#fff;font-size:8px;font-weight:700;display:flex;align-items:center;justify-content:center">3</span>Pexels</span>
           <span id="pexelsStatus" style="margin-left:auto; font-size:12px; color:#9ca3af">확인 중...</span>
         </div>
+        <div id="imageApiSummary" style="background:#f8fafc;border-radius:6px;padding:6px 10px;margin-top:4px;font-size:11px;color:#64748b"></div>
       </div>
     </div>
 
@@ -959,7 +971,26 @@
 
         setConnectionStatus('wp', status.wordpress.connected, status.wordpress.connected ? '연결됨' : '미연결');
         setConnectionStatus('ai', status.ai.status === 'configured', status.ai.status === 'configured' ? '설정됨' : '미설정');
-        setConnectionStatus('pexels', status.pexels.status === 'configured', status.pexels.status === 'configured' ? '설정됨' : '미설정');
+
+        // 이미지 API 3종 상태 표시
+        if (status.imageApis) {
+          const apis = status.imageApis;
+          const nameMap = { pixabay: 'Pixabay', unsplash: 'Unsplash', pexels: 'Pexels' };
+          const activeSources = [];
+          ['pixabay', 'unsplash', 'pexels'].forEach(p => {
+            const configured = apis[p] && apis[p].status === 'configured';
+            setConnectionStatus(p, configured, configured ? '연결됨' : '미설정');
+            if (configured) activeSources.push(nameMap[p]);
+          });
+          const summaryEl = document.getElementById('imageApiSummary');
+          if (summaryEl) {
+            summaryEl.innerHTML = '이미지 소스 <strong style="color:#334155">' + activeSources.length + '/3</strong> 활성' +
+              (activeSources.length > 0 ? ' · 검색 순서: ' + activeSources.join(' → ') : '');
+          }
+        } else {
+          // 하위 호환: 기존 pexels 단일 필드
+          setConnectionStatus('pexels', status.pexels && status.pexels.status === 'configured', status.pexels && status.pexels.status === 'configured' ? '설정됨' : '미설정');
+        }
 
         const topicsRes = await fetch(`${API_BASE}/api/topics`);
         const topics = await topicsRes.json();
