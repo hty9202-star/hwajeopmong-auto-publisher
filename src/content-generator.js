@@ -625,33 +625,32 @@ ${faqInstruction}
 // ─── 이미지 검색어 다양화 (질환별 쿼리 풀) ───
 // 주의: "herbal", "oriental", "wellness" 같은 모호한 키워드는 음식/소금램프 등 엉뚱한 결과를 반환함
 // 반드시 skin, clinic, doctor, patient, treatment 등 직접적 의료 키워드 사용
-// 키워드 규칙: acupuncture + dermatologist 계열만 허용
-// 금지어: cream, lotion, jar, bottle, product, studio, shelf, woman, man, skin care
-// 이유: 위 단어들은 뷰티/스파/DIY/음식 이미지와 반드시 섞임
+// 키워드 규칙: "acupuncture" 필수 포함 (치과/음식/캔들/화보 완전 차단)
+// "doctor", "clinic", "medical", "examining" 등 일반 의료 키워드 금지 (치과 매칭됨)
 const IMAGE_QUERY_POOLS = {
-  'flat-warts': ['dermatologist examining hand', 'acupuncture needle treatment', 'dermatology clinic examination', 'doctor wearing gloves medical', 'acupuncture therapy back'],
-  'plantar-warts': ['podiatrist examining foot', 'acupuncture foot treatment', 'doctor examining foot medical', 'dermatology clinic interior', 'acupuncture needle close up'],
-  'genital-warts': ['doctor patient consultation', 'dermatologist office desk', 'acupuncture therapy session', 'medical stethoscope doctor', 'doctor writing prescription'],
-  'warts-treatment': ['acupuncture needle close up', 'dermatologist wearing gloves', 'doctor examining patient', 'acupuncture back treatment', 'dermatology clinic room'],
-  'atopic-dermatitis': ['dermatologist examining arm', 'doctor patient consultation', 'acupuncture treatment session', 'dermatology clinic examination', 'medical doctor stethoscope'],
-  'acne-treatment': ['dermatologist examining face', 'acupuncture facial treatment', 'doctor patient dermatology', 'dermatology clinic mirror', 'acupuncture needle therapy'],
-  'acne': ['dermatologist examining face', 'acupuncture facial treatment', 'doctor patient dermatology', 'dermatology clinic mirror', 'acupuncture needle therapy'],
-  'acne-scars': ['dermatologist facial examination', 'acupuncture face treatment', 'dermatology doctor patient', 'doctor examining face skin', 'acupuncture therapy session'],
-  'urticaria': ['dermatologist examining rash', 'doctor patient allergy', 'acupuncture treatment arm', 'dermatology examination clinic', 'medical doctor consultation'],
-  'psoriasis': ['dermatologist examining scalp', 'acupuncture scalp treatment', 'doctor patient dermatology', 'dermatology clinic examination', 'acupuncture needle therapy'],
-  'hair-loss': ['trichologist examining scalp', 'acupuncture scalp treatment', 'doctor examining hair', 'dermatology hair clinic', 'scalp examination medical'],
-  'seborrheic-dermatitis': ['dermatologist scalp examination', 'doctor examining scalp', 'acupuncture head treatment', 'dermatology clinic checkup', 'medical scalp examination'],
-  'keratosis-pilaris': ['dermatologist examining arm skin', 'doctor patient consultation', 'acupuncture treatment session', 'dermatology arm examination', 'medical doctor checkup'],
-  'folliculitis': ['dermatologist skin examination', 'acupuncture therapy session', 'doctor examining patient skin', 'dermatology clinic checkup', 'medical examination doctor'],
-  'dyshidrosis': ['dermatologist examining hand', 'acupuncture hand treatment', 'doctor hand examination medical', 'dermatology clinic visit', 'medical hand checkup'],
-  'diet': ['acupuncture abdomen treatment', 'healthy salad plate overhead', 'doctor measuring waist', 'acupuncture body treatment', 'nutritionist consultation doctor'],
+  'flat-warts': ['acupuncture hand treatment', 'acupuncture needle skin', 'acupuncture wrist therapy', 'acupuncture arm close up', 'acupuncture traditional medicine'],
+  'plantar-warts': ['acupuncture foot treatment', 'acupuncture leg therapy', 'acupuncture needle foot', 'acupuncture ankle treatment', 'acupuncture reflexology'],
+  'genital-warts': ['acupuncture back therapy', 'acupuncture abdomen treatment', 'acupuncture traditional therapy', 'acupuncture moxibustion treatment', 'acupuncture cupping therapy'],
+  'warts-treatment': ['acupuncture needle close up', 'acupuncture skin treatment', 'acupuncture back needles', 'acupuncture traditional chinese', 'acupuncture therapy needles'],
+  'atopic-dermatitis': ['acupuncture arm treatment', 'acupuncture allergy therapy', 'acupuncture back therapy', 'acupuncture needle arm', 'acupuncture traditional healing'],
+  'acne-treatment': ['acupuncture face treatment', 'acupuncture facial therapy', 'acupuncture needle face', 'acupuncture beauty treatment', 'acupuncture skin facial'],
+  'acne': ['acupuncture face treatment', 'acupuncture facial therapy', 'acupuncture needle face', 'acupuncture beauty treatment', 'acupuncture skin facial'],
+  'acne-scars': ['acupuncture facial needles', 'acupuncture face therapy', 'acupuncture skin rejuvenation', 'acupuncture cosmetic treatment', 'acupuncture beauty facial'],
+  'urticaria': ['acupuncture arm therapy', 'acupuncture allergy treatment', 'acupuncture back needles', 'acupuncture immune therapy', 'acupuncture traditional treatment'],
+  'psoriasis': ['acupuncture scalp treatment', 'acupuncture head therapy', 'acupuncture back treatment', 'acupuncture skin therapy', 'acupuncture needle therapy'],
+  'hair-loss': ['acupuncture scalp therapy', 'acupuncture head treatment', 'acupuncture hair treatment', 'acupuncture scalp needles', 'acupuncture traditional scalp'],
+  'seborrheic-dermatitis': ['acupuncture head therapy', 'acupuncture scalp treatment', 'acupuncture needle head', 'acupuncture traditional scalp', 'acupuncture therapy session'],
+  'keratosis-pilaris': ['acupuncture arm treatment', 'acupuncture body therapy', 'acupuncture skin treatment', 'acupuncture needle arm', 'acupuncture traditional body'],
+  'folliculitis': ['acupuncture skin therapy', 'acupuncture body treatment', 'acupuncture needle therapy', 'acupuncture back treatment', 'acupuncture traditional skin'],
+  'dyshidrosis': ['acupuncture hand therapy', 'acupuncture wrist treatment', 'acupuncture hand needles', 'acupuncture finger therapy', 'acupuncture traditional hand'],
+  'diet': ['acupuncture abdomen treatment', 'acupuncture weight loss', 'acupuncture belly therapy', 'acupuncture body slimming', 'acupuncture metabolism treatment'],
 };
 
 const IMAGE_GENERAL_POOL = [
-  'acupuncture needle close up', 'dermatologist examining patient', 'acupuncture back treatment',
-  'dermatology clinic interior', 'acupuncture therapy session', 'doctor patient consultation medical',
-  'dermatologist wearing gloves', 'acupuncture needle therapy', 'doctor stethoscope medical',
-  'dermatology examination room', 'acupuncture treatment close up', 'medical doctor consultation',
+  'acupuncture needle close up', 'acupuncture back treatment', 'acupuncture therapy session',
+  'acupuncture traditional medicine', 'acupuncture needle therapy', 'acupuncture moxibustion',
+  'acupuncture cupping therapy', 'acupuncture back needles', 'acupuncture treatment room',
+  'acupuncture chinese medicine', 'acupuncture healing therapy', 'acupuncture wellness treatment',
 ];
 
 function diversifyImageQuery(baseQuery, topicId) {
