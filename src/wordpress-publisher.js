@@ -10,7 +10,10 @@ import { BRAND, WP_CATEGORIES, PUBLISH_CONFIG } from './config.js';
 
 const WP_API_BASE = 'https://public-api.wordpress.com/rest/v1.1';
 
-// ─── WordPress.com API 호출 헬퍼 ───
+// ─── WordPress.com API 호출 헬퍼 (재시도 포함) ───
+const WP_MAX_RETRIES = 3;
+const WP_RETRY_DELAYS = [1000, 3000, 5000]; // 1초, 3초, 5초 대기
+
 async function wpApiCall(env, endpoint, method = 'GET', body = null) {
   const siteId = env.WP_SITE_ID || 'mongclinictest.wordpress.com';
   const token = env.WP_ACCESS_TOKEN;
@@ -30,14 +33,39 @@ async function wpApiCall(env, endpoint, method = 'GET', body = null) {
     options.body = JSON.stringify(body);
   }
 
-  const response = await fetch(url, options);
+  let lastError;
+  for (let attempt = 0; attempt < WP_MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(url, options);
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`WordPress.com API error: ${response.status} - ${error}`);
+      // 4xx 클라이언트 에러는 재시도해도 의미 없음 (401 토큰만료, 400 잘못된 요청 등)
+      if (response.status >= 400 && response.status < 500) {
+        const error = await response.text();
+        throw new Error(`WordPress.com API error: ${response.status} - ${error}`);
+      }
+
+      // 5xx 서버 에러 또는 네트워크 문제는 재시도
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`WordPress.com API error: ${response.status} - ${error}`);
+      }
+
+      return response.json();
+    } catch (e) {
+      lastError = e;
+      // 4xx 에러는 즉시 throw (재시도 불필요)
+      if (e.message && e.message.includes('API error: 4')) {
+        throw e;
+      }
+      // 마지막 시도가 아니면 대기 후 재시도
+      if (attempt < WP_MAX_RETRIES - 1) {
+        const delay = WP_RETRY_DELAYS[attempt] || 5000;
+        console.log(`[WordPress] 재시도 ${attempt + 1}/${WP_MAX_RETRIES - 1} (${delay}ms 후): ${e.message}`);
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
   }
-
-  return response.json();
+  throw lastError;
 }
 
 // ─── 카테고리 가져오기 또는 생성 ───
