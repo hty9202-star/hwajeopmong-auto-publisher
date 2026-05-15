@@ -143,6 +143,76 @@ async function uploadHeroImage(env, imageData) {
   }
 }
 
+// ─── 단일 이미지를 WordPress에 업로드하고 URL 반환 ───
+async function uploadImageToWP(env, imageUrl, filename) {
+  try {
+    const imageResponse = await fetch(imageUrl);
+    if (!imageResponse.ok) return null;
+
+    const imageBuffer = await imageResponse.arrayBuffer();
+    const siteId = env.WP_SITE_ID || 'mongclinictest.wordpress.com';
+    const token = env.WP_ACCESS_TOKEN;
+
+    const formData = new FormData();
+    const blob = new Blob([imageBuffer], { type: 'image/jpeg' });
+    formData.append('media[]', blob, filename || `hwj-${Date.now()}.jpg`);
+
+    const uploadResponse = await fetch(
+      `${WP_API_BASE}/sites/${siteId}/media/new`,
+      {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData,
+      }
+    );
+
+    if (!uploadResponse.ok) {
+      console.error('[이미지 업로드] 실패:', uploadResponse.status);
+      return null;
+    }
+
+    const media = await uploadResponse.json();
+    if (media.media && media.media.length > 0) {
+      const wpUrl = media.media[0].URL || media.media[0].link;
+      console.log(`[이미지 업로드] 성공: ${wpUrl}`);
+      return { id: media.media[0].ID, url: wpUrl };
+    }
+    return null;
+  } catch (e) {
+    console.error('[이미지 업로드] 에러:', e.message);
+    return null;
+  }
+}
+
+// ─── 본문 내 외부 이미지를 WordPress로 업로드 후 URL 교체 ───
+async function uploadInlineImages(env, htmlContent) {
+  // 본문에서 외부 이미지 URL 추출 (pixabay, unsplash, pexels)
+  const imgRegex = /<img\s+[^>]*src="(https?:\/\/[^"]*(?:pixabay|unsplash|pexels|images\.pexels|cdn\.pixabay)[^"]*)"[^>]*>/gi;
+  let match;
+  const replacements = [];
+
+  while ((match = imgRegex.exec(htmlContent)) !== null) {
+    replacements.push({ fullMatch: match[0], originalUrl: match[1] });
+  }
+
+  if (replacements.length === 0) return htmlContent;
+
+  console.log(`[이미지 업로드] 본문 내 외부 이미지 ${replacements.length}개 발견`);
+
+  for (let i = 0; i < replacements.length; i++) {
+    const r = replacements[i];
+    const result = await uploadImageToWP(env, r.originalUrl, `hwj-inline-${Date.now()}-${i}.jpg`);
+    if (result && result.url) {
+      htmlContent = htmlContent.replace(r.originalUrl, result.url);
+      console.log(`[이미지 업로드] ${i + 1}/${replacements.length} 교체 완료`);
+    } else {
+      console.log(`[이미지 업로드] ${i + 1}/${replacements.length} 실패 — 원본 URL 유지`);
+    }
+  }
+
+  return htmlContent;
+}
+
 // ─── 메인 발행 함수 ───
 export async function publishToWordPress(env, content, statusOverride) {
   console.log(`[WordPress] 발행 시작: ${content.title}`);
@@ -156,10 +226,13 @@ export async function publishToWordPress(env, content, statusOverride) {
   // 3. Hero 이미지 업로드
   const featuredImageId = await uploadHeroImage(env, content.heroImage);
 
+  // 3.5. 본문 내 외부 이미지를 WordPress 미디어 라이브러리로 업로드 후 URL 교체
+  const processedContent = await uploadInlineImages(env, content.content);
+
   // 4. 글 발행 (WordPress.com REST API v1.1)
   const postData = {
     title: content.title,
-    content: content.content,
+    content: processedContent,
     excerpt: content.excerpt,
     slug: content.slug,
     status: statusOverride || PUBLISH_CONFIG.defaultStatus, // 승인 시 'publish', 기본은 'draft'
