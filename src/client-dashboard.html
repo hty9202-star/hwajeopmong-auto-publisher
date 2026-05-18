@@ -372,6 +372,127 @@
     border: 1.5px solid #fca5a5;
   }
   .btn-reject:hover { background: #fef2f2; }
+  .btn-edit {
+    background: #fff;
+    color: #2563eb;
+    border: 1.5px solid #93c5fd;
+  }
+  .btn-edit:hover { background: #eff6ff; }
+
+  /* 수정 모달 */
+  .edit-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 40px 20px;
+    overflow-y: auto;
+  }
+  .edit-overlay.active { display: flex; }
+  .edit-modal {
+    background: #fff;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 800px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  }
+  .edit-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .edit-modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .edit-modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #6b7280;
+    padding: 4px;
+  }
+  .edit-modal-body {
+    padding: 24px;
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+  }
+  .edit-field {
+    margin-bottom: 20px;
+  }
+  .edit-field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 6px;
+  }
+  .edit-field input,
+  .edit-field textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    box-sizing: border-box;
+  }
+  .edit-field input:focus,
+  .edit-field textarea:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+  }
+  .edit-field textarea {
+    min-height: 300px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .edit-field .field-hint {
+    font-size: 12px;
+    color: #9ca3af;
+    margin-top: 4px;
+  }
+  .edit-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 24px;
+    border-top: 1px solid #e5e7eb;
+  }
+  .edit-modal-footer .btn-save {
+    background: #2563eb;
+    color: #fff;
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+  }
+  .edit-modal-footer .btn-save:hover { background: #1d4ed8; }
+  .edit-modal-footer .btn-cancel {
+    background: #f3f4f6;
+    color: #374151;
+    padding: 10px 24px;
+    border-radius: 8px;
+  }
+  .edit-wp-sync {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: #eff6ff;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    color: #1e40af;
+  }
   .btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn-loading {
     position: relative;
@@ -1178,6 +1299,7 @@ function renderContents() {
           '<div class="card-actions">' +
             '<span class="badge ' + statusBadgeClass(status) + '">' + statusLabel(status) + '</span>' +
             '<button class="btn btn-preview" onclick="togglePreview(\'' + id + '\')">미리보기</button>' +
+            (status !== 'rejected' ? '<button class="btn btn-edit" onclick="openEditModal(\'' + id + '\')">수정</button>' : '') +
             (isPending ? '<button class="btn btn-approve" onclick="approveContent(\'' + id + '\', \'' + escapeAttr(title) + '\')">승인</button>' : '') +
             (isPending ? '<button class="btn btn-reject" onclick="rejectContent(\'' + id + '\', \'' + escapeAttr(title) + '\')">반려</button>' : '') +
           '</div>' +
@@ -1443,6 +1565,144 @@ function renderClientPeriodBanner(period){
     '<div style="text-align:right"><div style="font-size:22px;font-weight:600;color:'+dotColor+'">'+daysText+'</div>'+
     '<div style="font-size:12px;color:#64748b">'+statusText+'</div>'+contactBtn+'</div>';
 }
+</script>
+
+<!-- 수정 모달 -->
+<div class="edit-overlay" id="editOverlay">
+  <div class="edit-modal">
+    <div class="edit-modal-header">
+      <h3>콘텐츠 수정</h3>
+      <button class="edit-modal-close" onclick="closeEditModal()">&times;</button>
+    </div>
+    <div class="edit-modal-body">
+      <div class="edit-wp-sync" id="editWpSync" style="display:none">
+        WordPress에 발행된 글입니다. 저장 시 WordPress 게시글도 자동 업데이트됩니다.
+      </div>
+      <input type="hidden" id="editItemId" />
+      <div class="edit-field">
+        <label>제목</label>
+        <input type="text" id="editTitle" placeholder="제목을 입력하세요" />
+      </div>
+      <div class="edit-field">
+        <label>메타 설명 (SEO)</label>
+        <input type="text" id="editMetaDesc" placeholder="검색 결과에 표시되는 설명" />
+        <div class="field-hint">검색엔진 결과 페이지에 표시됩니다. 150자 이내 권장.</div>
+      </div>
+      <div class="edit-field">
+        <label>요약 (Excerpt)</label>
+        <textarea id="editExcerpt" style="min-height:60px"></textarea>
+      </div>
+      <div class="edit-field">
+        <label>태그 (쉼표로 구분)</label>
+        <input type="text" id="editTags" placeholder="태그1, 태그2, 태그3" />
+      </div>
+      <div class="edit-field">
+        <label>본문 (HTML)</label>
+        <textarea id="editContent" placeholder="HTML 본문을 수정하세요"></textarea>
+        <div class="field-hint">HTML 태그가 포함된 본문입니다. 구조를 변경할 경우 GEO 최적화에 영향을 줄 수 있습니다.</div>
+      </div>
+    </div>
+    <div class="edit-modal-footer">
+      <button class="btn btn-cancel" onclick="closeEditModal()">취소</button>
+      <button class="btn btn-save" id="editSaveBtn" onclick="saveEdit()">저장</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── 수정 모달 로직 ───
+var editingItem = null;
+
+function openEditModal(itemId) {
+  var item = allContents.find(function(c) { return (c.id || c._id) === itemId; });
+  if (!item) { alert('콘텐츠를 찾을 수 없습니다.'); return; }
+  editingItem = item;
+
+  document.getElementById('editItemId').value = itemId;
+  document.getElementById('editTitle').value = item.title || '';
+  document.getElementById('editMetaDesc').value = item.meta_description || '';
+  document.getElementById('editExcerpt').value = item.excerpt || '';
+  document.getElementById('editTags').value = Array.isArray(item.tags) ? item.tags.join(', ') : (item.tags || '');
+  document.getElementById('editContent').value = item.content || item.htmlContent || item.html_content || '';
+
+  // WP 발행 여부 표시
+  var wpSync = document.getElementById('editWpSync');
+  wpSync.style.display = item.wp_post_id ? 'flex' : 'none';
+
+  document.getElementById('editOverlay').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeEditModal() {
+  document.getElementById('editOverlay').classList.remove('active');
+  document.body.style.overflow = '';
+  editingItem = null;
+}
+
+async function saveEdit() {
+  var itemId = document.getElementById('editItemId').value;
+  var title = document.getElementById('editTitle').value.trim();
+  var content = document.getElementById('editContent').value.trim();
+  var metaDesc = document.getElementById('editMetaDesc').value.trim();
+  var excerpt = document.getElementById('editExcerpt').value.trim();
+  var tagsRaw = document.getElementById('editTags').value.trim();
+
+  if (!title) { alert('제목을 입력해주세요.'); return; }
+  if (!content) { alert('본문을 입력해주세요.'); return; }
+
+  var tags = tagsRaw ? tagsRaw.split(',').map(function(t) { return t.trim(); }).filter(Boolean) : [];
+
+  var saveBtn = document.getElementById('editSaveBtn');
+  saveBtn.disabled = true;
+  saveBtn.textContent = '저장 중...';
+
+  try {
+    var resp = await fetch('/api/client/contents/' + itemId + '/edit', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + localStorage.getItem('client_token'),
+      },
+      body: JSON.stringify({
+        title: title,
+        content: content,
+        meta_description: metaDesc,
+        excerpt: excerpt,
+        tags: tags,
+      }),
+    });
+
+    var result = await resp.json();
+    if (!resp.ok) throw new Error(result.error || '수정 실패');
+
+    // 로컬 데이터 업데이트
+    if (editingItem) {
+      editingItem.title = title;
+      editingItem.content = content;
+      editingItem.html_content = content;
+      editingItem.htmlContent = content;
+      editingItem.meta_description = metaDesc;
+      editingItem.excerpt = excerpt;
+      editingItem.tags = tags;
+    }
+
+    closeEditModal();
+    renderContents();
+    alert(result.message || '수정이 완료되었습니다.');
+  } catch (e) {
+    alert('수정 실패: ' + e.message);
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = '저장';
+  }
+}
+
+// ESC 키로 모달 닫기
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && document.getElementById('editOverlay').classList.contains('active')) {
+    closeEditModal();
+  }
+});
 </script>
 
 </body>

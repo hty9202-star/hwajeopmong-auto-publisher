@@ -14,7 +14,7 @@ import { fileURLToPath } from 'url';
 import cron from 'node-cron';
 import { CONTENT_TYPES, BRAND } from './config.js';
 import { generateContent, calculateGeoScore, calculateEeatScore } from './content-generator.js';
-import { publishToWordPress, getRecentPosts, checkConnection } from './wordpress-publisher.js';
+import { publishToWordPress, updateWordPressPost, getRecentPosts, checkConnection } from './wordpress-publisher.js';
 import { contentQueue, publishLogs, publishedTopics, settings, topics as topicsDB, citationResults, testConnection as testSupabase } from './supabase-client.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -1136,6 +1136,55 @@ const server = http.createServer(async function(req, res) {
         forceContentType: rejectedContentType || null,
         republishedFrom: { id: itemId, title: item.title, topic_name: item.topic_name, content_type_name: item.content_type_name, rejected_at: item.created_at || new Date().toISOString() },
       }).catch(function(e) { console.error('Regen error:', e); saveErrorLog('재생성발행', e); });
+      return;
+    }
+
+    // --- Client/Admin API: Edit (승인된 콘텐츠 수정) ---
+    if (pathname.match(/^\/api\/client\/contents\/[^/]+\/edit$/) && method === 'POST') {
+      if (!verifyToken(req)) { jsonRes(res, { error: 'Unauthorized' }, 401); return; }
+      const itemId = pathname.split('/')[4];
+      const item = await contentQueue.getById(itemId);
+      if (!item) { jsonRes(res, { error: 'Not found' }, 404); return; }
+
+      const editData = await parseBody(req).catch(function() { return {}; });
+      if (!editData.title && !editData.content) {
+        jsonRes(res, { error: '수정할 내용이 없습니다' }, 400);
+        return;
+      }
+
+      try {
+        // 1. Supabase DB 업데이트
+        const dbUpdates = {};
+        if (editData.title) dbUpdates.title = editData.title;
+        if (editData.content) dbUpdates.content = editData.content;
+        if (editData.tags) dbUpdates.tags = editData.tags;
+        if (editData.meta_description) dbUpdates.meta_description = editData.meta_description;
+        if (editData.excerpt) dbUpdates.excerpt = editData.excerpt;
+
+        await contentQueue.updateContent(itemId, dbUpdates);
+
+        // 2. 이미 WordPress에 발행된 글이면 WP도 동기화
+        let wpResult = null;
+        if (item.wp_post_id) {
+          wpResult = await updateWordPressPost(env, item.wp_post_id, {
+            title: editData.title || item.title,
+            content: editData.content || item.content,
+            excerpt: editData.excerpt || item.excerpt,
+            tags: editData.tags || item.tags,
+            metaDescription: editData.meta_description || item.meta_description,
+          });
+        }
+
+        jsonRes(res, {
+          success: true,
+          message: item.wp_post_id ? '콘텐츠 수정 및 WordPress 동기화 완료' : '콘텐츠 수정 완료 (WordPress 미발행 상태)',
+          wpSynced: !!wpResult,
+          wpLink: wpResult ? wpResult.link : (item.wp_post_url || null),
+        });
+      } catch (e) {
+        console.error('[수정 API] 에러:', e.message);
+        jsonRes(res, { error: e.message }, 500);
+      }
       return;
     }
 

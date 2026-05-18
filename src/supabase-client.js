@@ -106,6 +106,16 @@ export const contentQueue = {
     });
   },
 
+  // 콘텐츠 수정 (제목, 본문, 태그, 메타설명 등)
+  async updateContent(id, updates) {
+    return supabaseRequest('content_queue', {
+      method: 'PATCH',
+      query: `?id=eq.${id}`,
+      body: { ...updates, updated_at: new Date().toISOString() },
+      headers: { 'Prefer': 'return=representation' },
+    });
+  },
+
   // 페이지네이션 + 검색 + 필터 조회
   async search({ page = 1, limit = 10, search = '', status = '', topic = '', sort = 'latest', excludeTest = false } = {}) {
     const filters = [];

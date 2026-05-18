@@ -273,6 +273,39 @@ export async function publishToWordPress(env, content, statusOverride) {
   };
 }
 
+// ─── WordPress 게시글 수정 ───
+export async function updateWordPressPost(env, wpPostId, updates) {
+  console.log(`[WordPress] 게시글 수정 시작: ID ${wpPostId}`);
+
+  // 본문 내 외부 이미지를 WordPress로 업로드 후 교체
+  let processedContent = updates.content;
+  if (processedContent) {
+    processedContent = await uploadInlineImages(env, processedContent);
+  }
+
+  const postData = {};
+  if (updates.title) postData.title = updates.title;
+  if (processedContent) postData.content = processedContent;
+  if (updates.excerpt) postData.excerpt = updates.excerpt;
+  if (updates.tags) postData.tags = Array.isArray(updates.tags) ? updates.tags.join(',') : updates.tags;
+  if (updates.metaDescription) {
+    postData.metadata = [
+      { key: '_yoast_wpseo_title', value: updates.title || '' },
+      { key: '_yoast_wpseo_metadesc', value: updates.metaDescription },
+    ];
+  }
+
+  const post = await wpApiCall(env, `posts/${wpPostId}`, 'POST', postData);
+  console.log(`[WordPress] 게시글 수정 완료: ${post.URL} (ID: ${post.ID})`);
+
+  return {
+    id: post.ID,
+    link: post.URL,
+    status: post.status,
+    title: post.title,
+  };
+}
+
 // ─── 최근 발행 목록 조회 ───
 export async function getRecentPosts(env, count = 10) {
   try {
