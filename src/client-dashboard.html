@@ -1661,7 +1661,7 @@ async function saveEdit() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + localStorage.getItem('client_token'),
+        'Authorization': 'Bearer ' + sessionStorage.getItem('token'),
       },
       body: JSON.stringify({
         title: title,
