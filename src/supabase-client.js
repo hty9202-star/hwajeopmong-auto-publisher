@@ -111,7 +111,7 @@ export const contentQueue = {
     return supabaseRequest('content_queue', {
       method: 'PATCH',
       query: `?id=eq.${id}`,
-      body: { ...updates, updated_at: new Date().toISOString() },
+      body: { ...updates, edited_at: new Date().toISOString() },
       headers: { 'Prefer': 'return=representation' },
     });
   },

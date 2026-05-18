@@ -1193,7 +1193,7 @@ const server = http.createServer(async function(req, res) {
 
         // 3. publish_logs에도 수정 기록 반영
         try {
-          const logUpdates = { updated_at: new Date().toISOString() };
+          const logUpdates = { edited_at: new Date().toISOString() };
           if (editData.title) logUpdates.title = editData.title;
           await publishLogs.updateByQueueId(itemId, logUpdates);
         } catch (logErr) {
