@@ -853,18 +853,39 @@ function isImageRelevant(image) {
   return true;
 }
 
-// ─── 이미지 폴백 검색 (Pixabay → Unsplash → Pexels) ───
+// ─── 이미지 라운드로빈 카운터 (매 호출마다 시작 API 순환) ───
+let imageRoundRobinIndex = 0;
+
+// ─── 이미지 라운드로빈 + 폴백 검색 ───
 async function fetchImagesWithFallback(env, query, count = 3) {
-  const sources = [
+  const allSources = [
     { name: 'Pixabay', key: env.PIXABAY_API_KEY, fn: fetchPixabayImages },
     { name: 'Unsplash', key: env.UNSPLASH_ACCESS_KEY, fn: fetchUnsplashImages },
     { name: 'Pexels', key: env.PEXELS_API_KEY, fn: fetchPexelsImages },
   ];
 
+  // 키가 설정된 API만 필터
+  const available = allSources.filter(s => !!s.key);
+  if (available.length === 0) {
+    console.log('[이미지] 설정된 이미지 API가 없습니다');
+    return [];
+  }
+
+  // 라운드로빈: 시작 인덱스를 매번 순환
+  const startIdx = imageRoundRobinIndex % available.length;
+  imageRoundRobinIndex++;
+
+  // 시작점부터 순서대로 순회하는 배열 생성 (폴백 포함)
+  const orderedSources = [];
+  for (let i = 0; i < available.length; i++) {
+    orderedSources.push(available[(startIdx + i) % available.length]);
+  }
+
+  console.log(`[이미지] 라운드로빈 #${imageRoundRobinIndex}: ${orderedSources.map(s => s.name).join(' → ')}`);
+
   let collected = [];
-  for (const src of sources) {
+  for (const src of orderedSources) {
     if (collected.length >= count) break;
-    if (!src.key) continue;
     const needed = count - collected.length;
     console.log(`[이미지] ${src.name}에서 ${needed}장 검색: "${query}"`);
     const result = await src.fn(src.key, query, needed + 3); // 필터링 여유분 추가 요청
