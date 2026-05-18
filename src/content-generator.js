@@ -611,6 +611,7 @@ ${faqInstruction}
 - 헤딩 구조: <h2>는 대주제로 3~5개 사용하고, 내용이 풍부한 <h2> 섹션 2~3곳에서 <h3>를 활용해 세부 항목을 나누세요. <h3>는 해당 <h2> 흐름 안에서 자연스럽게 이어지는 소주제여야 합니다. 모든 <h2>에 <h3>를 넣을 필요는 없고, 종류·유형·단계 등 세분화가 자연스러운 부분에만 넣으세요.
 - 기존 콘텐츠와 차별화: 새로운 비유, 예시, 표현을 적극 활용하세요
 - 언어 규칙: 전체 콘텐츠를 반드시 한국어로만 작성하세요. 영어 문장이나 영어 표현을 섞지 마세요. 의학 용어 영문 병기만 예외적으로 허용됩니다.
+- ★링크 금지★: 본문에 <a> 태그(하이퍼링크)를 절대 넣지 마세요. 다른 질환명, 외부 사이트, 내부 페이지 등 어떤 링크도 포함하지 마세요. 순수 텍스트와 구조 태그(<h2>, <h3>, <p>, <ul>, <li>, <strong>, <em>)만 사용하세요.
 - 지역 키워드 반영: ${(() => { const kws = topic.keywords || []; if (kws.length === 0) return '별도 지역 키워드 없음.'; const shuffled = [...kws].sort(() => Math.random() - 0.5).slice(0, 3); return '다음 키워드 중 2개를 골라 본문에 자연스럽게 녹여주세요: ' + shuffled.map(k => '"' + k + '"').join(', ') + '. 예시: "강남 지역에서 모공각화증 치료를 고민하시는 분들이 많습니다" 처럼 문장 흐름 속에 자연스럽게 배치하세요. 한 문단에 지역 키워드를 2개 이상 넣지 마세요.'; })()}
 - 키워드 밀도: 제목에 포함된 핵심 단어(질환명, 치료법명 등)를 본문에서 각각 2~3회 이상 자연스럽게 반복 사용하세요. 예를 들어 제목에 "${topic.name}"이 있으면 본문 곳곳에서 "${topic.name}"을 자연스럽게 언급하세요. 단, 한 문단에 같은 키워드를 2번 이상 넣지는 마세요.`;
 
@@ -1186,6 +1187,22 @@ function cleanTitle(title) {
   return cleaned;
 }
 
+// ─── 본문 내 <a> 링크 태그 제거 (텍스트만 남김) ───
+function removeLinks(content) {
+  if (content.content) {
+    // <a href="...">텍스트</a> → 텍스트 (figcaption 내부는 유지)
+    content.content = content.content.replace(
+      /(<figcaption[\s\S]*?<\/figcaption>)|<a\s[^>]*>([\s\S]*?)<\/a>/gi,
+      (match, figcaption, linkText) => {
+        if (figcaption) return figcaption; // figcaption 안의 링크는 유지 (이미지 출처)
+        return linkText || '';
+      }
+    );
+    console.log('[후처리] 본문 내 <a> 링크 태그 제거 완료');
+  }
+  return content;
+}
+
 // ─── 가짜 인용 제거 ───
 function removeFakeReferences(content) {
   if (content.references) {
@@ -1214,8 +1231,8 @@ export async function generateContent(env, topic, contentType, options = {}) {
   console.log(`[Stage 3] 콘텐츠 생성: ${topic.name} - ${contentType.name}`);
   const production = await stageProduction(geminiKey, topic, contentType, strategy);
 
-  // 가짜 인용 제거
-  const cleanedProduction = removeFakeReferences(production);
+  // 가짜 인용 제거 + 링크 태그 제거
+  const cleanedProduction = removeLinks(removeFakeReferences(production));
 
   // 제목 후처리 (괄호 제거)
   cleanedProduction.title = cleanTitle(cleanedProduction.title);
