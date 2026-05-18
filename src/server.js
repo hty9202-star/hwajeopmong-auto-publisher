@@ -1161,6 +1161,22 @@ const server = http.createServer(async function(req, res) {
         if (editData.meta_description) dbUpdates.meta_description = editData.meta_description;
         if (editData.excerpt) dbUpdates.excerpt = editData.excerpt;
 
+        // 1-b. 품질 점수 재계산
+        const updatedContent = editData.content || item.content;
+        const updatedTitle = editData.title || item.title;
+        const updatedMetaDesc = editData.meta_description || item.meta_description || '';
+        try {
+          const geoResult = calculateGeoScore(updatedContent, updatedTitle, updatedMetaDesc, item.faq || [], item.schemas || null);
+          const eeatResult = calculateEeatScore(updatedContent, updatedTitle);
+          dbUpdates.geo_score = geoResult.total;
+          dbUpdates.geo_detail = geoResult;
+          dbUpdates.eeat_score = eeatResult.total;
+          dbUpdates.eeat_detail = eeatResult;
+          console.log(`[수정 API] 품질 점수 재계산: GEO ${geoResult.total}, E-E-A-T ${eeatResult.total}`);
+        } catch (scoreErr) {
+          console.error('[수정 API] 점수 재계산 실패 (무시):', scoreErr.message);
+        }
+
         await contentQueue.updateContent(itemId, dbUpdates);
 
         // 2. 이미 WordPress에 발행된 글이면 WP도 동기화
@@ -1173,6 +1189,15 @@ const server = http.createServer(async function(req, res) {
             tags: editData.tags || item.tags,
             metaDescription: editData.meta_description || item.meta_description,
           });
+        }
+
+        // 3. publish_logs에도 수정 기록 반영
+        try {
+          const logUpdates = { updated_at: new Date().toISOString() };
+          if (editData.title) logUpdates.title = editData.title;
+          await publishLogs.updateByQueueId(itemId, logUpdates);
+        } catch (logErr) {
+          console.error('[수정 API] publish_logs 업데이트 실패 (무시):', logErr.message);
         }
 
         jsonRes(res, {
