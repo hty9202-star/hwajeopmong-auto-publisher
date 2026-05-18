@@ -146,8 +146,15 @@ async function uploadHeroImage(env, imageData) {
 // ─── 단일 이미지를 WordPress에 업로드하고 URL 반환 ───
 async function uploadImageToWP(env, imageUrl, filename) {
   try {
-    const imageResponse = await fetch(imageUrl);
-    if (!imageResponse.ok) return null;
+    console.log(`[이미지 업로드] 다운로드 시작: ${imageUrl.substring(0, 100)}`);
+    const imageResponse = await fetch(imageUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; HWJBot/1.0)' },
+      redirect: 'follow',
+    });
+    if (!imageResponse.ok) {
+      console.error(`[이미지 업로드] 다운로드 실패: HTTP ${imageResponse.status} — ${imageUrl.substring(0, 80)}`);
+      return null;
+    }
 
     const imageBuffer = await imageResponse.arrayBuffer();
     const siteId = env.WP_SITE_ID || 'mongclinictest.wordpress.com';
@@ -186,25 +193,32 @@ async function uploadImageToWP(env, imageUrl, filename) {
 
 // ─── 본문 내 외부 이미지를 WordPress로 업로드 후 URL 교체 ───
 async function uploadInlineImages(env, htmlContent) {
-  // 본문에서 외부 이미지 URL 추출 (pixabay, unsplash, pexels)
-  const imgRegex = /<img\s+[^>]*src="(https?:\/\/[^"]*(?:pixabay|unsplash|pexels|images\.pexels|cdn\.pixabay)[^"]*)"[^>]*>/gi;
+  // 본문에서 모든 외부 이미지 URL 추출 (WordPress 자체 호스팅 URL 제외)
+  const imgRegex = /<img\s[^>]*?src="(https?:\/\/[^"]+)"[^>]*>/gi;
   let match;
   const replacements = [];
 
   while ((match = imgRegex.exec(htmlContent)) !== null) {
-    replacements.push({ fullMatch: match[0], originalUrl: match[1] });
+    const url = match[1];
+    // WordPress 자체 호스팅 URL은 스킵
+    if (url.includes('wordpress.com') || url.includes('wp.com')) continue;
+    replacements.push({ fullMatch: match[0], originalUrl: url });
   }
 
-  if (replacements.length === 0) return htmlContent;
+  if (replacements.length === 0) {
+    console.log('[이미지 업로드] 교체할 외부 이미지 없음');
+    return htmlContent;
+  }
 
   console.log(`[이미지 업로드] 본문 내 외부 이미지 ${replacements.length}개 발견`);
 
   for (let i = 0; i < replacements.length; i++) {
     const r = replacements[i];
+    console.log(`[이미지 업로드] ${i + 1}/${replacements.length} 시도: ${r.originalUrl.substring(0, 80)}...`);
     const result = await uploadImageToWP(env, r.originalUrl, `hwj-inline-${Date.now()}-${i}.jpg`);
     if (result && result.url) {
-      htmlContent = htmlContent.replace(r.originalUrl, result.url);
-      console.log(`[이미지 업로드] ${i + 1}/${replacements.length} 교체 완료`);
+      htmlContent = htmlContent.replaceAll(r.originalUrl, result.url);
+      console.log(`[이미지 업로드] ${i + 1}/${replacements.length} 교체 완료 → ${result.url}`);
     } else {
       console.log(`[이미지 업로드] ${i + 1}/${replacements.length} 실패 — 원본 URL 유지`);
     }
