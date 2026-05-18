@@ -152,7 +152,22 @@ async function saveErrorLog(source, error) {
 }
 
 // ─── 자동 발행 로직 ───
+let isPublishing = false;
+
 async function autoPublish(options) {
+  if (isPublishing) {
+    console.log('[발행] 이미 발행 진행 중 — 중복 실행 방지됨');
+    return { skipped: true, reason: '이미 발행 진행 중' };
+  }
+  isPublishing = true;
+  try {
+    return await _doAutoPublish(options);
+  } finally {
+    isPublishing = false;
+  }
+}
+
+async function _doAutoPublish(options) {
   var opts = options || {};
   var isTest = opts.isTest || false;
   var bypassPeriodCheck = opts.bypassPeriodCheck || false;
@@ -922,6 +937,9 @@ const server = http.createServer(async function(req, res) {
 
     // API: Publish Now - 1회 테스트 발행 (POST)
     if (pathname === '/api/publish-now' && method === 'POST') {
+      if (isPublishing) {
+        return jsonRes(res, { message: '이미 발행이 진행 중입니다. 완료 후 다시 시도해주세요.' }, 409);
+      }
       const allTopicsForPublish = await topicsDB.getAll();
       const next = await resolveNextTopic(allTopicsForPublish);
 

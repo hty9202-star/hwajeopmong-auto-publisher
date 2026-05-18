@@ -98,25 +98,48 @@ function prepareTags(tagNames) {
   return tagNames.join(',');
 }
 
+// ─── 타임아웃 fetch 헬퍼 ───
+const IMAGE_DOWNLOAD_TIMEOUT = 10000; // 10초
+const IMAGE_UPLOAD_TIMEOUT = 30000;   // 30초
+const IMAGE_MAX_SIZE = 5 * 1024 * 1024; // 5MB
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ─── Hero 이미지 업로드 ───
 async function uploadHeroImage(env, imageData) {
   if (!imageData || !imageData.url) return null;
 
   try {
-    // 이미지 다운로드
-    const imageResponse = await fetch(imageData.url);
+    // 이미지 다운로드 (타임아웃 적용)
+    const imageResponse = await fetchWithTimeout(imageData.url, {}, IMAGE_DOWNLOAD_TIMEOUT);
     if (!imageResponse.ok) return null;
 
     const imageBuffer = await imageResponse.arrayBuffer();
+
+    // 5MB 초과 시 스킵
+    if (imageBuffer.byteLength > IMAGE_MAX_SIZE) {
+      console.warn(`[이미지 업로드] Hero 이미지 크기 초과 (${(imageBuffer.byteLength / 1024 / 1024).toFixed(1)}MB > 5MB) — 스킵`);
+      return null;
+    }
+
     const siteId = env.WP_SITE_ID || 'mongclinictest.wordpress.com';
     const token = env.WP_ACCESS_TOKEN;
 
-    // WordPress.com 미디어 업로드
+    // WordPress.com 미디어 업로드 (타임아웃 적용)
     const formData = new FormData();
     const blob = new Blob([imageBuffer], { type: 'image/jpeg' });
     formData.append('media[]', blob, `hwj-${Date.now()}.jpg`);
 
-    const uploadResponse = await fetch(
+    const uploadResponse = await fetchWithTimeout(
       `${WP_API_BASE}/sites/${siteId}/media/new`,
       {
         method: 'POST',
@@ -124,7 +147,8 @@ async function uploadHeroImage(env, imageData) {
           'Authorization': `Bearer ${token}`,
         },
         body: formData,
-      }
+      },
+      IMAGE_UPLOAD_TIMEOUT
     );
 
     if (!uploadResponse.ok) {
@@ -138,7 +162,11 @@ async function uploadHeroImage(env, imageData) {
     }
     return null;
   } catch (e) {
-    console.error('이미지 업로드 에러:', e.message);
+    if (e.name === 'AbortError') {
+      console.error('[이미지 업로드] Hero 이미지 타임아웃 — 스킵');
+    } else {
+      console.error('이미지 업로드 에러:', e.message);
+    }
     return null;
   }
 }
@@ -147,16 +175,23 @@ async function uploadHeroImage(env, imageData) {
 async function uploadImageToWP(env, imageUrl, filename) {
   try {
     console.log(`[이미지 업로드] 다운로드 시작: ${imageUrl.substring(0, 100)}`);
-    const imageResponse = await fetch(imageUrl, {
+    const imageResponse = await fetchWithTimeout(imageUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; HWJBot/1.0)' },
       redirect: 'follow',
-    });
+    }, IMAGE_DOWNLOAD_TIMEOUT);
     if (!imageResponse.ok) {
       console.error(`[이미지 업로드] 다운로드 실패: HTTP ${imageResponse.status} — ${imageUrl.substring(0, 80)}`);
       return null;
     }
 
     const imageBuffer = await imageResponse.arrayBuffer();
+
+    // 5MB 초과 시 스킵
+    if (imageBuffer.byteLength > IMAGE_MAX_SIZE) {
+      console.warn(`[이미지 업로드] 크기 초과 (${(imageBuffer.byteLength / 1024 / 1024).toFixed(1)}MB > 5MB) — 스킵: ${imageUrl.substring(0, 80)}`);
+      return null;
+    }
+
     const siteId = env.WP_SITE_ID || 'mongclinictest.wordpress.com';
     const token = env.WP_ACCESS_TOKEN;
 
@@ -164,13 +199,14 @@ async function uploadImageToWP(env, imageUrl, filename) {
     const blob = new Blob([imageBuffer], { type: 'image/jpeg' });
     formData.append('media[]', blob, filename || `hwj-${Date.now()}.jpg`);
 
-    const uploadResponse = await fetch(
+    const uploadResponse = await fetchWithTimeout(
       `${WP_API_BASE}/sites/${siteId}/media/new`,
       {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData,
-      }
+      },
+      IMAGE_UPLOAD_TIMEOUT
     );
 
     if (!uploadResponse.ok) {
@@ -186,7 +222,11 @@ async function uploadImageToWP(env, imageUrl, filename) {
     }
     return null;
   } catch (e) {
-    console.error('[이미지 업로드] 에러:', e.message);
+    if (e.name === 'AbortError') {
+      console.error(`[이미지 업로드] 다운로드 타임아웃 — 스킵: ${imageUrl.substring(0, 80)}`);
+    } else {
+      console.error('[이미지 업로드] 에러:', e.message);
+    }
     return null;
   }
 }
@@ -210,7 +250,14 @@ async function uploadInlineImages(env, htmlContent) {
     return htmlContent;
   }
 
-  console.log(`[이미지 업로드] 본문 내 외부 이미지 ${replacements.length}개 발견`);
+  // 최대 10개로 제한 (서버 부하 방지)
+  const MAX_INLINE_IMAGES = 10;
+  if (replacements.length > MAX_INLINE_IMAGES) {
+    console.warn(`[이미지 업로드] 외부 이미지 ${replacements.length}개 중 ${MAX_INLINE_IMAGES}개만 처리`);
+    replacements.length = MAX_INLINE_IMAGES;
+  }
+
+  console.log(`[이미지 업로드] 본문 내 외부 이미지 ${replacements.length}개 처리 시작`);
 
   for (let i = 0; i < replacements.length; i++) {
     const r = replacements[i];

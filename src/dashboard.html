@@ -1096,7 +1096,7 @@
           const ct = topic.contentStatus.find(cs => cs.comboId.endsWith(`__${typeId}`));
           return `<td>${ct && ct.published ? '<span class="check">✓</span>' : '<span class="pending-icon">○</span>'}</td>`;
         }).join('');
-        return `<tr><td>${topic.name}</td>${cells}</tr>`;
+        return `<tr><td>${escapeHtml(topic.name)}</td>${cells}</tr>`;
       }).join('');
     }
 
@@ -1108,6 +1108,11 @@
       const map = { 'published': 'published', 'publish': 'publish', 'queued': 'queued', 'pending': 'pending', 'draft': 'draft', 'approved': 'published', 'rejected': 'rejected' };
       return map[status] || 'draft';
     }
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
     function formatDate(dateStr) {
       if (!dateStr) return '-';
       const d = new Date(dateStr);
@@ -1140,11 +1145,11 @@
         const republishedFrom = post.republished_from || null;
         let titleHtml;
         if (post.wp_post_url) {
-          titleHtml = `<a href="${post.wp_post_url}" target="_blank" style="color:#2E75B6; text-decoration:none;">${post.title}</a>`;
+          titleHtml = `<a href="${escapeHtml(post.wp_post_url)}" target="_blank" style="color:#2E75B6; text-decoration:none;">${escapeHtml(post.title)}</a>`;
         } else if (post.queue_id) {
-          titleHtml = `<a href="#" onclick="showPreview('${post.queue_id}');return false;" style="color:#2E75B6; text-decoration:none;">${post.title}</a>`;
+          titleHtml = `<a href="#" onclick="showPreview('${post.queue_id}');return false;" style="color:#2E75B6; text-decoration:none;">${escapeHtml(post.title)}</a>`;
         } else {
-          titleHtml = `<a href="#" onclick="showPreviewByTitle('${encodeURIComponent(post.title)}');return false;" style="color:#2E75B6; text-decoration:none;">${post.title}</a>`;
+          titleHtml = `<a href="#" onclick="showPreviewByTitle('${encodeURIComponent(post.title)}');return false;" style="color:#2E75B6; text-decoration:none;">${escapeHtml(post.title)}</a>`;
         }
         if (republishedFrom) {
           titleHtml += `<span class="badge-republish">재발행</span>`;
@@ -1161,9 +1166,9 @@
           reviewHtml = `<span class="review-badge clean">정상</span>`;
         }
         return `<tr>
-          <td>${titleHtml}${republishedFrom ? '<div class="republish-note">' + formatDateTime(republishedFrom.rejected_at) + ' "' + (republishedFrom.title||'') + '" 콘텐츠에 대한 재발행건입니다</div>' : ''}</td>
-          <td>${post.topic_name || '-'}</td>
-          <td>${post.content_type_name || '-'}</td>
+          <td>${titleHtml}${republishedFrom ? '<div class="republish-note">' + formatDateTime(republishedFrom.rejected_at) + ' "' + escapeHtml(republishedFrom.title||'') + '" 콘텐츠에 대한 재발행건입니다</div>' : ''}</td>
+          <td>${escapeHtml(post.topic_name) || '-'}</td>
+          <td>${escapeHtml(post.content_type_name) || '-'}</td>
           <td><span class="status-tag ${statusClass}">${statusLabel}</span></td>
           <td>${reviewHtml}</td>
           <td style="color:#9ca3af; font-size:13px;">${dateStr}${post.edited_at ? '<div style="color:#2563eb;font-size:11px;margin-top:2px">수정: ' + formatDate(post.edited_at) + '</div>' : ''}</td>
@@ -1180,7 +1185,7 @@
       container.innerHTML = errors.slice(0, 10).map(err => `
         <div class="error-item">
           <div class="time">${new Date(err.timestamp).toLocaleString('ko-KR')}</div>
-          <div>${err.message}</div>
+          <div>${escapeHtml(err.message)}</div>
         </div>
       `).join('');
     }
@@ -1362,7 +1367,7 @@
       if (data.error) { body.innerHTML = '<p style="color:#f87171;">콘텐츠를 찾을 수 없습니다.</p>'; return; }
       title.textContent = data.title || '콘텐츠 미리보기';
       body.innerHTML = data.content || '<p>내용 없음</p>';
-    } catch(e) { body.innerHTML = '<p style="color:#f87171;">로딩 실패: ' + e.message + '</p>'; }
+    } catch(e) { body.innerHTML = '<p style="color:#f87171;">로딩 실패: ' + escapeHtml(e.message) + '</p>'; }
   }
   async function showPreviewByTitle(encodedTitle) {
     const modal = document.getElementById('previewModal');
@@ -1377,7 +1382,7 @@
       if (data.error) { body.innerHTML = '<p style="color:#f87171;">콘텐츠를 찾을 수 없습니다.</p>'; return; }
       titleEl.textContent = data.title || '콘텐츠 미리보기';
       body.innerHTML = data.content || '<p>내용 없음</p>';
-    } catch(e) { body.innerHTML = '<p style="color:#f87171;">로딩 실패: ' + e.message + '</p>'; }
+    } catch(e) { body.innerHTML = '<p style="color:#f87171;">로딩 실패: ' + escapeHtml(e.message) + '</p>'; }
   }
   function closePreview() {
     document.getElementById('previewModal').classList.remove('active');
@@ -1582,7 +1587,7 @@
       qualityLoaded = true;
     } catch (e) {
       console.error('Quality data load error:', e);
-      document.getElementById('qualityTableBody').innerHTML = '<tr><td colspan="6" class="empty-state">로딩 실패: ' + e.message + '</td></tr>';
+      document.getElementById('qualityTableBody').innerHTML = '<tr><td colspan="6" class="empty-state">로딩 실패: ' + escapeHtml(e.message) + '</td></tr>';
     }
   }
   let recalcLock = false;
@@ -1911,10 +1916,10 @@
     try {
       var res = await fetch(API_BASE + '/api/report?startDate=' + sd + '&endDate=' + ed);
       var data = await res.json();
-      if (data.error) { container.innerHTML = '<div class="empty-state">서버 오류: ' + data.error + '</div>'; return; }
+      if (data.error) { container.innerHTML = '<div class="empty-state">서버 오류: ' + escapeHtml(data.error) + '</div>'; return; }
       renderPeriodReport(data, container);
     } catch (e) {
-      container.innerHTML = '<div class="empty-state">리포트 생성 실패: ' + e.message + '</div>';
+      container.innerHTML = '<div class="empty-state">리포트 생성 실패: ' + escapeHtml(e.message) + '</div>';
     }
   }
 
@@ -1934,16 +1939,16 @@
 
       var res1 = await fetch(API_BASE + '/api/report?startDate=' + baseStart + '&endDate=' + baseEnd);
       var baseData = await res1.json();
-      if (baseData.error) { container.innerHTML = '<div class="empty-state">서버 오류: ' + baseData.error + '</div>'; return; }
+      if (baseData.error) { container.innerHTML = '<div class="empty-state">서버 오류: ' + escapeHtml(baseData.error) + '</div>'; return; }
       var res2 = await fetch(API_BASE + '/api/report?startDate=' + compStart + '&endDate=' + compEnd);
       var compData = await res2.json();
-      if (compData.error) { container.innerHTML = '<div class="empty-state">서버 오류: ' + compData.error + '</div>'; return; }
+      if (compData.error) { container.innerHTML = '<div class="empty-state">서버 오류: ' + escapeHtml(compData.error) + '</div>'; return; }
 
       var baseLabel = parseInt(baseParts[1]) + '월';
       var compLabel = parseInt(compParts[1]) + '월';
       renderCompareReport(baseData, compData, baseLabel, compLabel, container);
     } catch (e) {
-      container.innerHTML = '<div class="empty-state">비교 리포트 생성 실패: ' + e.message + '</div>';
+      container.innerHTML = '<div class="empty-state">비교 리포트 생성 실패: ' + escapeHtml(e.message) + '</div>';
     }
   }
 
