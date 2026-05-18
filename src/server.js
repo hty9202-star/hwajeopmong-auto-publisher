@@ -1060,6 +1060,62 @@ const server = http.createServer(async function(req, res) {
       return;
     }
 
+    // --- Client API: Status (인증 불필요 — 광고주 대시보드용) ---
+    if (pathname === '/api/client/status' && method === 'GET') {
+      try {
+        const publishSettings = await settings.get('publish') || {};
+        const allTopics = await topicsDB.getAll();
+        const topicCount = allTopics ? allTopics.length : 0;
+        const total = topicCount * CONTENT_TYPES.length;
+        const totalTarget = publishSettings.totalTarget || total;
+
+        // 발행 건수
+        let periodPublished = 0;
+        if (publishSettings.startDate) {
+          const periodEnd = publishSettings.endDate || '2099-12-31';
+          const periodLogs = await publishLogs.getByDateRange(publishSettings.startDate, periodEnd);
+          periodPublished = (periodLogs || []).filter(function(item) {
+            return (item.status === 'published' || item.status === 'success') && !item.is_test;
+          }).length;
+        } else {
+          const publishedComboIds = await publishedTopics.getComboIds();
+          periodPublished = publishedComboIds.length;
+        }
+
+        const nextPublishTime = await getNextPublishTime();
+
+        // 발행 기간 정보 (KST)
+        const kstToday = new Date(Date.now() + 9*60*60*1000);
+        const todayStr = kstToday.getUTCFullYear() + '-' + String(kstToday.getUTCMonth()+1).padStart(2,'0') + '-' + String(kstToday.getUTCDate()).padStart(2,'0');
+        let publishPeriod = null;
+        if (publishSettings.startDate || publishSettings.endDate) {
+          const startDate = publishSettings.startDate || null;
+          const endDate = publishSettings.endDate || null;
+          let status = 'active';
+          let daysLeft = null;
+          if (startDate && todayStr < startDate) {
+            status = 'waiting';
+            daysLeft = Math.ceil((new Date(startDate) - new Date(todayStr)) / (1000*60*60*24));
+          } else if (endDate) {
+            daysLeft = Math.ceil((new Date(endDate) - new Date(todayStr)) / (1000*60*60*24));
+            if (daysLeft < 0) status = 'expired';
+            else if (daysLeft === 0) status = 'dday';
+            else if (daysLeft <= 7) status = 'expiring';
+          }
+          publishPeriod = { startDate: startDate, endDate: endDate, status: status, daysLeft: daysLeft };
+        }
+
+        return jsonRes(res, {
+          content: { published: periodPublished, totalTarget: totalTarget },
+          nextPublishTime: nextPublishTime,
+          publishPeriod: publishPeriod,
+        });
+      } catch (e) {
+        console.error('[Client Status] 에러:', e.message);
+        return jsonRes(res, { error: e.message }, 500);
+      }
+    }
+
     // --- Client API: Contents List (with pagination) ---
     if (pathname === '/api/client/contents' && method === 'GET') {
       if (!verifyToken(req)) { jsonRes(res, { error: 'Unauthorized' }, 401); return; }
@@ -1157,7 +1213,10 @@ const server = http.createServer(async function(req, res) {
         const dbUpdates = {};
         if (editData.title) dbUpdates.title = editData.title;
         if (editData.content) dbUpdates.content = editData.content;
-        if (editData.tags) dbUpdates.tags = editData.tags;
+        // 태그: 빈 배열이면 원본 유지, 실제 값이 있을 때만 업데이트
+        if (editData.tags && Array.isArray(editData.tags) && editData.tags.length > 0) {
+          dbUpdates.tags = editData.tags;
+        }
         if (editData.meta_description) dbUpdates.meta_description = editData.meta_description;
         if (editData.excerpt) dbUpdates.excerpt = editData.excerpt;
 
@@ -1181,14 +1240,21 @@ const server = http.createServer(async function(req, res) {
 
         // 2. 이미 WordPress에 발행된 글이면 WP도 동기화
         let wpResult = null;
+        let wpError = null;
         if (item.wp_post_id) {
-          wpResult = await updateWordPressPost(env, item.wp_post_id, {
-            title: editData.title || item.title,
-            content: editData.content || item.content,
-            excerpt: editData.excerpt || item.excerpt,
-            tags: editData.tags || item.tags,
-            metaDescription: editData.meta_description || item.meta_description,
-          });
+          try {
+            const wpTags = (editData.tags && Array.isArray(editData.tags) && editData.tags.length > 0) ? editData.tags : item.tags;
+            wpResult = await updateWordPressPost(env, item.wp_post_id, {
+              title: editData.title || item.title,
+              content: editData.content || item.content,
+              excerpt: editData.excerpt || item.excerpt,
+              tags: wpTags,
+              metaDescription: editData.meta_description || item.meta_description,
+            });
+          } catch (wpErr) {
+            console.error('[수정 API] WordPress 동기화 실패 (DB는 저장됨):', wpErr.message);
+            wpError = wpErr.message;
+          }
         }
 
         // 3. publish_logs에도 수정 기록 반영
@@ -1200,10 +1266,20 @@ const server = http.createServer(async function(req, res) {
           console.error('[수정 API] publish_logs 업데이트 실패 (무시):', logErr.message);
         }
 
+        let message = '콘텐츠 수정 완료';
+        if (item.wp_post_id && wpResult) {
+          message = '콘텐츠 수정 및 WordPress 동기화 완료';
+        } else if (item.wp_post_id && wpError) {
+          message = '콘텐츠 수정 완료 (WordPress 동기화 실패: ' + wpError + ')';
+        } else if (!item.wp_post_id) {
+          message = '콘텐츠 수정 완료 (WordPress 미발행 상태)';
+        }
+
         jsonRes(res, {
           success: true,
-          message: item.wp_post_id ? '콘텐츠 수정 및 WordPress 동기화 완료' : '콘텐츠 수정 완료 (WordPress 미발행 상태)',
+          message: message,
           wpSynced: !!wpResult,
+          wpError: wpError || null,
           wpLink: wpResult ? wpResult.link : (item.wp_post_url || null),
         });
       } catch (e) {
