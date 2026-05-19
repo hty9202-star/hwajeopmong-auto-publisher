@@ -410,7 +410,12 @@ async function setupCronSchedule() {
 
   crons.forEach(function(cronExpr) {
     const finalExpr = days === 'weekdays' ? cronExpr.replace(/\*$/, '1-5') : cronExpr;
-    const job = cron.schedule(finalExpr, autoPublish, { timezone: 'Asia/Seoul' });
+    const job = cron.schedule(finalExpr, function() {
+      autoPublish().catch(function(err) {
+        console.error('[Cron] autoPublish 예외:', err);
+        saveErrorLog('cron_autoPublish', err).catch(function() {});
+      });
+    }, { timezone: 'Asia/Seoul' });
     activeCronJobs.push(job);
   });
 
@@ -418,7 +423,7 @@ async function setupCronSchedule() {
   console.log('[Server] Cron 스케줄 등록: ' + daysLabel + ' ' + (FREQUENCY_LABELS[frequency] || FREQUENCY_LABELS['5']));
 }
 
-setupCronSchedule();
+setupCronSchedule().catch(function(e) { console.error('[Server] cron 스케줄 초기화 실패:', e.message); });
 
 // ─── DB에 저장된 이미지 API 키를 환경변수에 병합 ───
 (async function loadImageApiKeys() {
@@ -431,7 +436,7 @@ setupCronSchedule();
       console.log('[Server] DB 이미지 API 키 로드 완료');
     }
   } catch (e) { console.error('[Server] 이미지 API 키 로드 실패:', e.message); }
-})();
+})().catch(function(e) { console.error('[Server] 이미지 API 키 IIFE 예외:', e.message); });
 
 // ─── 인용추적 자동 cron ───
 let citationCronJob = null;
@@ -532,12 +537,17 @@ async function setupCitationCron() {
   }
   const freq = citationSettings.trackingFrequency || 'weekly';
   const cronExpr = CITATION_CRON_MAP[freq] || CITATION_CRON_MAP['weekly'];
-  citationCronJob = cron.schedule(cronExpr, autoTrackCitations, { timezone: 'Asia/Seoul' });
+  citationCronJob = cron.schedule(cronExpr, function() {
+    autoTrackCitations().catch(function(err) {
+      console.error('[Cron] 인용추적 예외:', err);
+      saveErrorLog('cron_citation', err).catch(function() {});
+    });
+  }, { timezone: 'Asia/Seoul' });
   citationCronJob._freq = freq;
   console.log('[Server] 인용추적 cron 등록: ' + freq + ' (' + cronExpr + ')');
 }
 
-setupCitationCron();
+setupCitationCron().catch(function(e) { console.error('[Server] 인용추적 cron 초기화 실패:', e.message); });
 
 // ─── 다음 발행 예정 시간 계산 (KST 문자열 반환) ───
 async function getNextPublishTime() {
@@ -1181,7 +1191,52 @@ const server = http.createServer(async function(req, res) {
         });
 
         jsonRes(res, { success: true, wpLink: wpR.link });
-      } catch (e) { jsonRes(res, { error: e.message }, 500); }
+      } catch (e) {
+        // WP 발행 실패 시 wp_failed로 마킹 (콘텐츠 유실 방지)
+        try {
+          await contentQueue.updateStatus(itemId, 'wp_failed');
+          await saveErrorLog('wp_publish_failed', e);
+        } catch (logErr) { console.error('[WP 발행 실패] 상태 업데이트도 실패:', logErr); }
+        jsonRes(res, { error: 'WordPress 발행 실패: ' + e.message + ' (재시도 가능)' }, 500);
+      }
+      return;
+    }
+
+    // --- Client API: Retry WP publish (wp_failed → 재시도) ---
+    if (pathname.match(/^\/api\/client\/contents\/[^/]+\/retry$/) && method === 'POST') {
+      if (!verifyToken(req)) { jsonRes(res, { error: 'Unauthorized' }, 401); return; }
+      const itemId = pathname.split('/')[4];
+      const item = await contentQueue.getById(itemId);
+      if (!item || item.status !== 'wp_failed') { jsonRes(res, { error: 'Not found or not retryable' }, 404); return; }
+
+      try {
+        const wpR = await publishToWordPress(env, {
+          title: item.title,
+          content: item.content,
+          heroImage: item.hero_image_url ? { url: item.hero_image_url } : null,
+          category: item.category,
+          tags: item.tags,
+        }, 'publish');
+
+        await contentQueue.updateStatus(itemId, 'approved', {
+          wp_post_id: wpR.id,
+          wp_post_url: wpR.link,
+        });
+
+        await publishedTopics.add(item.combo_id, item.topic_id, item.content_type_id);
+
+        await publishLogs.updateByQueueId(itemId, {
+          status: 'published',
+          wp_post_id: wpR.id,
+          wp_post_url: wpR.link,
+          published_at: new Date().toISOString(),
+        });
+
+        jsonRes(res, { success: true, wpLink: wpR.link });
+      } catch (e) {
+        await saveErrorLog('wp_retry_failed', e).catch(function() {});
+        jsonRes(res, { error: 'WordPress 재시도 실패: ' + e.message }, 500);
+      }
       return;
     }
 
@@ -1847,6 +1902,20 @@ function jsonRes(res, data, status) {
   res.writeHead(status, { 'Content-Type': "application/json; charset=utf-8" });
   res.end(JSON.stringify(data));
 }
+
+// ─── 전역 예외 핸들러 (프로세스 종료 방지) ───
+process.on('unhandledRejection', function(reason) {
+  console.error('[FATAL] Unhandled Promise Rejection:', reason);
+  saveErrorLog('unhandledRejection', reason instanceof Error ? reason : new Error(String(reason))).catch(function() {});
+});
+
+process.on('uncaughtException', function(err) {
+  console.error('[FATAL] Uncaught Exception:', err);
+  saveErrorLog('uncaughtException', err).catch(function() {});
+  // uncaughtException은 프로세스를 종료하는 것이 권장되지만,
+  // Render.com이 자동 재시작하므로 로그만 남기고 종료
+  setTimeout(function() { process.exit(1); }, 1000);
+});
 
 server.listen(PORT, function() {
   console.log('[Server] 화접몹 GEO Auto-Publisher 실행 중 (Supabase DB)');
