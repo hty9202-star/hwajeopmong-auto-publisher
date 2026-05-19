@@ -1136,24 +1136,30 @@ function setFilter(filter, el) {
 }
 
 // Format date
-function formatDate(dateStr) {
-  if (!dateStr) return '-';
+function toKST(dateStr) {
+  if (!dateStr) return null;
   const d = new Date(dateStr);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
+  if (isNaN(d.getTime())) return null;
+  return new Date(d.getTime() + 9 * 60 * 60 * 1000);
+}
+
+function formatDate(dateStr) {
+  const k = toKST(dateStr);
+  if (!k) return '-';
+  const y = k.getUTCFullYear();
+  const m = String(k.getUTCMonth()+1).padStart(2,'0');
+  const day = String(k.getUTCDate()).padStart(2,'0');
   return y + '.' + m + '.' + day;
 }
 
 function formatDateTime(dateStr) {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return '';
-  const y = d.getFullYear();
-  const m = String(d.getMonth()+1).padStart(2,'0');
-  const day = String(d.getDate()).padStart(2,'0');
-  const h = String(d.getHours()).padStart(2,'0');
-  const min = String(d.getMinutes()).padStart(2,'0');
+  const k = toKST(dateStr);
+  if (!k) return '';
+  const y = k.getUTCFullYear();
+  const m = String(k.getUTCMonth()+1).padStart(2,'0');
+  const day = String(k.getUTCDate()).padStart(2,'0');
+  const h = String(k.getUTCHours()).padStart(2,'0');
+  const min = String(k.getUTCMinutes()).padStart(2,'0');
   return y + '.' + m + '.' + day + ' ' + h + ':' + min;
 }
 

@@ -939,10 +939,15 @@ const server = http.createServer(async function(req, res) {
       return jsonRes(res, { data: result.data, total: result.total, page: result.page, limit: result.limit, totalPages: result.totalPages, counts: counts });
     }
 
-    // API: Errors
-    if (pathname === '/api/errors') {
+    // API: Errors (GET: 조회, DELETE: 전체 삭제)
+    if (pathname === '/api/errors' && method === 'GET') {
       const errorData = await settings.get('error_logs');
       return jsonRes(res, errorData || []);
+    }
+    if (pathname === '/api/error-logs' && method === 'DELETE') {
+      await settings.set('error_logs', []);
+      console.log('[Server] 에러 로그 전체 삭제');
+      return jsonRes(res, { success: true });
     }
 
     // API: Publish Now - 1회 테스트 발행 (POST)

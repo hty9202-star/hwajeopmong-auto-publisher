@@ -629,8 +629,11 @@
 
     <!-- Error Log -->
     <div class="card" style="margin-bottom: 24px;">
-      <h3>에러 로그</h3>
-      <div id="errorLog">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h3 style="margin:0;">에러 로그</h3>
+        <button id="clearErrorBtn" onclick="clearErrorLogs()" style="background:#ef4444;color:#fff;border:none;padding:5px 14px;border-radius:6px;font-size:12px;cursor:pointer;display:none;">전체 삭제</button>
+      </div>
+      <div id="errorLog" style="margin-top:10px;">
         <div class="empty-state">에러 없음</div>
       </div>
     </div>
@@ -1113,23 +1116,26 @@
       return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
     }
 
-    function formatDate(dateStr) {
-      if (!dateStr) return '-';
+    function toKST(dateStr) {
+      if (!dateStr) return null;
       const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return '-';
-      return d.toLocaleString('ko-KR');
+      if (isNaN(d.getTime())) return null;
+      return new Date(d.getTime() + 9 * 60 * 60 * 1000);
+    }
+
+    function formatDate(dateStr) {
+      const k = toKST(dateStr);
+      if (!k) return '-';
+      const y = k.getUTCFullYear();
+      const m = String(k.getUTCMonth()+1).padStart(2,'0');
+      const day = String(k.getUTCDate()).padStart(2,'0');
+      const h = String(k.getUTCHours()).padStart(2,'0');
+      const min = String(k.getUTCMinutes()).padStart(2,'0');
+      return y + '.' + m + '.' + day + ' ' + h + ':' + min;
     }
 
     function formatDateTime(dateStr) {
-      if (!dateStr) return '';
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return '';
-      const y = d.getFullYear();
-      const m = String(d.getMonth()+1).padStart(2,'0');
-      const day = String(d.getDate()).padStart(2,'0');
-      const h = String(d.getHours()).padStart(2,'0');
-      const min = String(d.getMinutes()).padStart(2,'0');
-      return y + '.' + m + '.' + day + ' ' + h + ':' + min;
+      return formatDate(dateStr);
     }
 
     function renderRecentPosts(posts) {
@@ -1178,16 +1184,37 @@
 
     function renderErrors(errors) {
       const container = document.getElementById('errorLog');
+      const clearBtn = document.getElementById('clearErrorBtn');
       if (!errors.length) {
         container.innerHTML = '<div class="empty-state">에러 없음</div>';
+        if (clearBtn) clearBtn.style.display = 'none';
         return;
       }
+      if (clearBtn) clearBtn.style.display = 'inline-block';
       container.innerHTML = errors.slice(0, 10).map(err => `
         <div class="error-item">
-          <div class="time">${new Date(err.timestamp).toLocaleString('ko-KR')}</div>
+          <div class="time">${formatDate(err.timestamp)}</div>
           <div>${escapeHtml(err.message)}</div>
         </div>
       `).join('');
+    }
+
+    async function clearErrorLogs() {
+      if (!confirm('에러 로그를 모두 삭제하시겠습니까?')) return;
+      try {
+        const res = await fetch('/api/error-logs', {
+          method: 'DELETE',
+          headers: { 'X-Admin-Password': adminPassword },
+        });
+        const data = await res.json();
+        if (data.success) {
+          renderErrors([]);
+        } else {
+          alert('삭제 실패: ' + (data.error || ''));
+        }
+      } catch (e) {
+        alert('삭제 요청 실패: ' + e.message);
+      }
     }
 
     let publishLock = false;
