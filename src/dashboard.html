@@ -1204,7 +1204,7 @@
       try {
         const res = await fetch('/api/error-logs', {
           method: 'DELETE',
-          headers: { 'X-Admin-Password': adminPassword },
+          headers: adminHeaders(),
         });
         const data = await res.json();
         if (data.success) {
