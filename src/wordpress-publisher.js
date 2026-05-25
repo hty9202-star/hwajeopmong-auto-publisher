@@ -15,7 +15,7 @@ const WP_MAX_RETRIES = 3;
 const WP_RETRY_DELAYS = [1000, 3000, 5000]; // 1초, 3초, 5초 대기
 
 async function wpApiCall(env, endpoint, method = 'GET', body = null) {
-  const siteId = env.WP_SITE_ID || 'mongclinictest.wordpress.com';
+  const siteId = env.WP_SITE_ID || 'mongclinic.blog';
   const token = env.WP_ACCESS_TOKEN;
 
   if (!token) throw new Error('WP_ACCESS_TOKEN 환경변수가 설정되지 않았습니다');
@@ -131,7 +131,7 @@ async function uploadHeroImage(env, imageData) {
       return null;
     }
 
-    const siteId = env.WP_SITE_ID || 'mongclinictest.wordpress.com';
+    const siteId = env.WP_SITE_ID || 'mongclinic.blog';
     const token = env.WP_ACCESS_TOKEN;
 
     // WordPress.com 미디어 업로드 (타임아웃 적용)
@@ -192,7 +192,7 @@ async function uploadImageToWP(env, imageUrl, filename) {
       return null;
     }
 
-    const siteId = env.WP_SITE_ID || 'mongclinictest.wordpress.com';
+    const siteId = env.WP_SITE_ID || 'mongclinic.blog';
     const token = env.WP_ACCESS_TOKEN;
 
     const formData = new FormData();
@@ -374,7 +374,7 @@ export async function getRecentPosts(env, count = 10) {
 // ─── WordPress 연결 상태 확인 ───
 export async function checkConnection(env) {
   try {
-    const siteId = env.WP_SITE_ID || 'mongclinictest.wordpress.com';
+    const siteId = env.WP_SITE_ID || 'mongclinic.blog';
     const token = env.WP_ACCESS_TOKEN;
 
     if (!token) return { connected: false, error: 'WP_ACCESS_TOKEN 미설정' };

@@ -78,7 +78,7 @@ function askAIWithTimeout(model, question, s) {
 // env 객체 (WordPress, Gemini 등 외부 API용)
 const env = {
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
-  WP_SITE_ID: process.env.WP_SITE_ID || 'mongclinictest.wordpress.com',
+  WP_SITE_ID: process.env.WP_SITE_ID || 'mongclinic.blog',
   WP_ACCESS_TOKEN: process.env.WP_ACCESS_TOKEN,
   PIXABAY_API_KEY: process.env.PIXABAY_API_KEY,
   UNSPLASH_ACCESS_KEY: process.env.UNSPLASH_ACCESS_KEY,

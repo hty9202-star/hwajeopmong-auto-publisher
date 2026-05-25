@@ -35,7 +35,7 @@ const hasFlag = (name) => args.includes(`--${name}`);
 
 const env = {
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
-  WP_SITE_ID: process.env.WP_SITE_ID || 'mongclinictest.wordpress.com',
+  WP_SITE_ID: process.env.WP_SITE_ID || 'mongclinic.blog',
   WP_ACCESS_TOKEN: process.env.WP_ACCESS_TOKEN,
   PEXELS_API_KEY: process.env.PEXELS_API_KEY,
 };
