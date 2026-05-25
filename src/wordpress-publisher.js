@@ -1,36 +1,47 @@
 /**
- * WordPress.com REST API v1.1 발행 모듈
- * WordPress.com 호스팅형 전용 (OAuth2 Bearer 토큰 인증)
+ * WordPress REST API (wp-json/wp/v2) 발행 모듈
+ * Application Password 인증 (만료 없음)
  *
- * API 문서: https://developer.wordpress.com/docs/api/
- * 엔드포인트: https://public-api.wordpress.com/rest/v1.1/sites/{site}/
+ * API 문서: https://developer.wordpress.org/rest-api/
+ * 엔드포인트: https://{site}/wp-json/wp/v2/
  */
 
 import { BRAND, WP_CATEGORIES, PUBLISH_CONFIG } from './config.js';
 
-const WP_API_BASE = 'https://public-api.wordpress.com/rest/v1.1';
-
-// ─── WordPress.com API 호출 헬퍼 (재시도 포함) ───
+// ─── WP REST API 호출 헬퍼 (재시도 포함) ───
 const WP_MAX_RETRIES = 3;
-const WP_RETRY_DELAYS = [1000, 3000, 5000]; // 1초, 3초, 5초 대기
+const WP_RETRY_DELAYS = [1000, 3000, 5000];
 
-async function wpApiCall(env, endpoint, method = 'GET', body = null) {
-  const siteId = env.WP_SITE_ID || 'mongclinic.blog';
-  const token = env.WP_ACCESS_TOKEN;
+function getBasicAuth(env) {
+  const user = env.WP_USERNAME || 'ozzy1993';
+  const pass = env.WP_APP_PASSWORD || '';
+  return 'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64');
+}
 
-  if (!token) throw new Error('WP_ACCESS_TOKEN 환경변수가 설정되지 않았습니다');
+function getApiBase(env) {
+  const site = env.WP_SITE_ID || 'mongclinic.blog';
+  return `https://${site}/wp-json/wp/v2`;
+}
 
-  const url = `${WP_API_BASE}/sites/${siteId}/${endpoint}`;
-  const options = {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
+async function wpApiCall(env, endpoint, method = 'GET', body = null, isFormData = false) {
+  const apiBase = getApiBase(env);
+  const auth = getBasicAuth(env);
+
+  if (!env.WP_APP_PASSWORD) throw new Error('WP_APP_PASSWORD 환경변수가 설정되지 않았습니다');
+
+  const url = `${apiBase}/${endpoint}`;
+  const headers = {
+    'Authorization': auth,
   };
 
+  if (!isFormData) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  const options = { method, headers };
+
   if (body) {
-    options.body = JSON.stringify(body);
+    options.body = isFormData ? body : JSON.stringify(body);
   }
 
   let lastError;
@@ -38,26 +49,22 @@ async function wpApiCall(env, endpoint, method = 'GET', body = null) {
     try {
       const response = await fetch(url, options);
 
-      // 4xx 클라이언트 에러는 재시도해도 의미 없음 (401 토큰만료, 400 잘못된 요청 등)
       if (response.status >= 400 && response.status < 500) {
         const error = await response.text();
-        throw new Error(`WordPress.com API error: ${response.status} - ${error}`);
+        throw new Error(`WordPress API error: ${response.status} - ${error}`);
       }
 
-      // 5xx 서버 에러 또는 네트워크 문제는 재시도
       if (!response.ok) {
         const error = await response.text();
-        throw new Error(`WordPress.com API error: ${response.status} - ${error}`);
+        throw new Error(`WordPress API error: ${response.status} - ${error}`);
       }
 
       return response.json();
     } catch (e) {
       lastError = e;
-      // 4xx 에러는 즉시 throw (재시도 불필요)
       if (e.message && e.message.includes('API error: 4')) {
         throw e;
       }
-      // 마지막 시도가 아니면 대기 후 재시도
       if (attempt < WP_MAX_RETRIES - 1) {
         const delay = WP_RETRY_DELAYS[attempt] || 5000;
         console.log(`[WordPress] 재시도 ${attempt + 1}/${WP_MAX_RETRIES - 1} (${delay}ms 후): ${e.message}`);
@@ -74,34 +81,67 @@ async function getOrCreateCategory(env, categoryName) {
   if (!categoryConfig) return null;
 
   try {
-    // 기존 카테고리 검색
-    const result = await wpApiCall(env, `categories/slug:${categoryConfig.slug}`);
-    if (result && result.ID) return result.ID;
+    // 슬러그로 카테고리 검색
+    const results = await wpApiCall(env, `categories?slug=${encodeURIComponent(categoryConfig.slug)}`);
+    if (results && results.length > 0) return results[0].id;
   } catch (e) {
-    // 없으면 생성
+    // 없으면 생성 시도
   }
 
   try {
-    const created = await wpApiCall(env, 'categories/new', 'POST', {
+    const created = await wpApiCall(env, 'categories', 'POST', {
       name: categoryName,
+      slug: categoryConfig.slug,
       description: categoryConfig.description,
     });
-    return created.ID;
+    return created.id;
   } catch (e) {
     console.error(`카테고리 생성 실패: ${categoryName}`, e.message);
     return null;
   }
 }
 
-// ─── 태그 문자열 준비 (WordPress.com은 태그를 쉼표 구분 문자열로 받음) ───
-function prepareTags(tagNames) {
-  return tagNames.join(',');
+// ─── 태그 가져오기 또는 생성 (WP REST API는 ID 배열 필요) ───
+async function getOrCreateTags(env, tagNames) {
+  if (!tagNames || tagNames.length === 0) return [];
+
+  const tagIds = [];
+  for (const name of tagNames) {
+    try {
+      // 기존 태그 검색
+      const results = await wpApiCall(env, `tags?search=${encodeURIComponent(name)}&per_page=5`);
+      const exact = results.find(t => t.name.toLowerCase() === name.toLowerCase());
+      if (exact) {
+        tagIds.push(exact.id);
+        continue;
+      }
+    } catch (e) {
+      // 검색 실패 시 생성 시도
+    }
+
+    try {
+      const created = await wpApiCall(env, 'tags', 'POST', { name });
+      tagIds.push(created.id);
+    } catch (e) {
+      // 이미 존재하는 경우 (slug 충돌) 다시 검색
+      try {
+        const slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9가-힣-]/g, '');
+        const results = await wpApiCall(env, `tags?slug=${encodeURIComponent(slug)}`);
+        if (results && results.length > 0) {
+          tagIds.push(results[0].id);
+        }
+      } catch (e2) {
+        console.error(`태그 생성/검색 실패: ${name}`, e2.message);
+      }
+    }
+  }
+  return tagIds;
 }
 
 // ─── 타임아웃 fetch 헬퍼 ───
-const IMAGE_DOWNLOAD_TIMEOUT = 10000; // 10초
-const IMAGE_UPLOAD_TIMEOUT = 30000;   // 30초
-const IMAGE_MAX_SIZE = 5 * 1024 * 1024; // 5MB
+const IMAGE_DOWNLOAD_TIMEOUT = 10000;
+const IMAGE_UPLOAD_TIMEOUT = 30000;
+const IMAGE_MAX_SIZE = 5 * 1024 * 1024;
 
 async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
   const controller = new AbortController();
@@ -114,39 +154,35 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
   }
 }
 
-// ─── Hero 이미지 업로드 ───
+// ─── Hero 이미지 업로드 (WP REST API) ───
 async function uploadHeroImage(env, imageData) {
   if (!imageData || !imageData.url) return null;
 
   try {
-    // 이미지 다운로드 (타임아웃 적용)
     const imageResponse = await fetchWithTimeout(imageData.url, {}, IMAGE_DOWNLOAD_TIMEOUT);
     if (!imageResponse.ok) return null;
 
     const imageBuffer = await imageResponse.arrayBuffer();
 
-    // 5MB 초과 시 스킵
     if (imageBuffer.byteLength > IMAGE_MAX_SIZE) {
       console.warn(`[이미지 업로드] Hero 이미지 크기 초과 (${(imageBuffer.byteLength / 1024 / 1024).toFixed(1)}MB > 5MB) — 스킵`);
       return null;
     }
 
-    const siteId = env.WP_SITE_ID || 'mongclinic.blog';
-    const token = env.WP_ACCESS_TOKEN;
-
-    // WordPress.com 미디어 업로드 (타임아웃 적용)
-    const formData = new FormData();
-    const blob = new Blob([imageBuffer], { type: 'image/jpeg' });
-    formData.append('media[]', blob, `hwj-${Date.now()}.jpg`);
+    const apiBase = getApiBase(env);
+    const auth = getBasicAuth(env);
+    const filename = `hwj-${Date.now()}.jpg`;
 
     const uploadResponse = await fetchWithTimeout(
-      `${WP_API_BASE}/sites/${siteId}/media/new`,
+      `${apiBase}/media`,
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': auth,
+          'Content-Disposition': `attachment; filename="${filename}"`,
+          'Content-Type': 'image/jpeg',
         },
-        body: formData,
+        body: Buffer.from(imageBuffer),
       },
       IMAGE_UPLOAD_TIMEOUT
     );
@@ -157,10 +193,7 @@ async function uploadHeroImage(env, imageData) {
     }
 
     const media = await uploadResponse.json();
-    if (media.media && media.media.length > 0) {
-      return media.media[0].ID;
-    }
-    return null;
+    return media.id || null;
   } catch (e) {
     if (e.name === 'AbortError') {
       console.error('[이미지 업로드] Hero 이미지 타임아웃 — 스킵');
@@ -186,25 +219,25 @@ async function uploadImageToWP(env, imageUrl, filename) {
 
     const imageBuffer = await imageResponse.arrayBuffer();
 
-    // 5MB 초과 시 스킵
     if (imageBuffer.byteLength > IMAGE_MAX_SIZE) {
       console.warn(`[이미지 업로드] 크기 초과 (${(imageBuffer.byteLength / 1024 / 1024).toFixed(1)}MB > 5MB) — 스킵: ${imageUrl.substring(0, 80)}`);
       return null;
     }
 
-    const siteId = env.WP_SITE_ID || 'mongclinic.blog';
-    const token = env.WP_ACCESS_TOKEN;
-
-    const formData = new FormData();
-    const blob = new Blob([imageBuffer], { type: 'image/jpeg' });
-    formData.append('media[]', blob, filename || `hwj-${Date.now()}.jpg`);
+    const apiBase = getApiBase(env);
+    const auth = getBasicAuth(env);
+    const fname = filename || `hwj-${Date.now()}.jpg`;
 
     const uploadResponse = await fetchWithTimeout(
-      `${WP_API_BASE}/sites/${siteId}/media/new`,
+      `${apiBase}/media`,
       {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData,
+        headers: {
+          'Authorization': auth,
+          'Content-Disposition': `attachment; filename="${fname}"`,
+          'Content-Type': 'image/jpeg',
+        },
+        body: Buffer.from(imageBuffer),
       },
       IMAGE_UPLOAD_TIMEOUT
     );
@@ -215,12 +248,9 @@ async function uploadImageToWP(env, imageUrl, filename) {
     }
 
     const media = await uploadResponse.json();
-    if (media.media && media.media.length > 0) {
-      const wpUrl = media.media[0].URL || media.media[0].link;
-      console.log(`[이미지 업로드] 성공: ${wpUrl}`);
-      return { id: media.media[0].ID, url: wpUrl };
-    }
-    return null;
+    const wpUrl = media.source_url || media.guid?.rendered || '';
+    console.log(`[이미지 업로드] 성공: ${wpUrl}`);
+    return { id: media.id, url: wpUrl };
   } catch (e) {
     if (e.name === 'AbortError') {
       console.error(`[이미지 업로드] 다운로드 타임아웃 — 스킵: ${imageUrl.substring(0, 80)}`);
@@ -233,15 +263,13 @@ async function uploadImageToWP(env, imageUrl, filename) {
 
 // ─── 본문 내 외부 이미지를 WordPress로 업로드 후 URL 교체 ───
 async function uploadInlineImages(env, htmlContent) {
-  // 본문에서 모든 외부 이미지 URL 추출 (WordPress 자체 호스팅 URL 제외)
   const imgRegex = /<img\s[^>]*?src="(https?:\/\/[^"]+)"[^>]*>/gi;
   let match;
   const replacements = [];
 
   while ((match = imgRegex.exec(htmlContent)) !== null) {
     const url = match[1];
-    // WordPress 자체 호스팅 URL은 스킵
-    if (url.includes('wordpress.com') || url.includes('wp.com')) continue;
+    if (url.includes('wordpress.com') || url.includes('wp.com') || url.includes('mongclinic.blog')) continue;
     replacements.push({ fullMatch: match[0], originalUrl: url });
   }
 
@@ -250,7 +278,6 @@ async function uploadInlineImages(env, htmlContent) {
     return htmlContent;
   }
 
-  // 최대 10개로 제한 (서버 부하 방지)
   const MAX_INLINE_IMAGES = 10;
   if (replacements.length > MAX_INLINE_IMAGES) {
     console.warn(`[이미지 업로드] 외부 이미지 ${replacements.length}개 중 ${MAX_INLINE_IMAGES}개만 처리`);
@@ -281,8 +308,8 @@ export async function publishToWordPress(env, content, statusOverride) {
   // 1. 카테고리 준비
   const categoryId = await getOrCreateCategory(env, content.category);
 
-  // 2. 태그 준비 (WordPress.com은 쉼표 구분 문자열)
-  const tags = prepareTags(content.tags || []);
+  // 2. 태그 준비 (WP REST API는 ID 배열 필요)
+  const tagIds = await getOrCreateTags(env, content.tags || []);
 
   // 3. Hero 이미지 업로드
   const featuredImageId = await uploadHeroImage(env, content.heroImage);
@@ -290,32 +317,31 @@ export async function publishToWordPress(env, content, statusOverride) {
   // 3.5. 본문 내 외부 이미지를 WordPress 미디어 라이브러리로 업로드 후 URL 교체
   const processedContent = await uploadInlineImages(env, content.content);
 
-  // 4. 글 발행 (WordPress.com REST API v1.1)
+  // 4. 글 발행 (WP REST API v2)
   const postData = {
     title: content.title,
     content: processedContent,
     excerpt: content.excerpt,
     slug: content.slug,
-    status: statusOverride || PUBLISH_CONFIG.defaultStatus, // 승인 시 'publish', 기본은 'draft'
-    categories: content.category,          // WordPress.com은 이름으로 지정 가능
-    tags: tags,
-    featured_image: featuredImageId || undefined,
-    // SEO 메타 (Jetpack SEO가 활성화된 경우)
-    metadata: [
-      { key: '_yoast_wpseo_title', value: content.title },
-      { key: '_yoast_wpseo_metadesc', value: content.metaDescription },
-    ],
+    status: statusOverride || PUBLISH_CONFIG.defaultStatus,
+    categories: categoryId ? [categoryId] : [],
+    tags: tagIds,
+    featured_media: featuredImageId || 0,
+    meta: {
+      _yoast_wpseo_title: content.title,
+      _yoast_wpseo_metadesc: content.metaDescription || '',
+    },
   };
 
-  const post = await wpApiCall(env, 'posts/new', 'POST', postData);
+  const post = await wpApiCall(env, 'posts', 'POST', postData);
 
-  console.log(`[WordPress] 발행 완료: ${post.URL} (ID: ${post.ID}, Status: ${post.status})`);
+  console.log(`[WordPress] 발행 완료: ${post.link} (ID: ${post.id}, Status: ${post.status})`);
 
   return {
-    id: post.ID,
-    link: post.URL,
+    id: post.id,
+    link: post.link,
     status: post.status,
-    title: post.title,
+    title: typeof post.title === 'object' ? post.title.rendered : post.title,
     publishedAt: post.date,
   };
 }
@@ -324,7 +350,6 @@ export async function publishToWordPress(env, content, statusOverride) {
 export async function updateWordPressPost(env, wpPostId, updates) {
   console.log(`[WordPress] 게시글 수정 시작: ID ${wpPostId}`);
 
-  // 본문 내 외부 이미지를 WordPress로 업로드 후 교체
   let processedContent = updates.content;
   if (processedContent) {
     processedContent = await uploadInlineImages(env, processedContent);
@@ -334,33 +359,36 @@ export async function updateWordPressPost(env, wpPostId, updates) {
   if (updates.title) postData.title = updates.title;
   if (processedContent) postData.content = processedContent;
   if (updates.excerpt) postData.excerpt = updates.excerpt;
-  if (updates.tags) postData.tags = Array.isArray(updates.tags) ? updates.tags.join(',') : updates.tags;
+  if (updates.tags) {
+    const tagNames = Array.isArray(updates.tags) ? updates.tags : updates.tags.split(',');
+    postData.tags = await getOrCreateTags(env, tagNames);
+  }
   if (updates.metaDescription) {
-    postData.metadata = [
-      { key: '_yoast_wpseo_title', value: updates.title || '' },
-      { key: '_yoast_wpseo_metadesc', value: updates.metaDescription },
-    ];
+    postData.meta = {
+      _yoast_wpseo_title: updates.title || '',
+      _yoast_wpseo_metadesc: updates.metaDescription,
+    };
   }
 
   const post = await wpApiCall(env, `posts/${wpPostId}`, 'POST', postData);
-  console.log(`[WordPress] 게시글 수정 완료: ${post.URL} (ID: ${post.ID})`);
+  console.log(`[WordPress] 게시글 수정 완료: ${post.link} (ID: ${post.id})`);
 
   return {
-    id: post.ID,
-    link: post.URL,
+    id: post.id,
+    link: post.link,
     status: post.status,
-    title: post.title,
+    title: typeof post.title === 'object' ? post.title.rendered : post.title,
   };
 }
 
 // ─── 최근 발행 목록 조회 ───
 export async function getRecentPosts(env, count = 10) {
   try {
-    const result = await wpApiCall(env, `posts?number=${count}&order_by=date&order=DESC`);
-    return (result.posts || []).map((p) => ({
-      id: p.ID,
-      title: p.title,
-      link: p.URL,
+    const results = await wpApiCall(env, `posts?per_page=${count}&orderby=date&order=desc`);
+    return results.map((p) => ({
+      id: p.id,
+      title: typeof p.title === 'object' ? p.title.rendered : p.title,
+      link: p.link,
       status: p.status,
       date: p.date,
       slug: p.slug,
@@ -374,32 +402,26 @@ export async function getRecentPosts(env, count = 10) {
 // ─── WordPress 연결 상태 확인 ───
 export async function checkConnection(env) {
   try {
-    const siteId = env.WP_SITE_ID || 'mongclinic.blog';
-    const token = env.WP_ACCESS_TOKEN;
+    const site = env.WP_SITE_ID || 'mongclinic.blog';
 
-    if (!token) return { connected: false, error: 'WP_ACCESS_TOKEN 미설정' };
+    if (!env.WP_APP_PASSWORD) return { connected: false, error: 'WP_APP_PASSWORD 미설정' };
 
-    const response = await fetch(`${WP_API_BASE}/sites/${siteId}`, {
-      headers: { 'Authorization': `Bearer ${token}` },
+    const auth = getBasicAuth(env);
+    const response = await fetch(`https://${site}/wp-json/wp/v2/users/me`, {
+      headers: { 'Authorization': auth },
     });
 
     if (!response.ok) {
       return { connected: false, error: `HTTP ${response.status}` };
     }
 
-    const site = await response.json();
+    const user = await response.json();
     return {
       connected: true,
-      siteName: site.name || 'Unknown',
-      siteUrl: site.URL || `https://${siteId}`,
+      siteName: user.name || 'Unknown',
+      siteUrl: `https://${site}`,
     };
   } catch (e) {
     return { connected: false, error: e.message };
   }
 }
-
-// ─── OAuth 토큰 갱신 안내 ───
-// WordPress.com OAuth 토큰은 14일 후 만료됩니다.
-// 갱신 방법: 아래 URL을 브라우저에서 다시 방문하여 새 토큰을 발급받으세요.
-// https://public-api.wordpress.com/oauth2/authorize?client_id=137509&redirect_uri=https://example.com&response_type=token
-// 발급된 토큰을 WP_ACC

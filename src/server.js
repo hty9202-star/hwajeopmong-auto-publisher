@@ -79,7 +79,8 @@ function askAIWithTimeout(model, question, s) {
 const env = {
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
   WP_SITE_ID: process.env.WP_SITE_ID || 'mongclinic.blog',
-  WP_ACCESS_TOKEN: process.env.WP_ACCESS_TOKEN,
+  WP_USERNAME: process.env.WP_USERNAME || 'ozzy1993',
+  WP_APP_PASSWORD: process.env.WP_APP_PASSWORD,
   PIXABAY_API_KEY: process.env.PIXABAY_API_KEY,
   UNSPLASH_ACCESS_KEY: process.env.UNSPLASH_ACCESS_KEY,
   PEXELS_API_KEY: process.env.PEXELS_API_KEY,

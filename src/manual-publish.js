@@ -36,7 +36,8 @@ const hasFlag = (name) => args.includes(`--${name}`);
 const env = {
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
   WP_SITE_ID: process.env.WP_SITE_ID || 'mongclinic.blog',
-  WP_ACCESS_TOKEN: process.env.WP_ACCESS_TOKEN,
+  WP_USERNAME: process.env.WP_USERNAME || 'ozzy1993',
+  WP_APP_PASSWORD: process.env.WP_APP_PASSWORD,
   PEXELS_API_KEY: process.env.PEXELS_API_KEY,
 };
 
@@ -51,8 +52,8 @@ async function main() {
     console.error('❌ GEMINI_API_KEY 환경변수가 설정되지 않았습니다.');
     process.exit(1);
   }
-  if (!env.WP_ACCESS_TOKEN) {
-    console.log('⚠️  WP_ACCESS_TOKEN 미설정. --dry-run 모드로 실행됩니다.');
+  if (!env.WP_APP_PASSWORD) {
+    console.log('⚠️  WP_APP_PASSWORD 미설정. --dry-run 모드로 실행됩니다.');
   }
 
   // 토픽 선택
