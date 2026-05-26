@@ -71,15 +71,18 @@ async function bridgeApiCall(env, endpoint, method = 'GET', body = null) {
 
 // ─── WP REST API 직접 호출 (Application Password 인증) ───
 function getWpRestAuth(env) {
-  // 방법 1: 별도 WP_REST_USER + WP_REST_PASS (권장)
-  if (env.WP_REST_USER && env.WP_REST_PASS) {
-    return 'Basic ' + Buffer.from(`${env.WP_REST_USER}:${env.WP_REST_PASS}`).toString('base64');
+  // 방법 1: env 객체에서 WP_REST_USER + WP_REST_PASS
+  const user = env.WP_REST_USER || process.env.WP_REST_USER;
+  const pass = env.WP_REST_PASS || process.env.WP_REST_PASS;
+  if (user && pass) {
+    return 'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64');
   }
   // 방법 2: WP_AUTH_KEY가 "user:pass" 형태인 경우
-  const authKey = env.WP_AUTH_KEY;
+  const authKey = env.WP_AUTH_KEY || process.env.WP_AUTH_KEY;
   if (authKey && authKey.includes(':')) {
     return 'Basic ' + Buffer.from(authKey).toString('base64');
   }
+  console.warn('[WordPress] getWpRestAuth: 인증 정보 없음 — env.WP_REST_USER:', !!env.WP_REST_USER, 'process.env.WP_REST_USER:', !!process.env.WP_REST_USER);
   return null;
 }
 
