@@ -47,6 +47,28 @@ add_action('init', function() {
     ]);
 });
 
+// Yoast SEO 메타 필드 등록 (포커스 키프레이즈, 제목, 메타설명)
+add_action('init', function() {
+    register_post_meta('post', '_yoast_wpseo_focuskw', [
+        'show_in_rest' => true,
+        'single' => true,
+        'type' => 'string',
+        'auth_callback' => function() { return current_user_can('edit_posts'); }
+    ]);
+    register_post_meta('post', '_yoast_wpseo_title', [
+        'show_in_rest' => true,
+        'single' => true,
+        'type' => 'string',
+        'auth_callback' => function() { return current_user_can('edit_posts'); }
+    ]);
+    register_post_meta('post', '_yoast_wpseo_metadesc', [
+        'show_in_rest' => true,
+        'single' => true,
+        'type' => 'string',
+        'auth_callback' => function() { return current_user_can('edit_posts'); }
+    ]);
+});
+
 // ─── 3. REST API 메타 필드 등록 (RankMath 호환) ───
 add_action('init', function() {
     register_post_meta('post', 'rank_math_title', [

@@ -230,6 +230,7 @@ export async function publishToWordPress(env, content, statusOverride) {
   const meta = {
     _yoast_wpseo_title: content.title,
     _yoast_wpseo_metadesc: content.metaDescription || '',
+    _yoast_wpseo_focuskw: content.focusKeyphrase || '',
   };
 
   // JSON-LD 스키마를 커스텀 메타 필드로 전달

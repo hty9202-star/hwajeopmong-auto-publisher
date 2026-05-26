@@ -34,7 +34,7 @@ export const AI_CONFIG = {
 export const PUBLISH_CONFIG = {
   postsPerSlot: 1,       // 슬롯당 1개 (품질 중심)
   slotsPerDay: 5,        // 하루 5슬롯 (09:00, 11:00, 13:00, 15:00, 17:00 KST)
-  defaultStatus: 'draft', // 'draft' 또는 'publish' (초기엔 draft로 검토 후 발행)
+  defaultStatus: 'publish', // 'draft' 또는 'publish'
   defaultCategory: '피부질환',
 };
 
