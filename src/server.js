@@ -2020,3 +2020,56 @@ function verifyAdminToken(req) {
 // === Client Auth (1시간 만료 + 자동 정리) ===
 var CLIENT_TOKENS = new Map();
 var TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1시간    
+function genToken() {
+  try { return crypto.randomBytes(24).toString('hex'); }
+  catch(e) { var t='';var ch='abcdefghijklmnopqrstuvwxyz0123456789';for(var i=0;i<48;i++)t+=ch[Math.floor(Math.random()*ch.length)];return t; }
+}
+function verifyToken(req) {
+  var a = req.headers['authorization'];
+  if (!a) return false;
+  var tk = a.replace('Bearer ', '');
+  var entry = CLIENT_TOKENS.get(tk);
+  if (!entry) return false;
+  if (Date.now() - new Date(entry.at).getTime() > TOKEN_EXPIRY_MS) {
+    CLIENT_TOKENS.delete(tk);
+    return false;
+  }
+  return true;
+}
+// 10분마다 만료 토큰 정리
+setInterval(function() {
+  var now = Date.now();
+  CLIENT_TOKENS.forEach(function(val, key) {
+    if (now - new Date(val.at).getTime() > TOKEN_EXPIRY_MS) CLIENT_TOKENS.delete(key);
+  });
+  ADMIN_TOKENS.forEach(function(val, key) {
+    if (now - new Date(val.at).getTime() > TOKEN_EXPIRY_MS) ADMIN_TOKENS.delete(key);
+  });
+}, 10 * 60 * 1000);
+
+function jsonRes(res, data, status) {
+  status = status || 200;
+  res.writeHead(status, { 'Content-Type': "application/json; charset=utf-8" });
+  res.end(JSON.stringify(data));
+}
+
+// ─── 전역 예외 핸들러 (프로세스 종료 방지) ───
+process.on('unhandledRejection', function(reason) {
+  console.error('[FATAL] Unhandled Promise Rejection:', reason);
+  saveErrorLog('unhandledRejection', reason instanceof Error ? reason : new Error(String(reason))).catch(function() {});
+});
+
+process.on('uncaughtException', function(err) {
+  console.error('[FATAL] Uncaught Exception:', err);
+  saveErrorLog('uncaughtException', err).catch(function() {});
+  // uncaughtException은 프로세스를 종료하는 것이 권장되지만,
+  // Render.com이 자동 재시작하므로 로그만 남기고 종료
+  setTimeout(function() { process.exit(1); }, 1000);
+});
+
+server.listen(PORT, function() {
+  console.log('[Server] 화접몹 GEO Auto-Publisher 실행 중 (Supabase DB)');
+  console.log('[Server] 대시보드: http://localhost:' + PORT + '/dashboard');
+  console.log('[Server] 광고주: http://localhost:' + PORT + '/client');
+  console.log('[Server] API: http://localhost:' + PORT + '/api/status');
+});
