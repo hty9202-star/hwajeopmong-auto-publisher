@@ -69,18 +69,64 @@ async function bridgeApiCall(env, endpoint, method = 'GET', body = null) {
   throw lastError;
 }
 
-// ─── WP REST API 직접 호출 (카테고리 전용) ───
+// ─── WP REST API 직접 호출 (Application Password 인증) ───
+function getWpRestAuth(env) {
+  // 방법 1: 별도 WP_REST_USER + WP_REST_PASS (권장)
+  if (env.WP_REST_USER && env.WP_REST_PASS) {
+    return 'Basic ' + Buffer.from(`${env.WP_REST_USER}:${env.WP_REST_PASS}`).toString('base64');
+  }
+  // 방법 2: WP_AUTH_KEY가 "user:pass" 형태인 경우
+  const authKey = env.WP_AUTH_KEY;
+  if (authKey && authKey.includes(':')) {
+    return 'Basic ' + Buffer.from(authKey).toString('base64');
+  }
+  return null;
+}
+
 async function wpRestCall(env, endpoint, method = 'GET', body = null) {
   const site = env.WP_SITE_ID || 'mongclinic.blog';
   const url = `https://${site}/wp-json/wp/v2/${endpoint}`;
-  const authKey = env.WP_AUTH_KEY;
   const headers = { 'Content-Type': 'application/json' };
-  if (authKey) headers['Authorization'] = 'Basic ' + Buffer.from(authKey).toString('base64');
+  const auth = getWpRestAuth(env);
+  if (auth) headers['Authorization'] = auth;
   const options = { method, headers };
   if (body) options.body = JSON.stringify(body);
   const resp = await fetch(url, options);
   if (!resp.ok) throw new Error(`WP REST ${method} ${endpoint}: ${resp.status}`);
   return resp.json();
+}
+
+// ─── 발행 후 WP REST API로 메타 필드 + 대표 이미지 설정 ───
+async function updatePostMetaViaRestApi(env, wpPostId, meta, featuredMediaId) {
+  const auth = getWpRestAuth(env);
+  if (!auth) {
+    console.log('[WordPress] WP REST API 인증 미설정 — 메타/이미지 업데이트 건너뜀 (WP_REST_USER + WP_REST_PASS 필요)');
+    return false;
+  }
+
+  try {
+    const updateData = {};
+
+    // Yoast SEO 메타 필드
+    if (meta && Object.keys(meta).length > 0) {
+      updateData.meta = meta;
+    }
+
+    // 대표 이미지
+    if (featuredMediaId) {
+      updateData.featured_media = featuredMediaId;
+    }
+
+    if (Object.keys(updateData).length === 0) return true;
+
+    console.log(`[WordPress] REST API로 메타 업데이트 시작: post ${wpPostId}, 필드: ${Object.keys(updateData).join(', ')}`);
+    await wpRestCall(env, `posts/${wpPostId}`, 'POST', updateData);
+    console.log(`[WordPress] REST API 메타 업데이트 완료: post ${wpPostId}`);
+    return true;
+  } catch (e) {
+    console.error(`[WordPress] REST API 메타 업데이트 실패 (post ${wpPostId}):`, e.message);
+    return false;
+  }
 }
 
 // ─── 카테고리 ID 조회 또는 생성 ───
@@ -151,14 +197,72 @@ async function resolveCategory(env, categoryName) {
 async function uploadHeroImage(env, imageData) {
   if (!imageData || !imageData.url) return null;
 
+  // 방법 1: Bridge API로 업로드 시도
   try {
     console.log(`[이미지 업로드] Hero 이미지 Bridge 업로드: ${imageData.url.substring(0, 80)}`);
     const result = await bridgeApiCall(env, 'media', 'POST', {
       url: imageData.url,
     });
-    return result.id || null;
+    if (result && result.id) return result.id;
   } catch (e) {
-    console.error('이미지 업로드 에러:', e.message);
+    console.warn('[이미지 업로드] Bridge 실패, WP REST API 폴백 시도:', e.message);
+  }
+
+  // 방법 2: WP REST API로 직접 이미지 다운로드 후 업로드 (폴백)
+  return await uploadImageViaRestApi(env, imageData.url);
+}
+
+// ─── WP REST API로 이미지 직접 업로드 (Application Password) ───
+async function uploadImageViaRestApi(env, imageUrl) {
+  const auth = getWpRestAuth(env);
+  if (!auth) {
+    console.log('[이미지 업로드] WP REST API 인증 미설정 — 이미지 업로드 건너뜀');
+    return null;
+  }
+
+  try {
+    // 1. 이미지 다운로드
+    console.log(`[이미지 업로드] REST API: 이미지 다운로드 중 ${imageUrl.substring(0, 80)}`);
+    const imgResp = await fetch(imageUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 HWJ-AutoPublisher/1.0' },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!imgResp.ok) throw new Error(`이미지 다운로드 실패: ${imgResp.status}`);
+
+    const contentType = imgResp.headers.get('content-type') || 'image/jpeg';
+    const imageBuffer = Buffer.from(await imgResp.arrayBuffer());
+    console.log(`[이미지 업로드] REST API: 다운로드 완료 (${(imageBuffer.length / 1024).toFixed(1)}KB)`);
+
+    // 2. 파일명 추출
+    const urlPath = new URL(imageUrl).pathname;
+    let filename = urlPath.split('/').pop() || 'hero-image.jpg';
+    if (!filename.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+      filename = 'hero-image.jpg';
+    }
+
+    // 3. WP REST API media 엔드포인트로 업로드
+    const site = env.WP_SITE_ID || 'mongclinic.blog';
+    const uploadUrl = `https://${site}/wp-json/wp/v2/media`;
+    const uploadResp = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': auth,
+        'Content-Type': contentType,
+        'Content-Disposition': `attachment; filename="${filename}"`,
+      },
+      body: imageBuffer,
+    });
+
+    if (!uploadResp.ok) {
+      const errText = await uploadResp.text();
+      throw new Error(`미디어 업로드 실패: ${uploadResp.status} - ${errText.substring(0, 200)}`);
+    }
+
+    const mediaData = await uploadResp.json();
+    console.log(`[이미지 업로드] REST API 성공: media ID ${mediaData.id}`);
+    return mediaData.id;
+  } catch (e) {
+    console.error('[이미지 업로드] REST API 폴백도 실패:', e.message);
     return null;
   }
 }
@@ -271,6 +375,11 @@ export async function publishToWordPress(env, content, statusOverride) {
 
   console.log(`[WordPress] 발행 완료: ${post.link} (ID: ${post.id}, Status: ${post.status})`);
 
+  // 4. Bridge가 처리하지 못하는 메타 필드 + 대표 이미지를 WP REST API로 보완
+  if (post.id) {
+    await updatePostMetaViaRestApi(env, post.id, meta, featuredMediaId);
+  }
+
   return {
     id: post.id,
     link: post.link,
@@ -297,15 +406,20 @@ export async function updateWordPressPost(env, wpPostId, updates) {
     const tagNames = Array.isArray(updates.tags) ? updates.tags : updates.tags.split(',');
     postData.tags = tagNames;
   }
+  const meta = {};
   if (updates.metaDescription) {
-    postData.meta = {
-      _yoast_wpseo_title: updates.title || '',
-      _yoast_wpseo_metadesc: updates.metaDescription,
-    };
+    meta._yoast_wpseo_title = updates.title || '';
+    meta._yoast_wpseo_metadesc = updates.metaDescription;
+    postData.meta = meta;
   }
 
   const post = await bridgeApiCall(env, `posts/${wpPostId}`, 'PUT', postData);
   console.log(`[WordPress] 게시글 수정 완료: ${post.link} (ID: ${post.id})`);
+
+  // Bridge가 처리하지 못하는 메타 필드를 WP REST API로 보완
+  if (Object.keys(meta).length > 0) {
+    await updatePostMetaViaRestApi(env, wpPostId, meta, null);
+  }
 
   return {
     id: post.id,
