@@ -69,10 +69,87 @@ async function bridgeApiCall(env, endpoint, method = 'GET', body = null) {
   throw lastError;
 }
 
-// ─── 카테고리명 반환 (Bridge가 이름으로 자동 생성) ───
-function getCategoryName(categoryName) {
-  const categoryConfig = WP_CATEGORIES[categoryName];
-  return categoryConfig ? categoryName : null;
+// ─── WP REST API 직접 호출 (카테고리 전용) ───
+async function wpRestCall(env, endpoint, method = 'GET', body = null) {
+  const site = env.WP_SITE_ID || 'mongclinic.blog';
+  const url = `https://${site}/wp-json/wp/v2/${endpoint}`;
+  const authKey = env.WP_AUTH_KEY;
+  const headers = { 'Content-Type': 'application/json' };
+  if (authKey) headers['Authorization'] = 'Basic ' + Buffer.from(authKey).toString('base64');
+  const options = { method, headers };
+  if (body) options.body = JSON.stringify(body);
+  const resp = await fetch(url, options);
+  if (!resp.ok) throw new Error(`WP REST ${method} ${endpoint}: ${resp.status}`);
+  return resp.json();
+}
+
+// ─── 카테고리 ID 조회 또는 생성 ───
+const categoryCache = new Map();
+
+async function resolveCategory(env, categoryName) {
+  if (!categoryName) return null;
+
+  // 캐시 확인
+  if (categoryCache.has(categoryName)) {
+    return categoryCache.get(categoryName);
+  }
+
+  const slug = WP_CATEGORIES[categoryName]
+    ? WP_CATEGORIES[categoryName].slug
+    : categoryName.toLowerCase().replace(/\s+/g, '-');
+
+  try {
+    // 1) Bridge API로 카테고리 검색 시도
+    try {
+      const categories = await bridgeApiCall(env, 'categories', 'GET');
+      if (Array.isArray(categories)) {
+        const found = categories.find(c => c.name === categoryName || c.slug === slug);
+        if (found) {
+          console.log(`[WordPress] 카테고리 발견 (Bridge): "${categoryName}" → ID ${found.id}`);
+          categoryCache.set(categoryName, found.id);
+          return found.id;
+        }
+      }
+    } catch (bridgeErr) {
+      console.log(`[WordPress] Bridge 카테고리 API 미지원, WP REST API 시도: ${bridgeErr.message}`);
+    }
+
+    // 2) WP REST API로 카테고리 검색
+    try {
+      const cats = await wpRestCall(env, `categories?search=${encodeURIComponent(categoryName)}&per_page=50`);
+      if (Array.isArray(cats)) {
+        const found = cats.find(c => c.name === categoryName || c.slug === slug);
+        if (found) {
+          console.log(`[WordPress] 카테고리 발견 (REST): "${categoryName}" → ID ${found.id}`);
+          categoryCache.set(categoryName, found.id);
+          return found.id;
+        }
+      }
+    } catch (restErr) {
+      console.log(`[WordPress] REST 카테고리 검색 실패: ${restErr.message}`);
+    }
+
+    // 3) 없으면 새로 생성 (Bridge 시도 → REST fallback)
+    const createData = {
+      name: categoryName,
+      slug: slug,
+      description: WP_CATEGORIES[categoryName]?.description || `${categoryName} 관련 콘텐츠`,
+    };
+
+    let created;
+    try {
+      created = await bridgeApiCall(env, 'categories', 'POST', createData);
+    } catch (e) {
+      created = await wpRestCall(env, 'categories', 'POST', createData);
+    }
+    console.log(`[WordPress] 카테고리 생성: "${categoryName}" → ID ${created.id}`);
+    categoryCache.set(categoryName, created.id);
+    return created.id;
+  } catch (e) {
+    console.error(`[WordPress] 카테고리 처리 실패 (${categoryName}):`, e.message);
+    // 최종 fallback: 이름으로 전달
+    return categoryName;
+  }
 }
 
 // ─── Hero 이미지 업로드 (Bridge media 엔드포인트 사용) ───
@@ -151,8 +228,8 @@ export async function publishToWordPress(env, content, statusOverride) {
   // 1. 본문 내 외부 이미지를 WordPress 미디어 라이브러리로 업로드 후 URL 교체
   const processedContent = await uploadInlineImages(env, content.content);
 
-  // 2. 카테고리명 준비 (Bridge가 이름으로 자동 생성)
-  const categoryName = getCategoryName(content.category);
+  // 2. 카테고리 ID 조회 또는 생성
+  const categoryId = await resolveCategory(env, content.category);
 
   // 3. 글 발행 (Bridge API)
   const postData = {
@@ -161,7 +238,7 @@ export async function publishToWordPress(env, content, statusOverride) {
     excerpt: content.excerpt,
     slug: content.slug,
     status: statusOverride || PUBLISH_CONFIG.defaultStatus,
-    categories: categoryName ? [categoryName] : [],
+    categories: categoryId ? [categoryId] : [],
     tags: content.tags || [],
     featured_image_url: content.heroImage?.url || '',
     meta: {
