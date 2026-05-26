@@ -89,7 +89,6 @@ const categoryCache = new Map();
 async function resolveCategory(env, categoryName) {
   if (!categoryName) return null;
 
-  // 캐시 확인
   if (categoryCache.has(categoryName)) {
     return categoryCache.get(categoryName);
   }
@@ -99,7 +98,6 @@ async function resolveCategory(env, categoryName) {
     : categoryName.toLowerCase().replace(/\s+/g, '-');
 
   try {
-    // 1) Bridge API로 카테고리 검색 시도
     try {
       const categories = await bridgeApiCall(env, 'categories', 'GET');
       if (Array.isArray(categories)) {
@@ -114,7 +112,6 @@ async function resolveCategory(env, categoryName) {
       console.log(`[WordPress] Bridge 카테고리 API 미지원, WP REST API 시도: ${bridgeErr.message}`);
     }
 
-    // 2) WP REST API로 카테고리 검색
     try {
       const cats = await wpRestCall(env, `categories?search=${encodeURIComponent(categoryName)}&per_page=50`);
       if (Array.isArray(cats)) {
@@ -129,7 +126,6 @@ async function resolveCategory(env, categoryName) {
       console.log(`[WordPress] REST 카테고리 검색 실패: ${restErr.message}`);
     }
 
-    // 3) 없으면 새로 생성 (Bridge 시도 → REST fallback)
     const createData = {
       name: categoryName,
       slug: slug,
@@ -147,7 +143,6 @@ async function resolveCategory(env, categoryName) {
     return created.id;
   } catch (e) {
     console.error(`[WordPress] 카테고리 처리 실패 (${categoryName}):`, e.message);
-    // 최종 fallback: 이름으로 전달
     return categoryName;
   }
 }
@@ -237,9 +232,20 @@ export async function publishToWordPress(env, content, statusOverride) {
     _yoast_wpseo_metadesc: content.metaDescription || '',
   };
 
-  // JSON-LD 스키마를 커스텀 메타 필드로 전달 (본문에 script 태그 삽입 시 strip됨)
+  // JSON-LD 스키마를 커스텀 메타 필드로 전달
   if (content.schemas && Array.isArray(content.schemas) && content.schemas.length > 0) {
     meta._hwj_jsonld = JSON.stringify(content.schemas);
+  }
+
+  // 3-1. Hero 이미지를 미디어 라이브러리에 업로드 → featured_media ID 확보
+  let featuredMediaId = null;
+  if (content.heroImage && content.heroImage.url) {
+    featuredMediaId = await uploadHeroImage(env, content.heroImage);
+    if (featuredMediaId) {
+      console.log(`[WordPress] 대표 이미지 설정: media ID ${featuredMediaId}`);
+    } else {
+      console.log(`[WordPress] 대표 이미지 업로드 실패 — featured_image_url로 폴백`);
+    }
   }
 
   const postData = {
@@ -250,9 +256,15 @@ export async function publishToWordPress(env, content, statusOverride) {
     status: statusOverride || PUBLISH_CONFIG.defaultStatus,
     categories: categoryId ? [categoryId] : [],
     tags: content.tags || [],
-    featured_image_url: content.heroImage?.url || '',
     meta,
   };
+
+  // 미디어 ID가 있으면 featured_media로, 없으면 URL로 폴백
+  if (featuredMediaId) {
+    postData.featured_media = featuredMediaId;
+  } else if (content.heroImage?.url) {
+    postData.featured_image_url = content.heroImage.url;
+  }
 
   const post = await bridgeApiCall(env, 'posts', 'POST', postData);
 
