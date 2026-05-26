@@ -1295,8 +1295,13 @@ export async function generateContent(env, topic, contentType, options = {}) {
   // JSON-LD 스키마 생성
   const schemas = generateSchemas(topic, cleanedProduction);
 
-  // NOTE: WordPress.com 호스팅형은 <script> 태그를 자동 제거하므로
-  // 본문에 JSON-LD를 삽입하지 않음. schemas 필드에 데이터 보존.
+  // WordPress.com Business 플랜에서는 <script> 태그 허용 — 본문 끝에 JSON-LD 삽입
+  if (schemas && Object.keys(schemas).length > 0) {
+    const schemaArray = Object.values(schemas);
+    for (const schema of schemaArray) {
+      finalContent += '\n<script type="application/ld+json">' + JSON.stringify(schema) + '</script>';
+    }
+  }
 
   // GEO / E-E-A-T 품질 점수 계산
   const geoResult = calculateGeoScore(finalContent, cleanedProduction.title, cleanedProduction.metaDescription, cleanedProduction.faq, schemas);

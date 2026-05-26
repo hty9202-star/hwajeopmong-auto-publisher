@@ -1176,6 +1176,8 @@ const server = http.createServer(async function(req, res) {
         const wpR = await publishToWordPress(env, {
           title: item.title,
           content: item.content,
+          excerpt: item.excerpt,
+          metaDescription: item.meta_description,
           heroImage: item.hero_image_url ? { url: item.hero_image_url } : null,
           category: item.category,
           tags: item.tags,
@@ -1218,6 +1220,8 @@ const server = http.createServer(async function(req, res) {
         const wpR = await publishToWordPress(env, {
           title: item.title,
           content: item.content,
+          excerpt: item.excerpt,
+          metaDescription: item.meta_description,
           heroImage: item.hero_image_url ? { url: item.hero_image_url } : null,
           category: item.category,
           tags: item.tags,
@@ -1546,6 +1550,105 @@ const server = http.createServer(async function(req, res) {
       }
     }
 
+    // POST: 인용추적 디버그 — 단일 질문으로 raw 응답 확인
+    if (pathname === '/api/citation-debug' && method === 'POST') {
+      try {
+        const parsed = await parseBody(req);
+        var debugModel = parsed.model || 'gemini';
+        var debugQuestion = parsed.question || '디스크 치료 잘하는 한의원 추천해줘';
+        const citationSettings = await settings.get('citation') || {};
+
+        console.log('[인용디버그] model=' + debugModel + ', question=' + debugQuestion);
+
+        var rawResponse = null;
+        var parsedText = '';
+        var error = null;
+
+        if (debugModel === 'gemini') {
+          var geminiKey = env.GEMINI_API_KEY;
+          if (!geminiKey) return jsonRes(res, { success: false, error: 'Gemini API key not set' });
+          var gUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + geminiKey;
+          var gResp = await fetch(gUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: debugQuestion }] }], tools: [{ google_search: {} }] }),
+          });
+          rawResponse = await gResp.json();
+          // parse same way as askAI
+          if (rawResponse.candidates && rawResponse.candidates[0] && rawResponse.candidates[0].content && rawResponse.candidates[0].content.parts) {
+            var parts = rawResponse.candidates[0].content.parts;
+            for (var pi = 0; pi < parts.length; pi++) {
+              if (parts[pi].text) parsedText += parts[pi].text;
+            }
+          }
+        } else if (debugModel === 'chatgpt') {
+          var chatKey = citationSettings.chatgptApiKey;
+          if (!chatKey) return jsonRes(res, { success: false, error: 'ChatGPT API key not set in citation settings' });
+          var cResp = await fetch('https://api.openai.com/v1/responses', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + chatKey },
+            body: JSON.stringify({
+              model: 'gpt-4o',
+              tools: [{
+                type: 'web_search',
+                search_context_size: 'high',
+                user_location: {
+                  type: 'approximate',
+                  country: 'KR',
+                  city: 'Seoul',
+                  region: 'Gangnam',
+                  timezone: 'Asia/Seoul',
+                },
+              }],
+              tool_choice: 'required',
+              input: debugQuestion,
+              instructions: '반드시 웹 검색을 수행하고, 검색 결과에서 찾은 실제 존재하는 한의원/병원의 정확한 이름을 포함하여 추천해주세요. 일반적인 조언이 아닌, 구체적인 업체명과 위치 정보를 답변에 반드시 포함하세요.',
+            }),
+          });
+          rawResponse = await cResp.json();
+          // parse same way as askAI
+          if (rawResponse.output && Array.isArray(rawResponse.output)) {
+            var texts = [];
+            for (var oi = 0; oi < rawResponse.output.length; oi++) {
+              var item = rawResponse.output[oi];
+              if (item.type === 'message' && item.content) {
+                for (var ci = 0; ci < item.content.length; ci++) {
+                  if (item.content[ci].type === 'output_text') texts.push(item.content[ci].text);
+                }
+              }
+            }
+            parsedText = texts.join('\n');
+          }
+        } else if (debugModel === 'claude') {
+          var clKey = citationSettings.claudeApiKey;
+          if (!clKey) return jsonRes(res, { success: false, error: 'Claude API key not set in citation settings' });
+          var clResp = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-api-key': clKey, 'anthropic-version': '2023-06-01' },
+            body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, messages: [{ role: 'user', content: debugQuestion }] }),
+          });
+          rawResponse = await clResp.json();
+          parsedText = (rawResponse.content && rawResponse.content[0] && rawResponse.content[0].text) || '';
+        }
+
+        var contains화접몽 = parsedText.indexOf('화접몽') >= 0;
+        console.log('[인용디버그] 결과: contains화접몽=' + contains화접몽 + ', parsedText길이=' + parsedText.length);
+
+        return jsonRes(res, {
+          success: true,
+          model: debugModel,
+          question: debugQuestion,
+          parsedText: parsedText.substring(0, 2000),
+          contains화접몽: contains화접몽,
+          rawResponseKeys: rawResponse ? Object.keys(rawResponse) : null,
+          rawResponsePreview: rawResponse ? JSON.stringify(rawResponse).substring(0, 3000) : null,
+        });
+      } catch (e) {
+        console.error('[인용디버그] 오류:', e);
+        return jsonRes(res, { success: false, error: e.message });
+      }
+    }
+
     // POST: 인용 추적 실행
     if (pathname === '/api/citation-track' && method === 'POST') {
       try {
@@ -1821,19 +1924,62 @@ async function askAI(model, question, citationSettings) {
         if (parts[pi].text) allText += parts[pi].text;
       }
     }
+    if (allText.length > 0) console.log('[Gemini] 응답 길이=' + allText.length + ', 화접몽포함=' + (allText.indexOf('화접몽') >= 0));
+    else console.warn('[Gemini] 빈 응답, candidates:', JSON.stringify(gData.candidates || gData.error || {}).substring(0, 300));
     return allText;
   }
 
   if (model === 'chatgpt') {
     var chatKey = citationSettings.chatgptApiKey;
     if (!chatKey) throw new Error('ChatGPT API key not set');
-    var cResp = await fetch('https://api.openai.com/v1/chat/completions', {
+    // web_search (신규 표준) + user_location(서울 강남) + tool_choice required로 검색 강제
+    // web_search는 레거시이며 필터/위치 등 고급 기능 미지원
+    var cResp = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + chatKey },
-      body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: question }] }),
+      body: JSON.stringify({
+        model: 'gpt-4o',
+      tools: [{
+          type: 'web_search',
+          search_context_size: 'high',
+          user_location: {
+            type: 'approximate',
+            country: 'KR',
+            city: 'Seoul',
+            region: 'Gangnam',
+            timezone: 'Asia/Seoul',
+          },
+        }],
+        tool_choice: 'required',
+        input: question,
+        instructions: '반드시 웹 검색을 수행하고, 검색 결과에서 찾은 실제 존재하는 한의원/병원의 정확한 이름을 포함하여 추천해주세요. 일반적인 조언이 아닌, 구체적인 업체명과 위치 정보를 답변에 반드시 포함하세요.',
+      }),
     });
     var cData = await cResp.json();
-    return (cData.choices && cData.choices[0] && cData.choices[0].message && cData.choices[0].message.content) || '';
+    if (cData.error) {
+      console.error('[ChatGPT API Error]', JSON.stringify(cData.error));
+      return '';
+    }
+    // Extract text from Responses API output array
+    if (cData.output && Array.isArray(cData.output)) {
+      var texts = [];
+      var didSearch = false;
+      for (var oi = 0; oi < cData.output.length; oi++) {
+        var item = cData.output[oi];
+        if (item.type === 'web_search_call') didSearch = true;
+        if (item.type === 'message' && item.content) {
+          for (var ci = 0; ci < item.content.length; ci++) {
+            if (item.content[ci].type === 'output_text') texts.push(item.content[ci].text);
+          }
+        }
+      }
+      if (!didSearch) console.warn('[ChatGPT] 웹 검색이 수행되지 않았음: ' + question.substring(0, 50));
+      var result = texts.join('\n');
+      if (result.length > 0) console.log('[ChatGPT] 응답 길이=' + result.length + ', 화접몽포함=' + (result.indexOf('화접몽') >= 0));
+      return result;
+    }
+    console.warn('[ChatGPT] output 배열 없음, 응답 키:', Object.keys(cData).join(','));
+    return '';
   }
 
   if (model === 'claude') {
