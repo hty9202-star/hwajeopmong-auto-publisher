@@ -1307,22 +1307,22 @@ const server = http.createServer(async function(req, res) {
         if (editData.excerpt) dbUpdates.excerpt = editData.excerpt;
 
         // 1-b. 품질 점수 재계산
-        const updatedContent = editData.content || item.content;
-        const updatedTitle = editData.title || item.title;
+        const updatedContent = editData.content || item.content || '';
+        const updatedTitle = editData.title || item.title || '';
         const updatedMetaDesc = editData.meta_description || item.meta_description || '';
         try {
           const geoResult = calculateGeoScore(updatedContent, updatedTitle, updatedMetaDesc, item.faq || [], item.schemas || null);
           const eeatResult = calculateEeatScore(updatedContent, updatedTitle);
           dbUpdates.geo_score = geoResult.total;
-          dbUpdates.geo_detail = geoResult;
           dbUpdates.eeat_score = eeatResult.total;
-          dbUpdates.eeat_detail = eeatResult;
           console.log(`[수정 API] 품질 점수 재계산: GEO ${geoResult.total}, E-E-A-T ${eeatResult.total}`);
         } catch (scoreErr) {
           console.error('[수정 API] 점수 재계산 실패 (무시):', scoreErr.message);
         }
 
+        console.log(`[수정 API] DB 업데이트 시작: ID ${itemId}, 필드: ${Object.keys(dbUpdates).join(', ')}`);
         await contentQueue.updateContent(itemId, dbUpdates);
+        console.log(`[수정 API] DB 업데이트 완료: ID ${itemId}`);
 
         // 2. 이미 WordPress에 발행된 글이면 WP도 동기화
         let wpResult = null;
@@ -1369,8 +1369,9 @@ const server = http.createServer(async function(req, res) {
           wpLink: wpResult ? wpResult.link : (item.wp_post_url || null),
         });
       } catch (e) {
-        console.error('[수정 API] 에러:', e.message);
-        jsonRes(res, { error: e.message }, 500);
+        console.error('[수정 API] 에러:', e.message, e.stack);
+        saveErrorLog('수정API', e);
+        jsonRes(res, { error: '콘텐츠 수정 중 오류: ' + e.message }, 500);
       }
       return;
     }
@@ -1401,8 +1402,6 @@ const server = http.createServer(async function(req, res) {
         await contentQueue.updateStatus(item.id, item.status, {
           geo_score: geo.score,
           eeat_score: eeat.score,
-          geo_details: geo.details,
-          eeat_details: eeat.details,
         });
         updated++;
       }
