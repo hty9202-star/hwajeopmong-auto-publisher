@@ -232,6 +232,16 @@ export async function publishToWordPress(env, content, statusOverride) {
   const categoryId = await resolveCategory(env, content.category);
 
   // 3. 글 발행 (Bridge API)
+  const meta = {
+    _yoast_wpseo_title: content.title,
+    _yoast_wpseo_metadesc: content.metaDescription || '',
+  };
+
+  // JSON-LD 스키마를 커스텀 메타 필드로 전달 (본문에 script 태그 삽입 시 strip됨)
+  if (content.schemas && Array.isArray(content.schemas) && content.schemas.length > 0) {
+    meta._hwj_jsonld = JSON.stringify(content.schemas);
+  }
+
   const postData = {
     title: content.title,
     content: processedContent,
@@ -241,10 +251,7 @@ export async function publishToWordPress(env, content, statusOverride) {
     categories: categoryId ? [categoryId] : [],
     tags: content.tags || [],
     featured_image_url: content.heroImage?.url || '',
-    meta: {
-      _yoast_wpseo_title: content.title,
-      _yoast_wpseo_metadesc: content.metaDescription || '',
-    },
+    meta,
   };
 
   const post = await bridgeApiCall(env, 'posts', 'POST', postData);

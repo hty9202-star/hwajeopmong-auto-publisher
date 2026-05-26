@@ -1292,16 +1292,8 @@ export async function generateContent(env, topic, contentType, options = {}) {
   // 의료 면책 조항 추가
   finalContent += '\n' + generateMedicalDisclaimer();
 
-  // JSON-LD 스키마 생성
+  // JSON-LD 스키마 생성 (본문이 아닌 별도 필드로 전달 — WordPress가 script 태그를 strip하므로)
   const schemas = generateSchemas(topic, cleanedProduction);
-
-  // WordPress.com Business 플랜에서는 <script> 태그 허용 — 본문 끝에 JSON-LD 삽입
-  if (schemas && Object.keys(schemas).length > 0) {
-    const schemaArray = Object.values(schemas);
-    for (const schema of schemaArray) {
-      finalContent += '\n<script type="application/ld+json">' + JSON.stringify(schema) + '</script>';
-    }
-  }
 
   // GEO / E-E-A-T 품질 점수 계산
   const geoResult = calculateGeoScore(finalContent, cleanedProduction.title, cleanedProduction.metaDescription, cleanedProduction.faq, schemas);

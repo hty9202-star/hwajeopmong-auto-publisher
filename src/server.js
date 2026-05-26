@@ -1181,6 +1181,7 @@ const server = http.createServer(async function(req, res) {
           heroImage: item.hero_image_url ? { url: item.hero_image_url } : null,
           category: item.category,
           tags: item.tags,
+          schemas: item.schemas,
         }, 'publish');
 
         await contentQueue.updateStatus(itemId, 'approved', {
@@ -1225,6 +1226,7 @@ const server = http.createServer(async function(req, res) {
           heroImage: item.hero_image_url ? { url: item.hero_image_url } : null,
           category: item.category,
           tags: item.tags,
+          schemas: item.schemas,
         }, 'publish');
 
         await contentQueue.updateStatus(itemId, 'approved', {

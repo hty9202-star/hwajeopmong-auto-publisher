@@ -25,15 +25,27 @@ add_action('template_redirect', function() {
     }
 });
 
-// ─── 2. JSON-LD 스키마가 wp_kses에서 제거되지 않도록 허용 ───
-add_filter('wp_kses_allowed_html', function($allowed, $context) {
-    if ($context === 'post') {
-        $allowed['script'] = array(
-            'type' => true,
-        );
+// ─── 2. JSON-LD 스키마를 <head>에 자동 출력 (커스텀 메타 _hwj_jsonld 기반) ───
+add_action('wp_head', function() {
+    if (!is_singular('post')) return;
+    $jsonld = get_post_meta(get_the_ID(), '_hwj_jsonld', true);
+    if (empty($jsonld)) return;
+    $schemas = json_decode($jsonld, true);
+    if (!is_array($schemas)) return;
+    foreach ($schemas as $schema) {
+        echo '<script type="application/ld+json">' . wp_json_encode($schema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . '</script>' . "\n";
     }
-    return $allowed;
-}, 10, 2);
+}, 1);
+
+// _hwj_jsonld 메타 필드를 REST API에서 저장 가능하도록 등록
+add_action('init', function() {
+    register_post_meta('post', '_hwj_jsonld', [
+        'show_in_rest' => true,
+        'single' => true,
+        'type' => 'string',
+        'auth_callback' => function() { return current_user_can('edit_posts'); }
+    ]);
+});
 
 // ─── 3. REST API 메타 필드 등록 (RankMath 호환) ───
 add_action('init', function() {
