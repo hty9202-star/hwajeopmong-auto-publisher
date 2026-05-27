@@ -378,7 +378,18 @@ export async function publishToWordPress(env, content, statusOverride) {
 
   console.log(`[WordPress] 발행 완료: ${post.link} (ID: ${post.id}, Status: ${post.status})`);
 
-  // 4. Bridge가 처리하지 못하는 메타 필드 + 대표 이미지를 WP REST API로 보완
+  // 4. featured_media를 Bridge API PUT으로 확실히 설정
+  if (post.id && featuredMediaId) {
+    try {
+      console.log(`[WordPress] Bridge PUT으로 featured_media 설정: post ${post.id}, media ${featuredMediaId}`);
+      await bridgeApiCall(env, `posts/${post.id}`, 'PUT', { featured_media: featuredMediaId });
+      console.log(`[WordPress] Bridge PUT featured_media 설정 완료`);
+    } catch (e) {
+      console.warn(`[WordPress] Bridge PUT featured_media 실패: ${e.message}`);
+    }
+  }
+
+  // 5. WP REST API로 메타 필드 보완 (featured_media는 이미 Bridge로 설정됨)
   if (post.id) {
     await updatePostMetaViaRestApi(env, post.id, meta, featuredMediaId);
   }
