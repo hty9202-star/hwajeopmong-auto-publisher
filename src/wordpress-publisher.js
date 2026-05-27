@@ -399,6 +399,13 @@ export async function publishToWordPress(env, content, statusOverride) {
     await updatePostMetaViaRestApi(env, post.id, meta, featuredMediaId);
   }
 
+  // 6. 검색엔진 인덱싱 알림 (실패해도 발행 결과에 영향 없음)
+  if (post.link) {
+    notifySearchEngines(env, post.link).catch(function(e) {
+      console.warn('[IndexNow] 검색엔진 알림 실패 (무시):', e.message);
+    });
+  }
+
   return {
     id: post.id,
     link: post.link,
@@ -406,6 +413,56 @@ export async function publishToWordPress(env, content, statusOverride) {
     title: post.title,
     publishedAt: new Date().toISOString(),
   };
+}
+
+// ─── 검색엔진 인덱싱 알림 (IndexNow + Google Sitemap Ping) ───
+async function notifySearchEngines(env, postUrl) {
+  const site = env.WP_SITE_ID || 'mongclinic.blog';
+  const sitemapUrl = 'https://' + site + '/sitemap_index.xml';
+  const results = [];
+
+  // 1. Google Sitemap Ping
+  try {
+    const gResp = await fetch('https://www.google.com/ping?sitemap=' + encodeURIComponent(sitemapUrl), {
+      signal: AbortSignal.timeout(5000),
+    });
+    results.push('Google: ' + gResp.status);
+  } catch (e) {
+    results.push('Google: fail');
+  }
+
+  // 2. IndexNow (Bing, Yandex, Naver 등 동시 지원)
+  const indexNowKey = env.INDEXNOW_API_KEY;
+  if (indexNowKey) {
+    try {
+      const inResp = await fetch('https://api.indexnow.org/indexnow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host: site,
+          key: indexNowKey,
+          keyLocation: 'https://' + site + '/' + indexNowKey + '.txt',
+          urlList: [postUrl],
+        }),
+        signal: AbortSignal.timeout(5000),
+      });
+      results.push('IndexNow: ' + inResp.status);
+    } catch (e) {
+      results.push('IndexNow: fail');
+    }
+  }
+
+  // 3. Bing Sitemap Ping (IndexNow 없어도 동작)
+  try {
+    const bResp = await fetch('https://www.bing.com/ping?sitemap=' + encodeURIComponent(sitemapUrl), {
+      signal: AbortSignal.timeout(5000),
+    });
+    results.push('Bing: ' + bResp.status);
+  } catch (e) {
+    results.push('Bing: fail');
+  }
+
+  console.log('[검색엔진 알림] ' + postUrl + ' → ' + results.join(', '));
 }
 
 // ─── WordPress 게시글 수정 ───

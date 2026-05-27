@@ -11,4 +11,5 @@ export const env = {
   PIXABAY_API_KEY: process.env.PIXABAY_API_KEY,
   UNSPLASH_ACCESS_KEY: process.env.UNSPLASH_ACCESS_KEY,
   PEXELS_API_KEY: process.env.PEXELS_API_KEY,
+  INDEXNOW_API_KEY: process.env.INDEXNOW_API_KEY,
 };
