@@ -367,10 +367,12 @@ export async function publishToWordPress(env, content, statusOverride) {
     meta,
   };
 
-  // 미디어 ID가 있으면 featured_media로, 없으면 URL로 폴백
+  // featured_media (ID) + featured_image_url (URL) 둘 다 전송
+  // Bridge 플러그인이 featured_media 우선, URL은 폴백으로 사용
   if (featuredMediaId) {
     postData.featured_media = featuredMediaId;
-  } else if (content.heroImage?.url) {
+  }
+  if (content.heroImage?.url) {
     postData.featured_image_url = content.heroImage.url;
   }
 
@@ -378,14 +380,17 @@ export async function publishToWordPress(env, content, statusOverride) {
 
   console.log(`[WordPress] 발행 완료: ${post.link} (ID: ${post.id}, Status: ${post.status})`);
 
-  // 4. featured_media를 Bridge API PUT으로 확실히 설정
-  if (post.id && featuredMediaId) {
+  // 4. featured_media를 Bridge API PUT으로 확실히 설정 (URL 폴백 포함)
+  if (post.id && (featuredMediaId || content.heroImage?.url)) {
     try {
-      console.log(`[WordPress] Bridge PUT으로 featured_media 설정: post ${post.id}, media ${featuredMediaId}`);
-      await bridgeApiCall(env, `posts/${post.id}`, 'PUT', { featured_media: featuredMediaId });
-      console.log(`[WordPress] Bridge PUT featured_media 설정 완료`);
+      const putData = {};
+      if (featuredMediaId) putData.featured_media = featuredMediaId;
+      if (content.heroImage?.url) putData.featured_image_url = content.heroImage.url;
+      console.log(`[WordPress] Bridge PUT으로 featured image 설정: post ${post.id}, keys: ${Object.keys(putData).join(',')}`);
+      await bridgeApiCall(env, `posts/${post.id}`, 'PUT', putData);
+      console.log(`[WordPress] Bridge PUT featured image 설정 완료`);
     } catch (e) {
-      console.warn(`[WordPress] Bridge PUT featured_media 실패: ${e.message}`);
+      console.warn(`[WordPress] Bridge PUT featured image 실패: ${e.message}`);
     }
   }
 
