@@ -1205,16 +1205,22 @@ const server = http.createServer(async function(req, res) {
     // --- Client API: Contents List (with pagination) ---
     if (pathname === '/api/client/contents' && method === 'GET') {
       if (!verifyToken(req)) { jsonRes(res, { error: 'Unauthorized' }, 401); return; }
-      const params = Object.fromEntries(url.searchParams);
-      const result = await contentQueue.search({
-        page: parseInt(params.page) || 1,
-        limit: parseInt(params.limit) || 10,
-        search: params.search || '',
-        status: params.status || '',
-        sort: params.sort || 'latest',
-      });
-      const counts = await contentQueue.getCounts();
-      jsonRes(res, { data: result.data, total: result.total, page: result.page, limit: result.limit, totalPages: result.totalPages, counts: counts });
+      try {
+        const params = Object.fromEntries(url.searchParams);
+        const searchTerm = (params.search || '').replace(/[%_]/g, '');
+        const result = await contentQueue.search({
+          page: parseInt(params.page) || 1,
+          limit: Math.min(parseInt(params.limit) || 10, 100),
+          search: searchTerm,
+          status: params.status || '',
+          sort: params.sort || 'latest',
+        });
+        const counts = await contentQueue.getCounts();
+        jsonRes(res, { data: result.data, total: result.total, page: result.page, limit: result.limit, totalPages: result.totalPages, counts: counts });
+      } catch (e) {
+        console.error('[Client Contents] 에러:', e.message);
+        jsonRes(res, { error: e.message }, 500);
+      }
       return;
     }
 
@@ -1446,40 +1452,50 @@ const server = http.createServer(async function(req, res) {
 
     // --- 품질 점수 재계산 API ---
     if (pathname === '/api/recalculate-scores' && method === 'POST') {
-      const all = await contentQueue.getAll();
-      let updated = 0;
-      for (const item of (all || [])) {
-        if (!item.content) continue;
-        const geo = calculateGeoScore(item.content, item.title || '', item.meta_description || '', item.faq || [], item.schemas || {});
-        const eeat = calculateEeatScore(item.content, item.title || '');
-        await contentQueue.updateStatus(item.id, item.status, {
-          geo_score: geo.score,
-          eeat_score: eeat.score,
-        });
-        updated++;
+      try {
+        const all = await contentQueue.getAll();
+        let updated = 0;
+        for (const item of (all || [])) {
+          if (!item.content) continue;
+          const geo = calculateGeoScore(item.content, item.title || '', item.meta_description || '', item.faq || [], item.schemas || {});
+          const eeat = calculateEeatScore(item.content, item.title || '');
+          await contentQueue.updateStatus(item.id, item.status, {
+            geo_score: geo.score,
+            eeat_score: eeat.score,
+          });
+          updated++;
+        }
+        jsonRes(res, { success: true, updated: updated, message: updated + '건 점수 재계산 완료' });
+      } catch (e) {
+        console.error('[Recalculate] 에러:', e.message);
+        jsonRes(res, { error: e.message }, 500);
       }
-      jsonRes(res, { success: true, updated: updated, message: updated + '건 점수 재계산 완료' });
       return;
     }
 
     // --- 품질 점수 API ---
     if (pathname === '/api/quality-scores' && method === 'GET') {
-      const all = await contentQueue.getAll();
-      const scored = (all || []).map(function(item) {
-        return {
-          id: item.id,
-          title: item.title,
-          topic_name: item.topic_name,
-          content_type_name: item.content_type_name,
-          status: item.status,
-          geo_score: item.geo_score || 0,
-          eeat_score: item.eeat_score || 0,
-          geo_details: item.geo_details || {},
-          eeat_details: item.eeat_details || {},
-          created_at: item.created_at,
-        };
-      });
-      jsonRes(res, scored);
+      try {
+        const all = await contentQueue.getAll();
+        const scored = (all || []).map(function(item) {
+          return {
+            id: item.id,
+            title: item.title,
+            topic_name: item.topic_name,
+            content_type_name: item.content_type_name,
+            status: item.status,
+            geo_score: item.geo_score || 0,
+            eeat_score: item.eeat_score || 0,
+            geo_details: item.geo_details || {},
+            eeat_details: item.eeat_details || {},
+            created_at: item.created_at,
+          };
+        });
+        jsonRes(res, scored);
+      } catch (e) {
+        console.error('[Quality Scores] 에러:', e.message);
+        jsonRes(res, { error: e.message }, 500);
+      }
       return;
     }
 
@@ -1557,8 +1573,13 @@ const server = http.createServer(async function(req, res) {
 
     // GET: 인용추적 결과 조회
     if (pathname === '/api/citation-results' && method === 'GET') {
-      const results = await citationResults.getRecent(100);
-      return jsonRes(res, results || []);
+      try {
+        const results = await citationResults.getRecent(100);
+        return jsonRes(res, results || []);
+      } catch (e) {
+        console.error('[Citation Results] 에러:', e.message);
+        return jsonRes(res, { error: e.message }, 500);
+      }
     }
 
     // POST: API 키 연결 테스트
@@ -1970,6 +1991,7 @@ async function askAI(model, question, citationSettings) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ contents: [{ parts: [{ text: question }] }], tools: [{ google_search: {} }] }),
+      signal: AbortSignal.timeout(30000),
     });
     var gData = await gResp.json();
     if (gData.error) {
@@ -2014,6 +2036,7 @@ async function askAI(model, question, citationSettings) {
         input: question,
         instructions: '반드시 웹 검색을 수행하고, 검색 결과에서 찾은 실제 존재하는 한의원/병원의 정확한 이름을 포함하여 추천해주세요. 일반적인 조언이 아닌, 구체적인 업체명과 위치 정보를 답변에 반드시 포함하세요.',
       }),
+      signal: AbortSignal.timeout(30000),
     });
     var cData = await cResp.json();
     if (cData.error) {
@@ -2058,6 +2081,7 @@ async function askAI(model, question, citationSettings) {
         tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }],
         messages: [{ role: 'user', content: question + '\n\n반드시 웹 검색을 수행하고, 검색 결과에서 찾은 실제 존재하는 한의원/병원의 정확한 이름을 포함하여 추천해주세요.' }],
       }),
+      signal: AbortSignal.timeout(45000),
     });
     var clData = await clResp.json();
     if (clData.error) {
@@ -2091,8 +2115,8 @@ var ADMIN_TOKENS = new Map();
 
 function verifyAdminToken(req) {
   var a = req.headers['authorization'];
-  if (!a) return false;
-  var tk = a.replace('Bearer ', '');
+  if (!a || !a.startsWith('Bearer ')) return false;
+  var tk = a.slice(7);
   var entry = ADMIN_TOKENS.get(tk);
   if (!entry) return false;
   if (Date.now() - new Date(entry.at).getTime() > TOKEN_EXPIRY_MS) {
@@ -2111,8 +2135,8 @@ function genToken() {
 }
 function verifyToken(req) {
   var a = req.headers['authorization'];
-  if (!a) return false;
-  var tk = a.replace('Bearer ', '');
+  if (!a || !a.startsWith('Bearer ')) return false;
+  var tk = a.slice(7);
   var entry = CLIENT_TOKENS.get(tk);
   if (!entry) return false;
   if (Date.now() - new Date(entry.at).getTime() > TOKEN_EXPIRY_MS) {
@@ -2140,6 +2164,25 @@ function jsonRes(res, data, status) {
 
 // ─── 전역 예외 핸들러 (프로세스 종료 방지) ───
 process.on('unhandledRejection', function(reason) {
+  console.error('[FATAL] Unhandled Promise Rejection:', reason);
+  saveErrorLog('unhandledRejection', reason instanceof Error ? reason : new Error(String(reason))).catch(function() {});
+});
+
+process.on('uncaughtException', function(err) {
+  console.error('[FATAL] Uncaught Exception:', err);
+  saveErrorLog('uncaughtException', err).catch(function() {});
+  // uncaughtException은 프로세스를 종료하는 것이 권장되지만,
+  // Render.com이 자동 재시작하므로 로그만 남기고 종료
+  setTimeout(function() { process.exit(1); }, 1000);
+});
+
+server.listen(PORT, function() {
+  console.log('[Server] 화접몹 GEO Auto-Publisher 실행 중 (Supabase DB)');
+  console.log('[Server] 대시보드: http://localhost:' + PORT + '/dashboard');
+  console.log('[Server] 광고주: http://localhost:' + PORT + '/client');
+  console.log('[Server] API: http://localhost:' + PORT + '/api/status');
+});
+on(reason) {
   console.error('[FATAL] Unhandled Promise Rejection:', reason);
   saveErrorLog('unhandledRejection', reason instanceof Error ? reason : new Error(String(reason))).catch(function() {});
 });

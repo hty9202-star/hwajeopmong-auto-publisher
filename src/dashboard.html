@@ -1892,7 +1892,7 @@
         if(s){var ml={'auto':'자동','random':'랜덤','balanced':'균등분배','sequential':'질환별순서'};s.textContent=(daysLabels[p.publishDays]||'매일')+' \xb7 '+(ml[p.publishMode]||'자동');}
       }
       // nextTopic 표시는 /api/status 응답에서 처리 (loadPublishSettings에서 덮어쓰지 않음)
-    });
+    }).catch(function(e){ console.error('[loadPublishSettings] 오류:', e.message); });
   }
   // ─── Report Tab ───
   var reportInitialized = false;
