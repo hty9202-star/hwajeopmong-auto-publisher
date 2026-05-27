@@ -670,8 +670,13 @@ const server = http.createServer(async function(req, res) {
   const pathname = url.pathname;
   const method = req.method;
 
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  // CORS: 허용 도메인 제한 (환경변수 또는 기본값)
+  const allowedOrigins = (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+  const origin = req.headers['origin'] || '';
+  if (allowedOrigins.length === 0 || allowedOrigins.includes(origin) || !origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (method === 'OPTIONS') {
@@ -691,7 +696,8 @@ const server = http.createServer(async function(req, res) {
       try {
         const parsed = await parseBody(req);
         const adminId = process.env.ADMIN_ID || 'admin';
-        const adminPw = process.env.ADMIN_PASSWORD || '123456';
+        const adminPw = process.env.ADMIN_PASSWORD;
+        if (!adminPw) { jsonRes(res, { error: 'ADMIN_PASSWORD 환경변수가 설정되지 않았습니다' }, 500); return; }
         if (parsed.id === adminId && parsed.password === adminPw) {
           const tk = genToken();
           ADMIN_TOKENS.set(tk, { id: parsed.id, at: new Date().toISOString() });
@@ -1126,7 +1132,8 @@ const server = http.createServer(async function(req, res) {
       try {
         const parsed = await parseBody(req);
         const cid = process.env.CLIENT_ID || 'hwajeopmong';
-        const cpw = process.env.CLIENT_PASSWORD || 'hwj2024!';
+        const cpw = process.env.CLIENT_PASSWORD;
+        if (!cpw) { jsonRes(res, { error: 'CLIENT_PASSWORD 환경변수가 설정되지 않았습니다' }, 500); return; }
         if (parsed.id === cid && parsed.password === cpw) {
           const tk = genToken();
           CLIENT_TOKENS.set(tk, { id: parsed.id, at: new Date().toISOString() });
@@ -1138,8 +1145,9 @@ const server = http.createServer(async function(req, res) {
       return;
     }
 
-    // --- Client API: Status (인증 불필요 — 광고주 대시보드용) ---
+    // --- Client API: Status (토큰 인증 필요) ---
     if (pathname === '/api/client/status' && method === 'GET') {
+      if (!verifyToken(req)) { jsonRes(res, { error: 'Unauthorized' }, 401); return; }
       try {
         const publishSettings = await settings.get('publish') || {};
         const allTopics = await topicsDB.getAll();
