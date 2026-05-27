@@ -97,7 +97,7 @@ function generateFaqPageSchema(production) {
   };
 }
 
-// ─── 3. Article 스키마 (E-E-A-T 강화) ───
+// ─── 3. Article 스키마 (E-E-A-T 강화 + Speakable) ───
 function generateArticleSchema(topic, production) {
   return {
     '@context': 'https://schema.org',
@@ -120,6 +120,10 @@ function generateArticleSchema(topic, production) {
     specialty: {
       '@type': 'MedicalSpecialty',
       name: '한방피부과',
+    },
+    speakable: {
+      '@type': 'SpeakableSpecification',
+      cssSelector: ['[class~="entry-title"]', '[class~="entry-content"] > p:first-of-type', '[class~="entry-content"] > h2'],
     },
     lastReviewed: new Date().toISOString().split('T')[0],
     reviewedBy: getPhysicianSchema(),
