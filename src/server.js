@@ -2002,10 +2002,31 @@ async function askAI(model, question, citationSettings) {
         'x-api-key': clKey,
         'anthropic-version': '2023-06-01',
       },
-      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, messages: [{ role: 'user', content: question }] }),
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4096,
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }],
+        messages: [{ role: 'user', content: question + '\n\n반드시 웹 검색을 수행하고, 검색 결과에서 찾은 실제 존재하는 한의원/병원의 정확한 이름을 포함하여 추천해주세요.' }],
+      }),
     });
     var clData = await clResp.json();
-    return (clData.content && clData.content[0] && clData.content[0].text) || '';
+    if (clData.error) {
+      console.error('[Claude API Error]', JSON.stringify(clData.error));
+      return '';
+    }
+    // content 배열에서 text 블록만 추출
+    var clTexts = [];
+    if (clData.content && Array.isArray(clData.content)) {
+      for (var cli = 0; cli < clData.content.length; cli++) {
+        if (clData.content[cli].type === 'text' && clData.content[cli].text) {
+          clTexts.push(clData.content[cli].text);
+        }
+      }
+    }
+    var clResult = clTexts.join('\n');
+    if (clResult.length > 0) console.log('[Claude] 응답 길이=' + clResult.length + ', 화접몽포함=' + (clResult.indexOf('화접몽') >= 0));
+    else console.warn('[Claude] 빈 응답, keys:', Object.keys(clData).join(','));
+    return clResult;
   }
 
   throw new Error('Unknown AI model: ' + model);
