@@ -67,12 +67,45 @@ async function runWithConcurrency(tasks, limit) {
   return results;
 }
 
-// 공용 AI 호출 타임아웃 래퍼
+// 공용 AI 호출 타임아웃 래퍼 (Claude는 rate limit 재시도 포함)
 function askAIWithTimeout(model, question, s) {
+  var timeout = model === 'claude' ? 60000 : 30000; // Claude는 재시도 때문에 60초
   return Promise.race([
-    askAI(model, question, s),
-    new Promise(function(_, reject) { setTimeout(function() { reject(new Error('timeout 30s')); }, 30000); })
+    askAIWithRetry(model, question, s),
+    new Promise(function(_, reject) { setTimeout(function() { reject(new Error('timeout ' + (timeout/1000) + 's')); }, timeout); })
   ]);
+}
+
+// rate limit 재시도 래퍼 (Claude용, 최대 2회 재시도)
+async function askAIWithRetry(model, question, s, retries) {
+  if (retries === undefined) retries = 2;
+  try {
+    return await askAI(model, question, s);
+  } catch (e) {
+    if (retries > 0 && e.message && e.message.indexOf('rate_limit') >= 0) {
+      var delay = (3 - retries) * 5000 + 3000; // 3초, 8초
+      console.log('[' + model + '] rate limit, ' + delay + 'ms 대기 후 재시도 (남은=' + retries + ')');
+      await new Promise(function(r) { setTimeout(r, delay); });
+      return askAIWithRetry(model, question, s, retries - 1);
+    }
+    throw e;
+  }
+}
+
+// Claude/ChatGPT 순차 실행 헬퍼 (rate limit 방지 - 요청 간 딜레이)
+async function runQuestionsSequentially(questionTasks, citationSettings, delayMs) {
+  if (!delayMs) delayMs = 2000;
+  var results = [];
+  for (var i = 0; i < questionTasks.length; i++) {
+    if (i > 0) await new Promise(function(r) { setTimeout(r, delayMs); });
+    try {
+      var answer = await askAIWithTimeout(questionTasks[i].model, questionTasks[i].question, citationSettings);
+      results.push({ status: 'fulfilled', value: answer });
+    } catch (e) {
+      results.push({ status: 'rejected', reason: e });
+    }
+  }
+  return results;
 }
 
 // env 객체 (WordPress, Gemini 등 외부 API용)
@@ -481,9 +514,12 @@ async function autoTrackCitations() {
               questionTasks.push({ model: model, question: question });
             }
           }
-          const answers = await Promise.allSettled(
-            questionTasks.map(function(qt) { return askAIWithTimeout(qt.model, qt.question, citationSettings); })
-          );
+          // Claude는 순차 호출 (rate limit 방지), 나머지는 병렬
+          const answers = (model === 'claude')
+            ? await runQuestionsSequentially(questionTasks, citationSettings, 3000)
+            : await Promise.allSettled(
+                questionTasks.map(function(qt) { return askAIWithTimeout(qt.model, qt.question, citationSettings); })
+              );
           for (let ai = 0; ai < answers.length; ai++) {
             totalQuestions++;
             if (answers[ai].status === 'fulfilled') {
@@ -509,7 +545,9 @@ async function autoTrackCitations() {
       };
     });
 
-    const allResults = await runWithConcurrency(topicTasks, 2);
+    // Claude가 포함되면 토픽 동시 처리 1개로 제한 (rate limit 방지)
+    const concurrency = models.includes('claude') ? 1 : 2;
+    const allResults = await runWithConcurrency(topicTasks, concurrency);
     for (let ri = 0; ri < allResults.length; ri++) {
       if (allResults[ri]) {
         for (let rj = 0; rj < allResults[ri].length; rj++) {
@@ -1701,9 +1739,12 @@ const server = http.createServer(async function(req, res) {
                   }
                 }
 
-                const answers = await Promise.allSettled(
-                  questionTasks.map(function(qt) { return askAIWithTimeout(qt.model, qt.question, citationSettings); })
-                );
+                // Claude는 순차 호출 (rate limit 방지), 나머지는 병렬
+                const answers = (model === 'claude')
+                  ? await runQuestionsSequentially(questionTasks, citationSettings, 3000)
+                  : await Promise.allSettled(
+                      questionTasks.map(function(qt) { return askAIWithTimeout(qt.model, qt.question, citationSettings); })
+                    );
 
                 for (let ai = 0; ai < answers.length; ai++) {
                   totalQuestions++;
@@ -1739,8 +1780,9 @@ const server = http.createServer(async function(req, res) {
             };
           });
 
-          // 질환 2개씩 동시 처리
-          const allResults = await runWithConcurrency(topicTasks, 2);
+          // Claude 포함 시 토픽 동시 처리 1개로 제한 (rate limit 방지)
+          const concurrency = models.includes('claude') ? 1 : 2;
+          const allResults = await runWithConcurrency(topicTasks, concurrency);
           for (let ri = 0; ri < allResults.length; ri++) {
             if (allResults[ri]) {
               for (let rj = 0; rj < allResults[ri].length; rj++) {
@@ -2012,6 +2054,10 @@ async function askAI(model, question, citationSettings) {
     var clData = await clResp.json();
     if (clData.error) {
       console.error('[Claude API Error]', JSON.stringify(clData.error));
+      // rate limit 에러는 재시도 가능하도록 throw
+      if (clData.error.type === 'rate_limit_error' || (clData.error.message && clData.error.message.indexOf('rate') >= 0)) {
+        throw new Error('rate_limit: ' + (clData.error.message || clData.error.type));
+      }
       return '';
     }
     // content 배열에서 text 블록만 추출
@@ -2050,7 +2096,7 @@ function verifyAdminToken(req) {
 
 // === Client Auth (1시간 만료 + 자동 정리) ===
 var CLIENT_TOKENS = new Map();
-var TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1시간    
+var TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1시간    
 function genToken() {
   try { return crypto.randomBytes(24).toString('hex'); }
   catch(e) { var t='';var ch='abcdefghijklmnopqrstuvwxyz0123456789';for(var i=0;i<48;i++)t+=ch[Math.floor(Math.random()*ch.length)];return t; }
