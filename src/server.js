@@ -80,6 +80,8 @@ const env = {
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
   WP_SITE_ID: process.env.WP_SITE_ID || 'mongclinic.blog',
   WP_AUTH_KEY: process.env.WP_AUTH_KEY,
+  WP_REST_USER: process.env.WP_REST_USER,
+  WP_REST_PASS: process.env.WP_REST_PASS,
   PIXABAY_API_KEY: process.env.PIXABAY_API_KEY,
   UNSPLASH_ACCESS_KEY: process.env.UNSPLASH_ACCESS_KEY,
   PEXELS_API_KEY: process.env.PEXELS_API_KEY,
@@ -844,7 +846,12 @@ const server = http.createServer(async function(req, res) {
 
     // API: Topics (DB 기반)
     if (pathname === '/api/topics' && method === 'GET') {
-      const publishedComboIds = await publishedTopics.getComboIds();
+      const startDate = url.searchParams.get('startDate');
+      const endDate = url.searchParams.get('endDate');
+      // 발행기간 파라미터가 있으면 해당 기간 내 발행된 combo_id만, 없으면 전체
+      const publishedComboIds = (startDate || endDate)
+        ? await contentQueue.getPublishedComboIdsByPeriod(startDate, endDate)
+        : await publishedTopics.getComboIds();
       const allTopics = await topicsDB.getAll();
       const topicStatus = (allTopics || []).map(function(topic) {
         return {

@@ -995,7 +995,14 @@
           setConnectionStatus('pexels', status.pexels && status.pexels.status === 'configured', status.pexels && status.pexels.status === 'configured' ? '설정됨' : '미설정');
         }
 
-        const topicsRes = await fetch(`${API_BASE}/api/topics`);
+        let topicsUrl = `${API_BASE}/api/topics`;
+        if (status.publishPeriod) {
+          const tParams = [];
+          if (status.publishPeriod.startDate) tParams.push('startDate=' + status.publishPeriod.startDate);
+          if (status.publishPeriod.endDate) tParams.push('endDate=' + status.publishPeriod.endDate);
+          if (tParams.length) topicsUrl += '?' + tParams.join('&');
+        }
+        const topicsRes = await fetch(topicsUrl);
         const topics = await topicsRes.json();
         renderMatrix(topics);
         populateTopicFilter(topics);

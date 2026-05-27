@@ -172,6 +172,17 @@ export const contentQueue = {
     });
   },
 
+  // 기간 내 발행된 combo_id 목록 (질환별 현황 필터용)
+  async getPublishedComboIdsByPeriod(startDate, endDate) {
+    let query = '?status=eq.published&is_test=eq.false&select=combo_id';
+    if (startDate) query += '&published_at=gte.' + startDate + 'T00:00:00';
+    if (endDate) query += '&published_at=lte.' + endDate + 'T23:59:59';
+    const data = await supabaseRequest('content_queue', { query });
+    const ids = new Set();
+    for (const row of (data || [])) { if (row.combo_id) ids.add(row.combo_id); }
+    return [...ids];
+  },
+
   // combo_id로 기존 제목 조회 (중복 방지용)
   async getTitlesByComboId(comboId) {
     const data = await supabaseRequest('content_queue', {
