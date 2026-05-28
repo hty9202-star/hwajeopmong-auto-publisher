@@ -18,8 +18,12 @@ export function getHtml(filename) {
   return HTML_CACHE[filename];
 }
 
-// JSON 응답 헬퍼
+// JSON 응답 헬퍼 (이미 응답 전송된 경우 무시)
 export function jsonRes(res, data, status) {
+  if (res.headersSent) {
+    console.warn('[jsonRes] 이미 응답 전송됨, 중복 응답 무시:', JSON.stringify(data).slice(0, 100));
+    return;
+  }
   status = status || 200;
   res.writeHead(status, { 'Content-Type': "application/json; charset=utf-8" });
   res.end(JSON.stringify(data));

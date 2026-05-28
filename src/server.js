@@ -60,7 +60,9 @@ const server = http.createServer(async function(req, res) {
   } catch (error) {
     console.error('Server error:', error);
     await saveErrorLog('서버오류', error);
-    jsonRes(res, { error: error.message }, 500);
+    if (!res.headersSent) {
+      jsonRes(res, { error: error.message }, 500);
+    }
   }
 });
 
