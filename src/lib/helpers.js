@@ -67,14 +67,13 @@ export async function runWithConcurrency(tasks, limit) {
   return results;
 }
 
-// 에러 로그 저장 헬퍼
+// 에러 로그 저장 헬퍼 (UTC ISO 형식 — 대시보드에서 KST로 변환 표시)
 export async function saveErrorLog(source, error) {
   try {
     const existing = await settings.get('error_logs');
     const logs = Array.isArray(existing) ? existing : [];
-    const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
     logs.unshift({
-      timestamp: kst.toISOString(),
+      timestamp: new Date().toISOString(),
       source: source,
       message: error.message || String(error),
       stack: error.stack ? error.stack.split('\n').slice(0, 3).join(' | ') : '',

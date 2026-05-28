@@ -55,8 +55,10 @@ const server = http.createServer(async function(req, res) {
     if (await handleReportRoutes(req, res, pathname, method, url)) return;
 
     // 404
-    res.writeHead(404);
-    res.end('Not Found');
+    if (!res.headersSent) {
+      res.writeHead(404);
+      res.end('Not Found');
+    }
   } catch (error) {
     console.error('Server error:', error);
     await saveErrorLog('서버오류', error);
