@@ -37,7 +37,8 @@ export async function handleCitationRoutes(req, res, pathname, method, url) {
     var citResult = {};
     Object.keys(citDefaults).forEach(function(k) { citResult[k] = citDefaults[k]; });
     Object.keys(citationSettings).forEach(function(k) { citResult[k] = citationSettings[k]; });
-    return jsonRes(res, citResult);
+    jsonRes(res, citResult);
+    return true;
   }
 
   // POST: 인용추적 설정 저장
@@ -55,10 +56,12 @@ export async function handleCitationRoutes(req, res, pathname, method, url) {
   if (pathname === '/api/citation-results' && method === 'GET') {
     try {
       const results = await citationResults.getRecent(100);
-      return jsonRes(res, results || []);
+      jsonRes(res, results || []);
+      return true;
     } catch (e) {
       console.error('[Citation Results] 에러:', e.message);
-      return jsonRes(res, { error: e.message }, 500);
+      jsonRes(res, { error: e.message }, 500);
+      return true;
     }
   }
 
@@ -68,7 +71,7 @@ export async function handleCitationRoutes(req, res, pathname, method, url) {
       const parsed = await parseBody(req);
       var testModel = parsed.model;
       var testKey = parsed.apiKey;
-      if (!testModel || !testKey) return jsonRes(res, { success: false, error: 'model과 apiKey 필수' }, 400);
+      if (!testModel || !testKey) { jsonRes(res, { success: false, error: 'model과 apiKey 필수' }, 400); return true; }
 
       var testQuestion = '안녕하세요, 연결 테스트입니다. 짧게 답변해주세요.';
       if (testModel === 'chatgpt') {
@@ -78,8 +81,8 @@ export async function handleCitationRoutes(req, res, pathname, method, url) {
           body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: testQuestion }], max_tokens: 50 }),
         });
         var tData = await tResp.json();
-        if (tData.error) return jsonRes(res, { success: false, error: tData.error.message || 'API 키 오류' });
-        return jsonRes(res, { success: true, model: 'ChatGPT' });
+        if (tData.error) { jsonRes(res, { success: false, error: tData.error.message || 'API 키 오류' }); return true; }
+        jsonRes(res, { success: true, model: 'ChatGPT' }); return true;
       } else if (testModel === 'claude') {
         var clResp = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
@@ -87,23 +90,23 @@ export async function handleCitationRoutes(req, res, pathname, method, url) {
           body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 50, messages: [{ role: 'user', content: testQuestion }] }),
         });
         var clData = await clResp.json();
-        if (clData.error) return jsonRes(res, { success: false, error: clData.error.message || 'API 키 오류' });
-        return jsonRes(res, { success: true, model: 'Claude' });
+        if (clData.error) { jsonRes(res, { success: false, error: clData.error.message || 'API 키 오류' }); return true; }
+        jsonRes(res, { success: true, model: 'Claude' }); return true;
       } else if (testModel === 'gemini') {
         var gKey = env.GEMINI_API_KEY;
-        if (!gKey) return jsonRes(res, { success: false, error: 'Gemini API 키 미설정 (서버 환경변수)' });
+        if (!gKey) { jsonRes(res, { success: false, error: 'Gemini API 키 미설정 (서버 환경변수)' }); return true; }
         var gResp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + gKey, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contents: [{ parts: [{ text: testQuestion }] }] }),
         });
         var gData = await gResp.json();
-        if (gData.error) return jsonRes(res, { success: false, error: gData.error.message || 'API 키 오류' });
-        return jsonRes(res, { success: true, model: 'Gemini' });
+        if (gData.error) { jsonRes(res, { success: false, error: gData.error.message || 'API 키 오류' }); return true; }
+        jsonRes(res, { success: true, model: 'Gemini' }); return true;
       }
-      return jsonRes(res, { success: false, error: '알 수 없는 모델: ' + testModel }, 400);
+      jsonRes(res, { success: false, error: '알 수 없는 모델: ' + testModel }, 400); return true;
     } catch (e) {
-      return jsonRes(res, { success: false, error: e.message || '연결 실패' });
+      jsonRes(res, { success: false, error: e.message || '연결 실패' }); return true;
     }
   }
 
@@ -123,7 +126,7 @@ export async function handleCitationRoutes(req, res, pathname, method, url) {
 
       if (debugModel === 'gemini') {
         var geminiKey = env.GEMINI_API_KEY;
-        if (!geminiKey) return jsonRes(res, { success: false, error: 'Gemini API key not set' });
+        if (!geminiKey) { jsonRes(res, { success: false, error: 'Gemini API key not set' }); return true; }
         var gUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + geminiKey;
         var gResp = await fetch(gUrl, {
           method: 'POST',
@@ -140,7 +143,7 @@ export async function handleCitationRoutes(req, res, pathname, method, url) {
         }
       } else if (debugModel === 'chatgpt') {
         var chatKey = citationSettings.chatgptApiKey;
-        if (!chatKey) return jsonRes(res, { success: false, error: 'ChatGPT API key not set in citation settings' });
+        if (!chatKey) { jsonRes(res, { success: false, error: 'ChatGPT API key not set in citation settings' }); return true; }
         var cResp = await fetch('https://api.openai.com/v1/responses', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + chatKey },
@@ -178,7 +181,7 @@ export async function handleCitationRoutes(req, res, pathname, method, url) {
         }
       } else if (debugModel === 'claude') {
         var clKey = citationSettings.claudeApiKey;
-        if (!clKey) return jsonRes(res, { success: false, error: 'Claude API key not set in citation settings' });
+        if (!clKey) { jsonRes(res, { success: false, error: 'Claude API key not set in citation settings' }); return true; }
         var clResp = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-api-key': clKey, 'anthropic-version': '2023-06-01' },
@@ -191,7 +194,7 @@ export async function handleCitationRoutes(req, res, pathname, method, url) {
       var contains화접몽 = parsedText.indexOf('화접몽') >= 0;
       console.log('[인용디버그] 결과: contains화접몽=' + contains화접몽 + ', parsedText길이=' + parsedText.length);
 
-      return jsonRes(res, {
+      jsonRes(res, {
         success: true,
         model: debugModel,
         question: debugQuestion,
@@ -200,9 +203,11 @@ export async function handleCitationRoutes(req, res, pathname, method, url) {
         rawResponseKeys: rawResponse ? Object.keys(rawResponse) : null,
         rawResponsePreview: rawResponse ? JSON.stringify(rawResponse).substring(0, 3000) : null,
       });
+      return true;
     } catch (e) {
       console.error('[인용디버그] 오류:', e);
-      return jsonRes(res, { success: false, error: e.message });
+      jsonRes(res, { success: false, error: e.message });
+      return true;
     }
   }
 

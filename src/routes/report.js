@@ -19,7 +19,7 @@ export async function handleReportRoutes(req, res, pathname, method, url) {
     var rStartDate = url.searchParams.get('startDate');
     var rEndDate = url.searchParams.get('endDate');
     if (!rStartDate || !rEndDate) {
-      return jsonRes(res, { error: 'startDate, endDate 필수' }, 400);
+      jsonRes(res, { error: 'startDate, endDate 필수' }, 400); return true;
     }
     try {
       var logs = (await publishLogs.getByDateRange(rStartDate, rEndDate) || []).filter(function(l) { return !l.is_test; });
@@ -121,7 +121,7 @@ export async function handleReportRoutes(req, res, pathname, method, url) {
         insights.needsImprovement = topicCitationRanking.filter(function(t) { return t.avgScore < 30; }).slice(0, 3);
       }
 
-      return jsonRes(res, {
+      jsonRes(res, {
         period: { startDate: rStartDate, endDate: rEndDate },
         summary: {
           totalPublished: totalPublished,
@@ -138,10 +138,12 @@ export async function handleReportRoutes(req, res, pathname, method, url) {
         logs: publishedLogs,
         citations: citations,
       });
+      return true;
     } catch (reportErr) {
       console.error('Report API error:', reportErr);
       await saveErrorLog('월간리포트', reportErr);
-      return jsonRes(res, { error: reportErr.message }, 500);
+      jsonRes(res, { error: reportErr.message }, 500);
+      return true;
     }
   }
 

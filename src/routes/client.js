@@ -281,9 +281,9 @@ export async function handleClientRoutes(req, res, pathname, method, url) {
       try {
         const geoResult = calculateGeoScore(updatedContent, updatedTitle, updatedMetaDesc, item.faq || [], item.schemas || null);
         const eeatResult = calculateEeatScore(updatedContent, updatedTitle);
-        dbUpdates.geo_score = geoResult.total;
-        dbUpdates.eeat_score = eeatResult.total;
-        console.log(`[수정 API] 품질 점수 재계산: GEO ${geoResult.total}, E-E-A-T ${eeatResult.total}`);
+        dbUpdates.geo_score = geoResult.score;
+        dbUpdates.eeat_score = eeatResult.score;
+        console.log(`[수정 API] 품질 점수 재계산: GEO ${geoResult.score}, E-E-A-T ${eeatResult.score}`);
       } catch (scoreErr) {
         console.error('[수정 API] 점수 재계산 실패 (무시):', scoreErr.message);
       }
