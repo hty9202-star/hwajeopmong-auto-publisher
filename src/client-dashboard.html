@@ -1518,7 +1518,7 @@ loadCalendar();
 loadContents();
 
 // 다음 발행 예정 시간 + 기간 배너 로드
-fetch('/api/client/status').then(r=>r.json()).then(d=>{
+fetch('/api/client/status', { headers: authHeaders() }).then(r=>r.json()).then(d=>{
   var el=document.getElementById('clientNextPublish');
   if(d.content && d.content.published>=d.content.totalTarget && d.content.totalTarget>0){
     el.textContent='모든 콘텐츠 발행 완료';
