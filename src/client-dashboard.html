@@ -518,20 +518,77 @@
   }
   @keyframes btnSpin { to { transform: rotate(360deg); } }
 
-  /* Preview panel */
-  .preview-panel {
+  /* 미리보기 풀스크린 모달 */
+  .preview-overlay {
     display: none;
-    border-top: 1px solid #eee;
-    padding: 16px 24px;
-    background: #fafafa;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 1100;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 24px;
+    overflow-y: auto;
   }
-  .preview-panel.open { display: block; }
-  .preview-frame {
-    width: 100%;
-    border: 1px solid #ddd;
-    border-radius: 8px;
+  .preview-overlay.active { display: flex; }
+  .preview-modal {
     background: #fff;
-    min-height: 300px;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 900px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 48px);
+  }
+  .preview-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    border-bottom: 1px solid #e5e7eb;
+    flex-shrink: 0;
+  }
+  .preview-modal-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1a1a1a;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: calc(100% - 80px);
+  }
+  .preview-modal-header .preview-meta {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 4px;
+    font-size: 12px;
+    color: #9ca3af;
+  }
+  .preview-modal-close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    color: #6b7280;
+    padding: 4px 8px;
+    line-height: 1;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+  .preview-modal-close:hover { background: #f3f4f6; color: #1f2937; }
+  .preview-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+  }
+  .preview-modal-body iframe {
+    width: 100%;
+    border: none;
+    min-height: 500px;
+    display: block;
   }
 
   /* Toast */
@@ -1173,12 +1230,64 @@ function statusBadgeClass(status) {
   return map[status] || 'badge-pending';
 }
 
-// Toggle preview
-function togglePreview(id) {
-  const panel = document.getElementById('preview-' + id);
-  if (panel) {
-    panel.classList.toggle('open');
-  }
+// 미리보기 풀스크린 모달
+function openPreviewModal(itemId) {
+  var item = allContents.find(function(c) { return (c.id || c._id) === itemId; });
+  if (!item) return;
+
+  var title = item.title || '제목 없음';
+  var topic = item.topic_name || '';
+  var contentType = item.content_type || '';
+  var created = item.created_at ? new Date(item.created_at).toLocaleDateString('ko-KR') : '';
+  var htmlContent = item.content || item.htmlContent || item.html_content || '';
+
+  // 스크립트 태그 제거 (미리보기에서 불필요)
+  var cleanHtml = htmlContent.replace(/<script[\s\S]*?<\/script>/gi, '');
+
+  document.getElementById('previewTitle').textContent = title;
+  var metaParts = [];
+  if (created) metaParts.push(created);
+  if (topic) metaParts.push(topic);
+  if (contentType) metaParts.push(contentType);
+  document.getElementById('previewMeta').textContent = metaParts.join(' · ');
+
+  // iframe에 블로그 스타일 래핑
+  var iframeContent = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>' +
+    'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.8;color:#1a1a1a;max-width:760px;margin:0 auto;padding:32px 24px;font-size:16px}' +
+    'h1,h2,h3,h4{color:#111;margin:1.5em 0 0.6em;line-height:1.3}' +
+    'h1{font-size:26px}h2{font-size:22px}h3{font-size:18px}' +
+    'p{margin:0.8em 0}' +
+    'img{max-width:100%;height:auto;border-radius:8px;margin:16px 0}' +
+    'ul,ol{padding-left:24px;margin:0.8em 0}' +
+    'li{margin:0.4em 0}' +
+    'blockquote{border-left:4px solid #2D5A27;margin:1em 0;padding:12px 20px;background:#f5f7f5;border-radius:0 8px 8px 0}' +
+    'table{width:100%;border-collapse:collapse;margin:1em 0}' +
+    'th,td{border:1px solid #e5e7eb;padding:10px 14px;text-align:left}' +
+    'th{background:#f9fafb;font-weight:600}' +
+    'a{color:#2D5A27}' +
+    '</style></head><body>' + cleanHtml + '</body></html>';
+
+  var iframe = document.getElementById('previewIframe');
+  iframe.srcdoc = iframeContent;
+
+  // iframe 높이 자동 조절
+  iframe.onload = function() {
+    try {
+      var h = iframe.contentDocument.body.scrollHeight;
+      iframe.style.height = Math.min(Math.max(h + 40, 500), window.innerHeight - 140) + 'px';
+    } catch(e) {
+      iframe.style.height = '600px';
+    }
+  };
+
+  document.getElementById('previewOverlay').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closePreviewModal() {
+  document.getElementById('previewOverlay').classList.remove('active');
+  document.body.style.overflow = '';
+  document.getElementById('previewIframe').srcdoc = '';
 }
 
 // Approve
@@ -1304,16 +1413,13 @@ function renderContents() {
           '</div>' +
           '<div class="card-actions">' +
             '<span class="badge ' + statusBadgeClass(status) + '">' + statusLabel(status) + '</span>' +
-            '<button class="btn btn-preview" onclick="togglePreview(\'' + id + '\')">미리보기</button>' +
+            '<button class="btn btn-preview" onclick="openPreviewModal(\'' + id + '\')">미리보기</button>' +
             (status !== 'rejected' ? '<button class="btn btn-edit" onclick="openEditModal(\'' + id + '\')">수정</button>' : '') +
             (isPending ? '<button class="btn btn-approve" onclick="approveContent(\'' + id + '\', \'' + escapeAttr(title) + '\')">승인</button>' : '') +
             (isPending ? '<button class="btn btn-reject" onclick="rejectContent(\'' + id + '\', \'' + escapeAttr(title) + '\')">반려</button>' : '') +
           '</div>' +
         '</div>' +
         republishNote +
-        '<div class="preview-panel" id="preview-' + id + '">' +
-          '<iframe class="preview-frame" srcdoc="' + escapeAttr(htmlContent) + '" sandbox="allow-same-origin" frameborder="0"></iframe>' +
-        '</div>' +
       '</div>';
     });
   });
@@ -1573,6 +1679,22 @@ function renderClientPeriodBanner(period){
 }
 </script>
 
+<!-- 미리보기 풀스크린 모달 -->
+<div class="preview-overlay" id="previewOverlay">
+  <div class="preview-modal">
+    <div class="preview-modal-header">
+      <div>
+        <h3 id="previewTitle">콘텐츠 미리보기</h3>
+        <div class="preview-meta" id="previewMeta"></div>
+      </div>
+      <button class="preview-modal-close" onclick="closePreviewModal()">&times;</button>
+    </div>
+    <div class="preview-modal-body">
+      <iframe id="previewIframe" sandbox="allow-same-origin"></iframe>
+    </div>
+  </div>
+</div>
+
 <!-- 수정 모달 -->
 <div class="edit-overlay" id="editOverlay">
   <div class="edit-modal">
@@ -1618,6 +1740,7 @@ function renderClientPeriodBanner(period){
 <script>
 // ─── 수정 모달 로직 ───
 var editingItem = null;
+var hiddenScripts = ''; // 수정 시 숨긴 <script> 태그 임시 저장
 
 function openEditModal(itemId) {
   var item = allContents.find(function(c) { return (c.id || c._id) === itemId; });
@@ -1629,7 +1752,15 @@ function openEditModal(itemId) {
   document.getElementById('editMetaDesc').value = item.meta_description || '';
   document.getElementById('editExcerpt').value = item.excerpt || '';
   document.getElementById('editTags').value = Array.isArray(item.tags) ? item.tags.join(', ') : (item.tags || '');
-  document.getElementById('editContent').value = item.content || item.htmlContent || item.html_content || '';
+
+  // 본문에서 <script> 태그 분리 (JSON-LD 등 광고주에게 불필요한 코드 숨김)
+  var rawContent = item.content || item.htmlContent || item.html_content || '';
+  hiddenScripts = '';
+  var cleanContent = rawContent.replace(/<script[\s\S]*?<\/script>/gi, function(match) {
+    hiddenScripts += '\n' + match;
+    return '';
+  }).trim();
+  document.getElementById('editContent').value = cleanContent;
 
   // WP 발행 여부 표시
   var wpSync = document.getElementById('editWpSync');
@@ -1643,12 +1774,15 @@ function closeEditModal() {
   document.getElementById('editOverlay').classList.remove('active');
   document.body.style.overflow = '';
   editingItem = null;
+  hiddenScripts = '';
 }
 
 async function saveEdit() {
   var itemId = document.getElementById('editItemId').value;
   var title = document.getElementById('editTitle').value.trim();
   var content = document.getElementById('editContent').value.trim();
+  // 숨겨둔 <script> 태그 복원 (JSON-LD 스키마 등)
+  if (hiddenScripts) content = content + hiddenScripts;
   var metaDesc = document.getElementById('editMetaDesc').value.trim();
   var excerpt = document.getElementById('editExcerpt').value.trim();
   var tagsRaw = document.getElementById('editTags').value.trim();
@@ -1705,8 +1839,12 @@ async function saveEdit() {
 
 // ESC 키로 모달 닫기
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape' && document.getElementById('editOverlay').classList.contains('active')) {
-    closeEditModal();
+  if (e.key === 'Escape') {
+    if (document.getElementById('previewOverlay').classList.contains('active')) {
+      closePreviewModal();
+    } else if (document.getElementById('editOverlay').classList.contains('active')) {
+      closeEditModal();
+    }
   }
 });
 </script>
