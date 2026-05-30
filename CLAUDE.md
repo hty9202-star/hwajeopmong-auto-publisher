@@ -73,5 +73,25 @@ Cowork에는 3개의 독립 파일 시스템이 있어서 동기화 문제가 �
 
 ## 최근 작업 이력
 
-- 2025-05-03: 인용 점수 계산 통일 (상단 카드 + 질환 테이블 + 7회 현황표 → 동일한 날짜기반 집계 방식)
-- 인용추적 데이터: 현재 gemini만 존재, chatgpt/claude API 키 미설정 상태
+(git 히스토리 기준 — 최신순. 갱신: 2026-05-30)
+
+- 2026-05-26: 광고주 미리보기 풀스크린 모달 추가 + 수정 시 script 태그 숨김
+- 2026-05-26: 모듈분리 버그 수정 (return jsonRes 패턴, 품질점수 프로퍼티명, headersSent 가드, 에러로그 타임스탬프, 광고주 인증헤더)
+- 2026-05-25~26: "Cannot write headers" 에러 완전 수정 (res.headersSent 가드) + 광고주 대시보드 발행일정/기간 미표시 수정 (인증 헤더 누락)
+- 2026-05-24: 발행 후 검색엔진 자동 알림 (IndexNow + Google/Bing ping) + MedicalWebPage Speakable 스키마 (GEO 음성 인용 최적화)
+- 2026-05-20: server.js 모듈 분리 (2184줄 → src/lib/*, src/routes/* 10개 파일)
+- 2026-05-18: 보안 심각 이슈 5건 수정 (비밀번호 하드코딩 제거, CORS 제한, XSS 방지, 인증 추가)
+- 2026-05-12~15: Claude 인용추적 web_search 도구 추가 + rate limit 수정 (순차 호출·재시도), 질환별 현황 날짜기반 필터
+
+## 현재 코드 구조 메모 (2026-05-30 확인)
+
+- server.js는 모듈 분리됨: `src/lib/` (auth, citation, env, helpers, publisher), `src/routes/` (admin, client, citation, report)
+- 콘텐츠 생성기: Gemini 2.5 Flash (content-generator.js)
+- 인용추적 데이터: gemini 중심, chatgpt/claude는 API 키 설정 여부에 따라 작동
+- `patch-websearch.js`: 일회성 패치 스크립트 (git 미추적)
+
+## 줄바꿈(CRLF) 주의
+
+- 저장소 표준은 LF. Windows 에디터/일부 bash 쓰기가 dashboard.html 등을 CRLF로 바꾸면
+  내용 변경이 없어도 git에 "전체 줄 변경"으로 잡힘 → `git diff --ignore-all-space`로 확인
+- `.gitattributes`에 정규화 규칙을 추가해 재발 방지함
