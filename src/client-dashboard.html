@@ -1746,11 +1746,10 @@ var hiddenScripts = ''; // 수정 시 숨긴 <script> 태그 임시 저장
 // (태그 사이 줄바꿈은 HTML 렌더링에 영향 없음 — 저장해도 안전)
 function prettyPrintHtml(html) {
   if (!html) return '';
-  // 이미 줄바꿈이 충분히 있으면 원본 유지 (사용자가 직접 정렬한 경우 존중)
-  if ((html.match(/\n/g) || []).length >= 5) return html;
   var blockClose = /<\/(p|h1|h2|h3|h4|h5|h6|li|ul|ol|div|section|article|table|tr|thead|tbody|blockquote|figure|figcaption)>/gi;
   var blockSelfOrOpen = /(<(br|hr)\s*\/?>|<(ul|ol|table|thead|tbody|tr|section|article|figure|blockquote)[^>]*>)/gi;
   return html
+    .replace(/>\s+</g, '><')        // 먼저 태그 사이 기존 공백/줄바꿈 제거 (정규화)
     .replace(blockClose, function(m) { return m + '\n'; })
     .replace(blockSelfOrOpen, function(m) { return '\n' + m; })
     .replace(/\n{2,}/g, '\n')      // 연속 줄바꿈 → 1개 (WP wpautop의 빈줄→<p> 변환 방지)
