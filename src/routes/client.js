@@ -221,6 +221,32 @@ export async function handleClientRoutes(req, res, pathname, method, url) {
     return true;
   }
 
+  // --- Client API: Re-sync to WordPress (수정 후 WP 동기화 실패 → DB 내용으로 재동기화) ---
+  if (pathname.match(/^\/api\/client\/contents\/[^/]+\/sync-wp$/) && method === 'POST') {
+    if (!verifyToken(req)) { jsonRes(res, { error: 'Unauthorized' }, 401); return true; }
+    const itemId = pathname.split('/')[4];
+    const item = await contentQueue.getById(itemId);
+    if (!item) { jsonRes(res, { error: 'Not found' }, 404); return true; }
+    if (!item.wp_post_id) { jsonRes(res, { error: 'WordPress에 발행되지 않은 콘텐츠입니다' }, 400); return true; }
+
+    try {
+      const wpResult = await updateWordPressPost(env, item.wp_post_id, {
+        title: item.title,
+        content: item.content,
+        excerpt: item.excerpt,
+        tags: item.tags,
+        metaDescription: item.meta_description,
+      });
+      // 동기화 성공 기록
+      await publishLogs.updateByQueueId(itemId, { edited_at: new Date().toISOString() }).catch(function() {});
+      jsonRes(res, { success: true, message: 'WordPress 재동기화 완료', wpLink: wpResult ? wpResult.link : (item.wp_post_url || null) });
+    } catch (e) {
+      await saveErrorLog('WP재동기화실패', new Error('[ID ' + itemId + '] ' + e.message)).catch(function() {});
+      jsonRes(res, { error: 'WordPress 재동기화 실패: ' + e.message }, 500);
+    }
+    return true;
+  }
+
   // --- Client API: Reject ---
   if (pathname.match(/^\/api\/client\/contents\/[^/]+\/reject$/) && method === 'POST') {
     if (!verifyToken(req)) { jsonRes(res, { error: 'Unauthorized' }, 401); return true; }
@@ -308,6 +334,8 @@ export async function handleClientRoutes(req, res, pathname, method, url) {
         } catch (wpErr) {
           console.error('[수정 API] WordPress 동기화 실패 (DB는 저장됨):', wpErr.message);
           wpError = wpErr.message;
+          // 동기화 실패를 영구 에러로그에 기록 (대시보드에서 확인 + '/sync-wp'로 재시도 가능)
+          await saveErrorLog('수정_WP동기화실패', new Error('[ID ' + itemId + '] ' + wpErr.message + ' (DB는 저장됨, 재동기화 필요)')).catch(function() {});
         }
       }
 
