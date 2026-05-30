@@ -48,6 +48,9 @@ export function parseBody(req) {
       try { resolve(JSON.parse(body)); }
       catch (e) { reject(e); }
     });
+    req.on('error', function(e) {
+      reject(e);
+    });
   });
 }
 
