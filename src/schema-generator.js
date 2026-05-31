@@ -196,10 +196,13 @@ function generateBreadcrumbSchema(topic, production) {
 
 // ─── 메인 스키마 생성 함수 ───
 export function generateSchemas(topic, production) {
+  // Yoast SEO가 Article·BreadcrumbList·WebSite·Organization·Person을 이미 <head>에 출력한다.
+  // 중복되는 BreadcrumbList는 제외하고, 의료 특화 스키마(MedicalCondition·MedicalWebPage·
+  // MedicalBusiness)와 FAQPage만 추가로 출력해 GEO 신호를 보강한다.
   const schemas = [
     generateMedicalConditionSchema(topic, production),
     generateArticleSchema(topic, production),
-    generateBreadcrumbSchema(topic, production),
+    // generateBreadcrumbSchema 제거 — Yoast BreadcrumbList와 중복 (2026-05-30)
     generateLocalBusinessSchema(),
   ];
 
