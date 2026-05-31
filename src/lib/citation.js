@@ -205,7 +205,7 @@ export async function autoTrackCitations() {
       return async function() {
         const topicResults = [];
         for (const model of models) {
-          let mentionCount = 0, citCount = 0, totalQuestions = 0, sampleAnswer = '';
+          let mentionCount = 0, citCount = 0, validCount = 0, failCount = 0, sampleAnswer = '';
           const questionTasks = [];
           for (const template of templates) {
             const question = template.replace(/\{disease\}/g, topic.name);
@@ -219,24 +219,35 @@ export async function autoTrackCitations() {
                 questionTasks.map(function(qt) { return askAIWithTimeout(qt.model, qt.question, citationSettings); })
               );
           for (let ai = 0; ai < answers.length; ai++) {
-            totalQuestions++;
-            if (answers[ai].status === 'fulfilled') {
+            // 유효 응답만 집계: API 실패(rejected)나 빈 응답('')은 "측정 실패"로 보고 제외.
+            // rate limit·timeout으로 실패한 호출이 0점으로 저장되어 데이터를 왜곡하는 문제 방지.
+            if (answers[ai].status === 'fulfilled' && answers[ai].value && answers[ai].value.length > 0) {
               var answer = answers[ai].value;
-              if (!sampleAnswer && answer.length > 0) sampleAnswer = answer.substring(0, 500);
+              validCount++;
+              if (!sampleAnswer) sampleAnswer = answer.substring(0, 500);
               if (answer.indexOf('화접몽') >= 0) {
                 mentionCount++;
                 var citMatches = answer.match(/화접몽/g);
                 citCount += citMatches ? citMatches.length : 0;
               }
             } else {
-              console.error('[인용추적 자동] ' + model + ' 에러:', answers[ai].reason.message);
+              failCount++;
+              var failReason = answers[ai].status === 'rejected' ? answers[ai].reason.message : '빈 응답';
+              console.error('[인용추적 자동] ' + model + ' 에러:', failReason);
             }
           }
-          var score = totalQuestions > 0 ? Math.round((mentionCount / totalQuestions) * 100) : 0;
+          // 유효 응답이 하나도 없으면(전부 rate limit·timeout 실패) 저장하지 않고 건너뛴다.
+          // → 측정 실패가 "0점"으로 기록되어 평균·추세를 왜곡하는 것을 막는다.
+          if (validCount === 0) {
+            console.warn('[인용추적 자동] ' + topic.name + '/' + model + ' 유효 응답 0건(전부 실패) → 저장 건너뜀 (실패 ' + failCount + '건)');
+            continue;
+          }
+          // 점수는 "유효 응답"만 분모로 계산 (부분 실패가 점수를 희석하지 않도록).
+          var score = Math.round((mentionCount / validCount) * 100);
           topicResults.push({
             topic_id: topic.id, topic_name: topic.name, ai_model: model,
             score: score, mention_count: mentionCount, citation_count: citCount,
-            total_questions: totalQuestions, tracked_at: new Date().toISOString(),
+            total_questions: validCount, tracked_at: new Date().toISOString(),
           });
         }
         return topicResults;
