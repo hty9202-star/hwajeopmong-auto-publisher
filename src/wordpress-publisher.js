@@ -271,7 +271,8 @@ async function uploadImageViaRestApi(env, imageUrl) {
 }
 
 // ─── 단일 이미지를 Bridge를 통해 WordPress에 업로드 ───
-async function uploadImageToWP(env, imageUrl) {
+// 생성 단계(content-generator)에서도 호출 → 외부 임시 URL을 즉시 영구 URL로 전환
+export async function uploadImageToWP(env, imageUrl) {
   try {
     console.log(`[이미지 업로드] Bridge 업로드: ${imageUrl.substring(0, 80)}`);
     const result = await bridgeApiCall(env, 'media', 'POST', { url: imageUrl });

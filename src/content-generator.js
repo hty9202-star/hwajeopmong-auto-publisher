@@ -15,6 +15,7 @@
 
 import { BRAND, AI_CONFIG, CONTENT_TYPES } from './config.js';
 import { generateSchemas } from './schema-generator.js';
+import { uploadImageToWP } from './wordpress-publisher.js';
 import { readFileSync, readdirSync, existsSync } from 'fs';
 import { join } from 'path';
 
@@ -909,6 +910,35 @@ function optimizeImageAlt(originalAlt, topic, index) {
   return altTemplates[index] || `${topic.name} 관련 피부 건강 이미지`;
 }
 
+// ─── 외부 이미지를 WordPress 미디어로 즉시 업로드 → 영구 URL로 교체 ───
+// 생성 단계에서 호출. 외부 임시 URL이 만료되기 전에 우리 서버로 옮긴다.
+// 업로드 실패 시 해당 이미지는 제외(깨진 URL을 콘텐츠에 남기지 않음).
+async function persistImagesToWordPress(env, images) {
+  if (!images || images.length === 0) return [];
+  const persisted = [];
+  for (let i = 0; i < images.length; i++) {
+    const img = images[i];
+    if (!img || !img.url) continue;
+    // 이미 우리 워드프레스 미디어면 그대로 사용
+    if (/(?:wordpress\.com|wp\.com|mongclinic\.blog)/i.test(img.url)) {
+      persisted.push(img);
+      continue;
+    }
+    try {
+      const result = await uploadImageToWP(env, img.url);
+      if (result && result.url) {
+        persisted.push({ ...img, url: result.url, mediaId: result.id });
+        console.log(`[이미지 영구화] ${i + 1}/${images.length} 성공 → ${result.url}`);
+      } else {
+        console.warn(`[이미지 영구화] ${i + 1}/${images.length} 실패 — 이미지 제외: ${img.url.substring(0, 80)}`);
+      }
+    } catch (e) {
+      console.warn(`[이미지 영구화] ${i + 1}/${images.length} 에러 — 이미지 제외: ${e.message}`);
+    }
+  }
+  return persisted;
+}
+
 // ─── 이미지를 HTML에 삽입 ───
 // 1번째 이미지: 글 맨 위 (본문 시작 전)
 // 2~3번째 이미지: 2번째, 4번째 h2 뒤
@@ -1260,7 +1290,12 @@ export async function generateContent(env, topic, contentType, options = {}) {
 
   // 이미지 가져오기 (각 이미지마다 다른 쿼리 + 중복 URL 방지)
   const imageCount = options.imagesPerContent || 3;
-  const images = await fetchDiverseImages(env, topic.id, topic.name, cleanedProduction.title, imageCount);
+  const rawImages = await fetchDiverseImages(env, topic.id, topic.name, cleanedProduction.title, imageCount);
+
+  // ★근본 해결: 외부 임시 URL(Pixabay/Unsplash 등)을 생성 단계에서 즉시 WordPress 미디어로 업로드.
+  // 영구 URL(mongclinic.blog/wp-content/...)로 교체해 대기 상태에서도 이미지가 깨지지 않게 한다.
+  // 업로드 실패한 이미지는 목록에서 제외(깨진 외부 URL을 DB에 저장하지 않음).
+  const images = await persistImagesToWordPress(env, rawImages);
 
   // 콘텐츠 조립
   let finalContent = cleanedProduction.content;
