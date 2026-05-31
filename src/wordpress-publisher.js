@@ -316,11 +316,37 @@ async function uploadInlineImages(env, htmlContent) {
       htmlContent = htmlContent.replaceAll(r.originalUrl, result.url);
       console.log(`[이미지 업로드] ${i + 1}/${replacements.length} 교체 완료 → ${result.url}`);
     } else {
-      console.log(`[이미지 업로드] ${i + 1}/${replacements.length} 실패 — 원본 URL 유지`);
+      // 업로드 실패 → 깨진 외부 URL을 본문에 남기지 않고 해당 이미지 블록 제거
+      // (외부 임시 URL은 만료·핫링크 차단으로 깨지므로, 깨진 이미지보다 없는 게 낫다)
+      htmlContent = removeImageBlock(htmlContent, r.originalUrl);
+      console.warn(`[이미지 업로드] ${i + 1}/${replacements.length} 실패 — 깨진 이미지 블록 제거: ${r.originalUrl.substring(0, 80)}`);
     }
   }
 
   return htmlContent;
+}
+
+// ─── 업로드 실패한 이미지의 figure 블록(또는 img 태그)을 본문에서 제거 ───
+function removeImageBlock(htmlContent, brokenUrl) {
+  // 정규식 특수문자 이스케이프
+  const esc = brokenUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // 1순위: 해당 URL을 감싼 <figure>...</figure> 통째 제거 (figcaption 출처까지 정리)
+  const figureRe = new RegExp(`<figure[^>]*>(?:(?!</figure>)[\\s\\S])*?${esc}[\\s\\S]*?</figure>\\s*`, 'i');
+  if (figureRe.test(htmlContent)) {
+    return htmlContent.replace(figureRe, '');
+  }
+  // 2순위: figure가 없으면 해당 <img> 태그만 제거
+  const imgRe = new RegExp(`<img\\s[^>]*?src="${esc}"[^>]*>\\s*`, 'i');
+  return htmlContent.replace(imgRe, '');
+}
+
+// ─── 대표이미지 URL을 폴백으로 써도 안전한지 판단 ───
+// 우리 워드프레스 미디어(영구 URL)이거나, 미디어 업로드가 성공한 경우에만 안전.
+// 외부 임시 URL(Pixabay/Unsplash 등)은 깨질 수 있어 폴백으로 쓰지 않는다.
+function isSafeImageUrl(url, featuredMediaId) {
+  if (!url) return false;
+  if (featuredMediaId) return true; // 업로드 성공 → 미디어 ID가 우선, URL은 보조로 무방
+  return /(?:wordpress\.com|wp\.com|mongclinic\.blog)/i.test(url);
 }
 
 // ─── 메인 발행 함수 ───
@@ -372,8 +398,12 @@ export async function publishToWordPress(env, content, statusOverride) {
   if (featuredMediaId) {
     postData.featured_media = featuredMediaId;
   }
-  if (content.heroImage?.url) {
+  // URL 폴백은 "안전한 경우"에만 — 우리 워드프레스 미디어 URL이거나 업로드가 성공했을 때만.
+  // 외부 임시 URL(Pixabay/Unsplash 등)은 깨질 수 있으므로 업로드 실패 시 폴백으로 쓰지 않는다.
+  if (content.heroImage?.url && isSafeImageUrl(content.heroImage.url, featuredMediaId)) {
     postData.featured_image_url = content.heroImage.url;
+  } else if (content.heroImage?.url && !featuredMediaId) {
+    console.warn(`[WordPress] 대표 이미지 업로드 실패 + 외부 URL → 대표이미지 설정 생략 (깨진 이미지 방지)`);
   }
 
   const post = await bridgeApiCall(env, 'posts', 'POST', postData);
@@ -385,7 +415,7 @@ export async function publishToWordPress(env, content, statusOverride) {
     try {
       const putData = {};
       if (featuredMediaId) putData.featured_media = featuredMediaId;
-      if (content.heroImage?.url) putData.featured_image_url = content.heroImage.url;
+      if (content.heroImage?.url && isSafeImageUrl(content.heroImage.url, featuredMediaId)) putData.featured_image_url = content.heroImage.url;
       console.log(`[WordPress] Bridge PUT으로 featured image 설정: post ${post.id}, keys: ${Object.keys(putData).join(',')}`);
       await bridgeApiCall(env, `posts/${post.id}`, 'PUT', putData);
       console.log(`[WordPress] Bridge PUT featured image 설정 완료`);
