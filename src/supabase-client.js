@@ -174,7 +174,9 @@ export const contentQueue = {
 
   // 기간 내 발행된 combo_id 목록 (질환별 현황 필터용)
   async getPublishedComboIdsByPeriod(startDate, endDate) {
-    let query = '?status=eq.published&is_test=eq.false&select=combo_id';
+    // 발행 완료 글은 status가 'approved'(승인·WP발행 완료) 또는 'published'로 저장됨.
+    // 과거엔 'published'만 조회해 approved 글이 발행현황 표에 안 잡히는 버그가 있었음(2026-06-01 수정).
+    let query = '?status=in.(published,approved)&is_test=eq.false&select=combo_id';
     if (startDate) query += '&created_at=gte.' + startDate + 'T00:00:00';
     if (endDate) query += '&created_at=lte.' + endDate + 'T23:59:59';
     const data = await supabaseRequest('content_queue', { query });
