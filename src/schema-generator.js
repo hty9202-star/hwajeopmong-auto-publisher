@@ -20,6 +20,7 @@ function getMedicalClinicSchema() {
     url: BRAND.url,
     telephone: BRAND.phone,
     description: BRAND.specialty,
+    sameAs: BRAND.sameAs,
     address: {
       '@type': 'PostalAddress',
       streetAddress: BRAND.address,
@@ -112,6 +113,7 @@ function generateArticleSchema(topic, production) {
       '@type': 'Organization',
       name: BRAND.name,
       url: BRAND.url,
+      sameAs: BRAND.sameAs,
     },
     about: {
       '@type': 'MedicalCondition',
@@ -142,6 +144,7 @@ function generateLocalBusinessSchema() {
     url: BRAND.url,
     telephone: BRAND.phone,
     description: BRAND.specialty,
+    sameAs: BRAND.sameAs,
     address: {
       '@type': 'PostalAddress',
       streetAddress: BRAND.address,

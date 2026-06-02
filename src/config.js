@@ -19,6 +19,13 @@ export const BRAND = {
     title: '한의학 박사',
     specialty: '피부과 전문',
   },
+  // ─── 공식 채널 (sameAs: 엔티티 동일성 신호 / GEO·지식그래프) ───
+  sameAs: [
+    'https://map.naver.com/p/entry/place/19838331', // 네이버 플레이스
+    'https://cafe.naver.com/mongclinic',            // 네이버 카페
+    'https://www.instagram.com/mongclinic_gangnam', // 인스타그램
+    'https://www.youtube.com/@TV-ul7fv',            // 유튜브
+  ],
 };
 
 // ─── AI 모델 설정 (Google Gemini - 유료) ───
