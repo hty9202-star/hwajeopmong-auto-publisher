@@ -148,10 +148,10 @@ export async function handleCitationRoutes(req, res, pathname, method, url) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + chatKey },
           body: JSON.stringify({
-            model: 'gpt-4o',
+            model: 'gpt-4o-mini',
             tools: [{
               type: 'web_search',
-              search_context_size: 'high',
+              search_context_size: 'medium',
               user_location: {
                 type: 'approximate',
                 country: 'KR',
