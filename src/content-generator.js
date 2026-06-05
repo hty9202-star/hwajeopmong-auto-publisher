@@ -1042,6 +1042,17 @@ function generateMedicalDisclaimer() {
 </div>`;
 }
 
+// ─── 오시는길 안내 (글 최하단, 라인 구분형) ───
+// 지역(강남역) 키워드를 모든 글에 포함시켜 로컬 GEO 신호 강화
+function generateDirectionsHtml() {
+  return `
+<div class="clinic-directions" style="border-top:1px solid #d9d9d9; margin-top:35px; padding:18px 4px 0; font-size:0.92em; line-height:1.8; color:#666;">
+  <p style="font-weight:600; color:#333; margin:0 0 6px;">화접몽한의원 강남본점 오시는길</p>
+  <p style="margin:0;">📍 서울 강남구 강남대로84길 8, 우인빌딩 9층</p>
+  <p style="margin:0;">🚇 2호선 강남역 3번 출구에서 도보 약 110m — 출구에서 뒤로 돌아 좌측 골목으로 약 50m, 우측 CU 편의점 건물 9층</p>
+</div>`;
+}
+
 // ─── GEO 최적화 점수 계산 ───
 export function calculateGeoScore(content, title, metaDescription, faq, schemas) {
   const details = {};
@@ -1348,6 +1359,9 @@ export async function generateContent(env, topic, contentType, options = {}) {
 
   // 의료 면책 조항 추가
   finalContent += '\n' + generateMedicalDisclaimer();
+
+  // 오시는길 안내 (글 최하단)
+  finalContent += '\n' + generateDirectionsHtml();
 
   // JSON-LD 스키마 생성 (본문이 아닌 별도 필드로 전달 — WordPress가 script 태그를 strip하므로)
   const schemas = generateSchemas(topic, cleanedProduction);
