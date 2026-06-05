@@ -302,7 +302,7 @@ const GEO_OPTIMIZATION_RULES = `
 7. 사실 활용: 구체적 숫자(치료 기간, 발생 빈도 등)를 포함하되, 출처가 불분명한 통계는 사용하지 마세요.
 `;
 
-// ─── 치료법 매핑 (질환별 화접몽 실제 치료법 — mongclinic.com 홈페이지 기준, 2026-06-01 검증) ───
+// ─── 치료법 매핑 (질환별 화접몽 실제 치료법 — mongclinic.com 홈페이지 기준, 2026-06-01 검증·재동기화) ───
 // 화접몽 4대 치료법: 화안케어 · 리셀테라피 · 거우침 · 발효약초테라피
 // ※ 각 질환별로 실제 시행하는 치료만 기재. 임의 조합 금지(과거 오류 정정).
 const TREATMENT_MAP = {
@@ -324,6 +324,7 @@ async function callGemini(apiKey, systemPrompt, userPrompt, options = {}) {
   const FALLBACK_MODELS = [AI_CONFIG.model, 'gemini-2.5-flash-lite'];
   const MAX_RETRIES = 3;
   const RETRY_DELAYS = [5000, 15000, 30000];
+  let lastFailDetail = ''; // 마지막 429/503 응답 본문 (진단용)
 
   for (const model of FALLBACK_MODELS) {
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
@@ -353,7 +354,9 @@ async function callGemini(apiKey, systemPrompt, userPrompt, options = {}) {
 
         if (response.status === 503 || response.status === 429) {
           const delay = RETRY_DELAYS[attempt] || 30000;
-          console.log(`[Gemini] ${response.status} error (model: ${model}, attempt ${attempt + 1}/${MAX_RETRIES}) - retry in ${delay/1000}s`);
+          const failBody = await response.text().catch(function() { return ''; });
+          lastFailDetail = `${response.status} (model: ${model}) ${failBody.slice(0, 300)}`;
+          console.log(`[Gemini] ${response.status} error (model: ${model}, attempt ${attempt + 1}/${MAX_RETRIES}) - retry in ${delay/1000}s :: ${failBody.slice(0, 200)}`);
           await new Promise(r => setTimeout(r, delay));
           continue;
         }
@@ -375,7 +378,7 @@ async function callGemini(apiKey, systemPrompt, userPrompt, options = {}) {
       }
     }
   }
-  throw new Error('Gemini API: all models and retries exhausted');
+  throw new Error(`Gemini API: all models and retries exhausted${lastFailDetail ? ' — last error: ' + lastFailDetail : ''}`);
 }
 
 // ─── Stage 1: 리서치 AI ───
