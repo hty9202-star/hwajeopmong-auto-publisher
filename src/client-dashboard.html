@@ -766,6 +766,30 @@
     color: #2D5A27;
     border-bottom-color: #2D5A27;
   }
+  .topic-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .topic-chip {
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #555;
+    background: #f3f4f3;
+    border: 1px solid #e5e7e5;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .topic-chip:hover { background: #e8efe6; color: #2D5A27; }
+  .topic-chip.active {
+    background: #2D5A27;
+    color: #fff;
+    border-color: #2D5A27;
+  }
 
   /* Calendar */
   .calendar-section { display: none; }
@@ -1023,6 +1047,8 @@
       <button class="filter-tab" data-filter="rejected" onclick="setFilter('rejected', this)">반려 <span class="filter-badge badge-danger" id="badgeRejected"></span></button>
     </div>
 
+    <div class="topic-filter-bar" id="topicFilterBar"></div>
+
     <div id="contentList" class="content-list">
       <div class="loading">콘텐츠를 불러오는 중...</div>
     </div>
@@ -1053,8 +1079,41 @@ if (!token) {
 
 let allContents = [];
 let currentFilter = 'all';
+let currentTopic = '';
 let currentClientPage = 1;
 let clientSearchTimer = null;
+
+// 질환 목록 (config.js TOPICS와 일치)
+var TOPIC_LIST = [
+  { id: '', name: '전체' },
+  { id: 'acne', name: '여드름' },
+  { id: 'acne-scars', name: '여드름흉터' },
+  { id: 'folliculitis', name: '모낭염' },
+  { id: 'flat-warts', name: '편평사마귀' },
+  { id: 'keratosis-pilaris', name: '모공각화증' },
+  { id: 'atopic-dermatitis', name: '아토피' },
+  { id: 'psoriasis', name: '건선' },
+  { id: 'dyshidrosis', name: '한포진' },
+  { id: 'seborrheic-dermatitis', name: '지루성피부염' },
+  { id: 'diet', name: '다이어트' },
+];
+
+function renderTopicFilterBar() {
+  var bar = document.getElementById('topicFilterBar');
+  if (!bar) return;
+  bar.innerHTML = TOPIC_LIST.map(function(t) {
+    var active = (t.id === currentTopic) ? ' active' : '';
+    return '<button class="topic-chip' + active + '" onclick="setTopicFilter(\'' + t.id + '\', this)">' + t.name + '</button>';
+  }).join('');
+}
+
+function setTopicFilter(topicId, el) {
+  currentTopic = topicId;
+  document.querySelectorAll('.topic-chip').forEach(function(c) { c.classList.remove('active'); });
+  if (el) el.classList.add('active');
+  currentClientPage = 1;
+  loadContents();
+}
 let pendingAction = null;
 
 // Display client name
@@ -1611,6 +1670,7 @@ async function loadContents() {
     page: currentClientPage, limit: 10,
     search, status, sort,
   });
+  if (currentTopic) params.set('topic', currentTopic);
 
   try {
     const res = await fetch('/api/client/contents?' + params, {
@@ -1742,6 +1802,7 @@ function renderCalendar() {
 }
 
 // Init
+renderTopicFilterBar();
 loadCalendar();
 loadContents();
 

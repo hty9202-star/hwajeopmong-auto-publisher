@@ -122,6 +122,7 @@ export async function handleClientRoutes(req, res, pathname, method, url) {
         limit: Math.min(parseInt(params.limit) || 10, 100),
         search: searchTerm,
         status: params.status || '',
+        topic: params.topic || '',
         sort: params.sort || 'latest',
       });
       const counts = await contentQueue.getCounts();
