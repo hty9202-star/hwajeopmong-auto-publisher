@@ -1290,15 +1290,23 @@ function switchPreviewTab(tab) {
   renderPreviewIframe(html.replace(/<script[\s\S]*?<\/script>/gi, ''));
 }
 
-// ─── 광고주 수정 diff: 블록 단위 비교 + 텍스트 블록은 단어 단위 하이라이트 ───
-function splitHtmlBlocks(html) {
-  var parts = html.split(/(?=<(?:p|h[1-6]|figure|div|ul|ol|blockquote|table|hr)\b)/i);
-  var out = [];
-  for (var i = 0; i < parts.length; i++) {
-    var t = parts[i];
-    if (t && t.replace(/\s/g, '') !== '') out.push(t);
-  }
-  return out;
+// ─── 광고주 수정 diff: HTML 태그·이미지·공백 무시하고 본문 "텍스트"만 단어 단위 비교 ───
+function htmlToPlainText(html) {
+  var s = String(html || '');
+  // 이미지/스크립트 블록 통째 제거 (이미지 변경은 표시 안 함)
+  s = s.replace(/<figure[\s\S]*?<\/figure>/gi, '\n');
+  s = s.replace(/<script[\s\S]*?<\/script>/gi, '');
+  s = s.replace(/<img[^>]*>/gi, '');
+  // 블록 종료 태그 → 줄바꿈
+  s = s.replace(/<\/(p|h[1-6]|li|div|blockquote|tr|figcaption)>/gi, '\n');
+  s = s.replace(/<br\s*\/?>/gi, '\n');
+  // 나머지 태그 제거
+  s = s.replace(/<[^>]+>/g, '');
+  // 엔티티 간단 디코드
+  s = s.replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
+  // 줄 단위 정리: 공백 정규화 + 빈 줄 제거
+  var lines = s.split('\n').map(function(l) { return l.replace(/[ \t]+/g, ' ').trim(); }).filter(function(l) { return l; });
+  return lines.join('\n');
 }
 
 function lcsTable(a, b) {
@@ -1314,8 +1322,7 @@ function lcsTable(a, b) {
 }
 
 function diffSeq(a, b) {
-  // 토큰 수가 너무 많으면 diff 생략 (성능 보호)
-  if (a.length * b.length > 1500000) return null;
+  if (a.length * b.length > 4000000) return null; // 성능 보호
   var dp = lcsTable(a, b);
   var ops = [];
   var i = a.length, j = b.length;
@@ -1327,72 +1334,46 @@ function diffSeq(a, b) {
   return ops;
 }
 
-function wordDiffHtml(beforeHtml, afterHtml) {
-  var tokenize = function(s) { return s.match(/<[^>]+>|[^<\s]+|\s+/g) || []; };
-  var ops = diffSeq(tokenize(beforeHtml), tokenize(afterHtml));
-  if (!ops) return null;
-  var out = '';
-  for (var k = 0; k < ops.length; k++) {
-    var o = ops[k];
-    var isTag = /^</.test(o.v);
-    if (o.t === '=' || isTag) {
-      if (o.t !== '-') out += o.v;
-    } else if (o.t === '+') {
-      out += '<ins style="background:#def7dc;color:#1e6b1e;text-decoration:none;padding:1px 2px;border-radius:3px;">' + o.v + '</ins>';
-    } else {
-      out += '<del style="background:#fde8e8;color:#9b1c1c;padding:1px 2px;border-radius:3px;">' + o.v + '</del>';
-    }
+function textTokens(text) {
+  // 줄바꿈은 별도 토큰으로, 단어는 공백 기준 분리
+  var toks = [];
+  var parts = text.split(/(\n)/);
+  for (var i = 0; i < parts.length; i++) {
+    if (parts[i] === '\n') { toks.push('\n'); continue; }
+    var words = parts[i].split(/\s+/);
+    for (var w = 0; w < words.length; w++) { if (words[w]) toks.push(words[w]); }
   }
-  return out;
-}
-
-function diffBlockLabel(text, color) {
-  return '<div style="font-size:11px;color:' + color + ';margin:14px 0 2px;">' + text + '</div>';
+  return toks;
 }
 
 function buildEditDiffHtml(beforeHtml, afterHtml) {
-  var A = splitHtmlBlocks(beforeHtml);
-  var B = splitHtmlBlocks(afterHtml);
-  var ops = diffSeq(A, B);
-  if (!ops) return afterHtml; // 너무 큰 콘텐츠는 수정 후 화면으로 대체
+  var beforeText = htmlToPlainText(beforeHtml);
+  var afterText = htmlToPlainText(afterHtml);
+
+  if (beforeText === afterText) {
+    return '<p style="color:#6b7280;background:#f3f4f6;padding:12px 16px;border-radius:8px;">본문 텍스트 변경 없음 (이미지 또는 서식만 변경되었습니다)</p>';
+  }
+
+  var ops = diffSeq(textTokens(beforeText), textTokens(afterText));
+  if (!ops) {
+    return '<p style="color:#6b7280;">변경 범위가 너무 커서 표시를 생략합니다. [수정 전] / [수정 후] 탭으로 비교해 주세요.</p>';
+  }
 
   var out = '';
-  var k = 0;
-  while (k < ops.length) {
+  for (var k = 0; k < ops.length; k++) {
     var o = ops[k];
-    if (o.t === '=') { out += o.v; k++; continue; }
-
-    // 연속된 삭제/추가 묶음 수집
-    var dels = [], inss = [];
-    while (k < ops.length && ops[k].t !== '=') {
-      if (ops[k].t === '-') dels.push(ops[k].v); else inss.push(ops[k].v);
-      k++;
-    }
-
-    // 1:1 텍스트 블록 교체면 단어 단위 diff
-    if (dels.length === 1 && inss.length === 1 && !/<img\b/i.test(dels[0]) && !/<img\b/i.test(inss[0])) {
-      var wd = wordDiffHtml(dels[0], inss[0]);
-      if (wd !== null) { out += wd; continue; }
-    }
-
-    for (var d = 0; d < dels.length; d++) {
-      if (/<img\b/i.test(dels[d])) {
-        out += diffBlockLabel('교체/삭제 전 이미지', '#9b1c1c') +
-          '<div style="border:2px solid #f5b5b5;border-radius:8px;padding:6px;">' + dels[d] + '</div>';
-      } else {
-        out += '<div style="background:#fde8e8;border-radius:8px;padding:4px 10px;color:#9b1c1c;text-decoration:line-through;">' + dels[d] + '</div>';
-      }
-    }
-    for (var s = 0; s < inss.length; s++) {
-      if (/<img\b/i.test(inss[s])) {
-        out += diffBlockLabel('교체/추가 후 이미지', '#1e6b1e') +
-          '<div style="border:2px solid #a7d9a0;border-radius:8px;padding:6px;">' + inss[s] + '</div>';
-      } else {
-        out += '<div style="background:#def7dc;border-radius:8px;padding:4px 10px;">' + inss[s] + '</div>';
-      }
-    }
+    if (o.v === '\n') { if (o.t !== '-') out += '<br>'; continue; }
+    var safe = escapeHtml(o.v);
+    if (o.t === '=') { out += safe + ' '; }
+    else if (o.t === '+') { out += '<ins style="background:#def7dc;color:#1e6b1e;text-decoration:none;padding:1px 3px;border-radius:3px;">' + safe + '</ins> '; }
+    else { out += '<del style="background:#fde8e8;color:#9b1c1c;padding:1px 3px;border-radius:3px;">' + safe + '</del> '; }
   }
-  return out;
+
+  return '<div style="background:#fff;line-height:2;font-size:15px;">' +
+    '<div style="font-size:12px;color:#6b7280;margin-bottom:12px;">' +
+    '<span style="background:#def7dc;color:#1e6b1e;padding:1px 6px;border-radius:3px;">추가</span> ' +
+    '<span style="background:#fde8e8;color:#9b1c1c;padding:1px 6px;border-radius:3px;text-decoration:line-through;">삭제</span> ' +
+    '· 이미지·서식 변경은 표시되지 않습니다</div>' + out + '</div>';
 }
 
 function renderPreviewIframe(cleanHtml) {
