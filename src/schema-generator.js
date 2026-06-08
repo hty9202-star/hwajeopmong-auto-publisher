@@ -124,8 +124,10 @@ function generateArticleSchema(topic, production) {
       name: '한방피부과',
     },
     speakable: {
+      // 따옴표 없는 클래스 선택자 사용 — WordPress 메타 저장 시 백슬래시 제거로
+      // JSON이 깨지는 문제 방지([class~="..."] 형태는 내부 따옴표 때문에 깨짐)
       '@type': 'SpeakableSpecification',
-      cssSelector: ['[class~="entry-title"]', '[class~="entry-content"] > p:first-of-type', '[class~="entry-content"] > h2'],
+      cssSelector: ['.entry-title', '.entry-content > p:first-of-type', '.entry-content > h2'],
     },
     lastReviewed: new Date().toISOString().split('T')[0],
     reviewedBy: getPhysicianSchema(),
