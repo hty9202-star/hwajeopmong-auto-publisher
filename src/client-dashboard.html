@@ -1290,23 +1290,13 @@ function switchPreviewTab(tab) {
   renderPreviewIframe(html.replace(/<script[\s\S]*?<\/script>/gi, ''));
 }
 
-// ─── 광고주 수정 diff: HTML 태그·이미지·공백 무시하고 본문 "텍스트"만 단어 단위 비교 ───
-function htmlToPlainText(html) {
-  var s = String(html || '');
-  // 이미지/스크립트 블록 통째 제거 (이미지 변경은 표시 안 함)
-  s = s.replace(/<figure[\s\S]*?<\/figure>/gi, '\n');
-  s = s.replace(/<script[\s\S]*?<\/script>/gi, '');
-  s = s.replace(/<img[^>]*>/gi, '');
-  // 블록 종료 태그 → 줄바꿈
-  s = s.replace(/<\/(p|h[1-6]|li|div|blockquote|tr|figcaption)>/gi, '\n');
-  s = s.replace(/<br\s*\/?>/gi, '\n');
-  // 나머지 태그 제거
-  s = s.replace(/<[^>]+>/g, '');
-  // 엔티티 간단 디코드
-  s = s.replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
-  // 줄 단위 정리: 공백 정규화 + 빈 줄 제거
-  var lines = s.split('\n').map(function(l) { return l.replace(/[ \t]+/g, ' ').trim(); }).filter(function(l) { return l; });
-  return lines.join('\n');
+// ─── 광고주 수정 diff: 실제 발행 서식·이미지 유지 + 바뀐 단어만 색 강조 ───
+function diffTokenize(html) {
+  // 태그 / 공백덩어리 / 단어 로 분리
+  return String(html || '').match(/<[^>]+>|\s+|[^<\s]+/g) || [];
+}
+function diffIsWord(tok) {
+  return !/^</.test(tok) && !/^\s+$/.test(tok);
 }
 
 function lcsTable(a, b) {
@@ -1334,55 +1324,54 @@ function diffSeq(a, b) {
   return ops;
 }
 
-function textTokens(text) {
-  // 줄바꿈은 별도 토큰으로, 단어는 공백 기준 분리
-  var toks = [];
-  var parts = text.split(/(\n)/);
-  for (var i = 0; i < parts.length; i++) {
-    if (parts[i] === '\n') { toks.push('\n'); continue; }
-    var words = parts[i].split(/\s+/);
-    for (var w = 0; w < words.length; w++) { if (words[w]) toks.push(words[w]); }
-  }
-  return toks;
-}
-
 function buildEditDiffHtml(beforeHtml, afterHtml) {
-  var beforeText = htmlToPlainText(beforeHtml);
-  var afterText = htmlToPlainText(afterHtml);
+  var afterTokens = diffTokenize(afterHtml);
+  var beforeWords = diffTokenize(beforeHtml).filter(diffIsWord);
+  var afterWords = afterTokens.filter(diffIsWord);
 
-  if (beforeText === afterText) {
-    return '<p style="color:#6b7280;background:#f3f4f6;padding:12px 16px;border-radius:8px;">본문 텍스트 변경 없음 (이미지 또는 서식만 변경되었습니다)</p>';
-  }
+  // 단어 시퀀스만 비교 (태그·공백은 비교에서 제외 → 서식/공백 노이즈 없음)
+  var ops = diffSeq(beforeWords, afterWords);
+  var legend = '<div style="font-size:13px;color:#6b7280;margin:0 0 16px;padding-bottom:10px;border-bottom:1px solid #e5e7eb;">' +
+    '<span style="background:#def7dc;color:#1e6b1e;padding:1px 6px;border-radius:3px;">추가</span> ' +
+    '<span style="background:#fde8e8;color:#9b1c1c;padding:1px 6px;border-radius:3px;text-decoration:line-through;">삭제</span> · 바뀐 부분만 강조됩니다</div>';
 
-  var ops = diffSeq(textTokens(beforeText), textTokens(afterText));
   if (!ops) {
-    return '<p style="color:#6b7280;">변경 범위가 너무 커서 표시를 생략합니다. [수정 전] / [수정 후] 탭으로 비교해 주세요.</p>';
+    return legend + afterHtml + '<p style="color:#9b1c1c;font-size:13px;margin-top:12px;">※ 변경 범위가 커서 강조 표시를 생략했습니다.</p>';
   }
 
-  // 줄(문단) 단위로 묶어 렌더 — 문단 구분이 또렷하게 보이도록
-  var paras = [];
-  var line = '';
-  var flush = function() {
-    if (line.replace(/<[^>]+>/g, '').trim() !== '') {
-      paras.push('<p style="margin:0 0 14px;">' + line + '</p>');
-    }
-    line = '';
+  var ai = 0;
+  var emitNonWords = function() {
+    var s = '';
+    while (ai < afterTokens.length && !diffIsWord(afterTokens[ai])) { s += afterTokens[ai]; ai++; }
+    return s;
   };
+
+  var out = '';
+  var changed = false;
   for (var k = 0; k < ops.length; k++) {
     var o = ops[k];
-    if (o.v === '\n') { if (o.t !== '-') flush(); continue; }
-    var safe = escapeHtml(o.v);
-    if (o.t === '=') { line += safe + ' '; }
-    else if (o.t === '+') { line += '<ins style="background:#def7dc;color:#1e6b1e;text-decoration:none;padding:1px 3px;border-radius:3px;">' + safe + '</ins> '; }
-    else { line += '<del style="background:#fde8e8;color:#9b1c1c;padding:1px 3px;border-radius:3px;">' + safe + '</del> '; }
+    if (o.t === '=') {
+      out += emitNonWords();
+      out += (ai < afterTokens.length ? afterTokens[ai++] : '');
+    } else if (o.t === '+') {
+      out += emitNonWords();
+      var w = (ai < afterTokens.length ? afterTokens[ai++] : escapeHtml(o.v));
+      out += '<ins style="background:#def7dc;color:#1e6b1e;text-decoration:none;border-radius:3px;padding:0 2px;">' + w + '</ins>';
+      changed = true;
+    } else {
+      // before에만 있던 단어 → 삭제 표시. 먼저 대기 중인 태그(이미지·문단 등)를 배치해
+      // 삭제 표시가 엉뚱한 위치(이미지 위 등)로 튀지 않도록 한다.
+      out += emitNonWords();
+      out += '<del style="background:#fde8e8;color:#9b1c1c;border-radius:3px;padding:0 2px;">' + escapeHtml(o.v) + '</del> ';
+      changed = true;
+    }
   }
-  flush();
+  while (ai < afterTokens.length) { out += afterTokens[ai++]; }
 
-  return '<div style="background:#fff;line-height:1.9;font-size:15px;color:#1a1a1a;">' +
-    '<div style="font-size:12px;color:#6b7280;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid #e5e7eb;">' +
-    '<span style="background:#def7dc;color:#1e6b1e;padding:1px 6px;border-radius:3px;">추가</span> ' +
-    '<span style="background:#fde8e8;color:#9b1c1c;padding:1px 6px;border-radius:3px;text-decoration:line-through;">삭제</span> ' +
-    '· 이미지·서식 변경은 표시되지 않습니다</div>' + paras.join('') + '</div>';
+  if (!changed) {
+    return '<p style="color:#6b7280;background:#f3f4f6;padding:12px 16px;border-radius:8px;">본문 텍스트 변경 없음 (이미지 또는 서식만 변경되었습니다)</p>' + afterHtml;
+  }
+  return legend + out;
 }
 
 function renderPreviewIframe(cleanHtml) {
