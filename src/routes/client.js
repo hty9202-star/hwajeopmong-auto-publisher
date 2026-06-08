@@ -30,7 +30,7 @@ export async function handleClientRoutes(req, res, pathname, method, url) {
     return true;
   }
   if (pathname === '/client' && method === 'GET') {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache, must-revalidate' });
     res.end(getHtml('client-dashboard.html'));
     return true;
   }

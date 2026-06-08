@@ -56,14 +56,14 @@ export async function handleAdminRoutes(req, res, pathname, method, url) {
 
   // Dashboard
   if (pathname === '/' || pathname === '/dashboard') {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache, must-revalidate' });
     res.end(getHtml('dashboard.html'));
     return true;
   }
 
   // Settings page
   if (pathname === '/settings') {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache, must-revalidate' });
     res.end(getHtml('settings.html'));
     return true;
   }
