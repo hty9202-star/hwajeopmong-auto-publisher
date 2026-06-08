@@ -314,6 +314,24 @@ export async function handleClientRoutes(req, res, pathname, method, url) {
         console.error('[수정 API] 점수 재계산 실패 (무시):', scoreErr.message);
       }
 
+      // 1-c. 광고주 수정 이력 스냅샷 (변경 표시용 — 수정 전/후 쌍 저장, 최근 3회 보관)
+      try {
+        const titleChanged = editData.title && editData.title !== item.title;
+        const contentChanged = editData.content && editData.content !== item.content;
+        if (titleChanged || contentChanged) {
+          const history = Array.isArray(item.edit_history) ? item.edit_history : [];
+          history.push({
+            edited_at: new Date().toISOString(),
+            edited_by: 'client',
+            before: { title: item.title, content: item.content },
+            after: { title: updatedTitle, content: updatedContent },
+          });
+          dbUpdates.edit_history = history.slice(-3);
+        }
+      } catch (histErr) {
+        console.error('[수정 API] 수정 이력 저장 실패 (무시):', histErr.message);
+      }
+
       console.log(`[수정 API] DB 업데이트 시작: ID ${itemId}, 필드: ${Object.keys(dbUpdates).join(', ')}`);
       await contentQueue.updateContent(itemId, dbUpdates);
       console.log(`[수정 API] DB 업데이트 완료: ID ${itemId}`);

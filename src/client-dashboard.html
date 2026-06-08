@@ -1231,18 +1231,17 @@ function statusBadgeClass(status) {
 }
 
 // 미리보기 풀스크린 모달
+var previewCurrentItem = null;
+
 function openPreviewModal(itemId) {
   var item = allContents.find(function(c) { return (c.id || c._id) === itemId; });
   if (!item) return;
+  previewCurrentItem = item;
 
   var title = item.title || '제목 없음';
   var topic = item.topic_name || '';
   var contentType = item.content_type || '';
   var created = item.created_at ? new Date(item.created_at).toLocaleDateString('ko-KR') : '';
-  var htmlContent = item.content || item.htmlContent || item.html_content || '';
-
-  // 스크립트 태그 제거 (미리보기에서 불필요)
-  var cleanHtml = htmlContent.replace(/<script[\s\S]*?<\/script>/gi, '');
 
   document.getElementById('previewTitle').textContent = title;
   var metaParts = [];
@@ -1251,6 +1250,152 @@ function openPreviewModal(itemId) {
   if (contentType) metaParts.push(contentType);
   document.getElementById('previewMeta').textContent = metaParts.join(' · ');
 
+  // 광고주 수정 이력이 있으면 탭 표시
+  var hasHistory = Array.isArray(item.edit_history) && item.edit_history.length > 0;
+  document.getElementById('previewTabs').style.display = hasHistory ? 'flex' : 'none';
+
+  switchPreviewTab('after');
+
+  document.getElementById('previewOverlay').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function switchPreviewTab(tab) {
+  var item = previewCurrentItem;
+  if (!item) return;
+
+  var tabs = document.querySelectorAll('.preview-tab');
+  for (var i = 0; i < tabs.length; i++) {
+    var active = tabs[i].getAttribute('data-tab') === tab;
+    tabs[i].style.borderBottomColor = active ? '#2D5A27' : 'transparent';
+    tabs[i].style.fontWeight = active ? '600' : '400';
+    tabs[i].style.color = active ? '#1a1a1a' : '#6b7280';
+  }
+
+  var history = Array.isArray(item.edit_history) ? item.edit_history : [];
+  var latest = history.length > 0 ? history[history.length - 1] : null;
+  var html = '';
+  if (tab === 'before' && latest) {
+    html = latest.before.content || '';
+  } else if (tab === 'diff' && latest) {
+    html = buildEditDiffHtml(latest.before.content || '', latest.after.content || '');
+    if (latest.before.title !== latest.after.title) {
+      html = '<p><del style="background:#fde8e8;color:#9b1c1c;text-decoration:line-through;padding:1px 4px;border-radius:3px;">' + escapeHtml(latest.before.title || '') + '</del><br>' +
+             '<ins style="background:#def7dc;color:#1e6b1e;text-decoration:none;padding:1px 4px;border-radius:3px;">' + escapeHtml(latest.after.title || '') + '</ins></p>' + html;
+    }
+  } else {
+    html = item.content || item.htmlContent || item.html_content || '';
+  }
+
+  renderPreviewIframe(html.replace(/<script[\s\S]*?<\/script>/gi, ''));
+}
+
+// ─── 광고주 수정 diff: 블록 단위 비교 + 텍스트 블록은 단어 단위 하이라이트 ───
+function splitHtmlBlocks(html) {
+  var parts = html.split(/(?=<(?:p|h[1-6]|figure|div|ul|ol|blockquote|table|hr)\b)/i);
+  var out = [];
+  for (var i = 0; i < parts.length; i++) {
+    var t = parts[i];
+    if (t && t.replace(/\s/g, '') !== '') out.push(t);
+  }
+  return out;
+}
+
+function lcsTable(a, b) {
+  var n = a.length, m = b.length;
+  var dp = [];
+  for (var i = 0; i <= n; i++) { dp.push(new Array(m + 1).fill(0)); }
+  for (var i = 1; i <= n; i++) {
+    for (var j = 1; j <= m; j++) {
+      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] + 1 : Math.max(dp[i-1][j], dp[i][j-1]);
+    }
+  }
+  return dp;
+}
+
+function diffSeq(a, b) {
+  // 토큰 수가 너무 많으면 diff 생략 (성능 보호)
+  if (a.length * b.length > 1500000) return null;
+  var dp = lcsTable(a, b);
+  var ops = [];
+  var i = a.length, j = b.length;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && a[i-1] === b[j-1]) { ops.unshift({ t: '=', v: a[i-1] }); i--; j--; }
+    else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) { ops.unshift({ t: '+', v: b[j-1] }); j--; }
+    else { ops.unshift({ t: '-', v: a[i-1] }); i--; }
+  }
+  return ops;
+}
+
+function wordDiffHtml(beforeHtml, afterHtml) {
+  var tokenize = function(s) { return s.match(/<[^>]+>|[^<\s]+|\s+/g) || []; };
+  var ops = diffSeq(tokenize(beforeHtml), tokenize(afterHtml));
+  if (!ops) return null;
+  var out = '';
+  for (var k = 0; k < ops.length; k++) {
+    var o = ops[k];
+    var isTag = /^</.test(o.v);
+    if (o.t === '=' || isTag) {
+      if (o.t !== '-') out += o.v;
+    } else if (o.t === '+') {
+      out += '<ins style="background:#def7dc;color:#1e6b1e;text-decoration:none;padding:1px 2px;border-radius:3px;">' + o.v + '</ins>';
+    } else {
+      out += '<del style="background:#fde8e8;color:#9b1c1c;padding:1px 2px;border-radius:3px;">' + o.v + '</del>';
+    }
+  }
+  return out;
+}
+
+function diffBlockLabel(text, color) {
+  return '<div style="font-size:11px;color:' + color + ';margin:14px 0 2px;">' + text + '</div>';
+}
+
+function buildEditDiffHtml(beforeHtml, afterHtml) {
+  var A = splitHtmlBlocks(beforeHtml);
+  var B = splitHtmlBlocks(afterHtml);
+  var ops = diffSeq(A, B);
+  if (!ops) return afterHtml; // 너무 큰 콘텐츠는 수정 후 화면으로 대체
+
+  var out = '';
+  var k = 0;
+  while (k < ops.length) {
+    var o = ops[k];
+    if (o.t === '=') { out += o.v; k++; continue; }
+
+    // 연속된 삭제/추가 묶음 수집
+    var dels = [], inss = [];
+    while (k < ops.length && ops[k].t !== '=') {
+      if (ops[k].t === '-') dels.push(ops[k].v); else inss.push(ops[k].v);
+      k++;
+    }
+
+    // 1:1 텍스트 블록 교체면 단어 단위 diff
+    if (dels.length === 1 && inss.length === 1 && !/<img\b/i.test(dels[0]) && !/<img\b/i.test(inss[0])) {
+      var wd = wordDiffHtml(dels[0], inss[0]);
+      if (wd !== null) { out += wd; continue; }
+    }
+
+    for (var d = 0; d < dels.length; d++) {
+      if (/<img\b/i.test(dels[d])) {
+        out += diffBlockLabel('교체/삭제 전 이미지', '#9b1c1c') +
+          '<div style="border:2px solid #f5b5b5;border-radius:8px;padding:6px;">' + dels[d] + '</div>';
+      } else {
+        out += '<div style="background:#fde8e8;border-radius:8px;padding:4px 10px;color:#9b1c1c;text-decoration:line-through;">' + dels[d] + '</div>';
+      }
+    }
+    for (var s = 0; s < inss.length; s++) {
+      if (/<img\b/i.test(inss[s])) {
+        out += diffBlockLabel('교체/추가 후 이미지', '#1e6b1e') +
+          '<div style="border:2px solid #a7d9a0;border-radius:8px;padding:6px;">' + inss[s] + '</div>';
+      } else {
+        out += '<div style="background:#def7dc;border-radius:8px;padding:4px 10px;">' + inss[s] + '</div>';
+      }
+    }
+  }
+  return out;
+}
+
+function renderPreviewIframe(cleanHtml) {
   // iframe에 블로그 스타일 래핑
   var iframeContent = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>' +
     'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.8;color:#1a1a1a;max-width:760px;margin:0 auto;padding:32px 24px;font-size:16px}' +
@@ -1279,15 +1424,13 @@ function openPreviewModal(itemId) {
       iframe.style.height = '600px';
     }
   };
-
-  document.getElementById('previewOverlay').classList.add('active');
-  document.body.style.overflow = 'hidden';
 }
 
 function closePreviewModal() {
   document.getElementById('previewOverlay').classList.remove('active');
   document.body.style.overflow = '';
   document.getElementById('previewIframe').srcdoc = '';
+  previewCurrentItem = null;
 }
 
 // Approve
@@ -1404,7 +1547,7 @@ function renderContents() {
       html += '<div class="content-card">' +
         '<div class="card-main">' +
           '<div class="card-info">' +
-            '<div class="card-title">' + (c.is_test ? '<span style="display:inline-block;background:#94a3b8;color:#fff;font-size:11px;padding:1px 6px;border-radius:4px;margin-right:6px;vertical-align:middle">테스트</span>' : '') + escapeHtml(title) + (republishedFrom ? ' <span class="badge-republish">재발행</span>' : '') + '</div>' +
+            '<div class="card-title">' + (c.is_test ? '<span style="display:inline-block;background:#94a3b8;color:#fff;font-size:11px;padding:1px 6px;border-radius:4px;margin-right:6px;vertical-align:middle">테스트</span>' : '') + escapeHtml(title) + (republishedFrom ? ' <span class="badge-republish">재발행</span>' : '') + (Array.isArray(c.edit_history) && c.edit_history.length > 0 ? ' <span style="display:inline-block;background:#fef3c7;color:#92400e;font-size:11px;padding:1px 6px;border-radius:4px;vertical-align:middle">수정됨</span>' : '') + '</div>' +
             '<div class="card-meta">' +
               '<span>' + created + '</span>' +
               (topic ? '<span>' + escapeHtml(topic) + '</span>' : '') +
@@ -1688,6 +1831,11 @@ function renderClientPeriodBanner(period){
         <div class="preview-meta" id="previewMeta"></div>
       </div>
       <button class="preview-modal-close" onclick="closePreviewModal()">&times;</button>
+    </div>
+    <div id="previewTabs" style="display:none;gap:4px;padding:8px 24px 0;border-bottom:1px solid #e5e7eb;background:#fff;">
+      <button type="button" class="preview-tab" data-tab="after" onclick="switchPreviewTab('after')" style="padding:8px 14px;font-size:13px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;">수정 후</button>
+      <button type="button" class="preview-tab" data-tab="before" onclick="switchPreviewTab('before')" style="padding:8px 14px;font-size:13px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;">수정 전</button>
+      <button type="button" class="preview-tab" data-tab="diff" onclick="switchPreviewTab('diff')" style="padding:8px 14px;font-size:13px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;">변경 표시</button>
     </div>
     <div class="preview-modal-body">
       <iframe id="previewIframe" sandbox="allow-same-origin"></iframe>
