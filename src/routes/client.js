@@ -315,11 +315,17 @@ export async function handleClientRoutes(req, res, pathname, method, url) {
         console.error('[수정 API] 점수 재계산 실패 (무시):', scoreErr.message);
       }
 
-      // 1-c. 광고주 수정 이력 스냅샷 (변경 표시용 — 수정 전/후 쌍 저장, 최근 3회 보관)
+      // 1-c. 광고주 수정 이력 — 최초 발행 원본은 단 한 번만 저장(고정), 이후 수정은 갱신하지 않음
       try {
         const titleChanged = editData.title && editData.title !== item.title;
         const contentChanged = editData.content && editData.content !== item.content;
         if (titleChanged || contentChanged) {
+          // 원본(original_*)이 아직 없으면, '이번 수정 직전 = 최초 원본'을 고정 저장
+          if (!item.original_content) {
+            dbUpdates.original_title = item.title;
+            dbUpdates.original_content = item.content;
+          }
+          // 참고용 이력도 함께 보관(최근 3회) — UI는 original_*만 사용
           const history = Array.isArray(item.edit_history) ? item.edit_history : [];
           history.push({
             edited_at: new Date().toISOString(),

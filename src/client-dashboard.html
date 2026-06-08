@@ -1309,9 +1309,9 @@ function openPreviewModal(itemId) {
   if (contentType) metaParts.push(contentType);
   document.getElementById('previewMeta').textContent = metaParts.join(' · ');
 
-  // 광고주 수정 이력이 있으면 탭 표시
-  var hasHistory = Array.isArray(item.edit_history) && item.edit_history.length > 0;
-  document.getElementById('previewTabs').style.display = hasHistory ? 'flex' : 'none';
+  // 최초 원본이 저장돼 있으면(=수정된 글이면) 전/후 탭 표시
+  var hasOriginal = !!item.original_content;
+  document.getElementById('previewTabs').style.display = hasOriginal ? 'flex' : 'none';
 
   switchPreviewTab('after');
 
@@ -1331,19 +1331,22 @@ function switchPreviewTab(tab) {
     tabs[i].style.color = active ? '#1a1a1a' : '#6b7280';
   }
 
-  var history = Array.isArray(item.edit_history) ? item.edit_history : [];
-  var latest = history.length > 0 ? history[history.length - 1] : null;
+  // 수정 전 = 최초 발행 원본(original_*, 고정), 수정 후 = 현재 콘텐츠
+  var origContent = item.original_content || '';
+  var origTitle = item.original_title || '';
+  var curContent = item.content || item.htmlContent || item.html_content || '';
+  var curTitle = item.title || '';
   var html = '';
-  if (tab === 'before' && latest) {
-    html = latest.before.content || '';
-  } else if (tab === 'diff' && latest) {
-    html = buildEditDiffHtml(latest.before.content || '', latest.after.content || '');
-    if (latest.before.title !== latest.after.title) {
-      html = '<p><del style="background:#fde8e8;color:#9b1c1c;text-decoration:line-through;padding:1px 4px;border-radius:3px;">' + escapeHtml(latest.before.title || '') + '</del><br>' +
-             '<ins style="background:#def7dc;color:#1e6b1e;text-decoration:none;padding:1px 4px;border-radius:3px;">' + escapeHtml(latest.after.title || '') + '</ins></p>' + html;
+  if (tab === 'before') {
+    html = origContent;
+  } else if (tab === 'diff') {
+    html = buildEditDiffHtml(origContent, curContent);
+    if (origTitle && origTitle !== curTitle) {
+      html = '<p><del style="background:#fde8e8;color:#9b1c1c;text-decoration:line-through;padding:1px 4px;border-radius:3px;">' + escapeHtml(origTitle) + '</del><br>' +
+             '<ins style="background:#def7dc;color:#1e6b1e;text-decoration:none;padding:1px 4px;border-radius:3px;">' + escapeHtml(curTitle) + '</ins></p>' + html;
     }
   } else {
-    html = item.content || item.htmlContent || item.html_content || '';
+    html = curContent;
   }
 
   renderPreviewIframe(html.replace(/<script[\s\S]*?<\/script>/gi, ''));
@@ -1585,7 +1588,7 @@ function renderContents() {
       html += '<div class="content-card">' +
         '<div class="card-main">' +
           '<div class="card-info">' +
-            '<div class="card-title">' + (c.is_test ? '<span style="display:inline-block;background:#94a3b8;color:#fff;font-size:11px;padding:1px 6px;border-radius:4px;margin-right:6px;vertical-align:middle">테스트</span>' : '') + escapeHtml(title) + (republishedFrom ? ' <span class="badge-republish">재발행</span>' : '') + (Array.isArray(c.edit_history) && c.edit_history.length > 0 ? ' <span style="display:inline-block;background:#fef3c7;color:#92400e;font-size:11px;padding:1px 6px;border-radius:4px;vertical-align:middle">수정됨</span>' : '') + '</div>' +
+            '<div class="card-title">' + (c.is_test ? '<span style="display:inline-block;background:#94a3b8;color:#fff;font-size:11px;padding:1px 6px;border-radius:4px;margin-right:6px;vertical-align:middle">테스트</span>' : '') + escapeHtml(title) + (republishedFrom ? ' <span class="badge-republish">재발행</span>' : '') + (c.original_content ? ' <span style="display:inline-block;background:#fef3c7;color:#92400e;font-size:11px;padding:1px 6px;border-radius:4px;vertical-align:middle">수정됨</span>' : '') + '</div>' +
             '<div class="card-meta">' +
               '<span>' + created + '</span>' +
               (topic ? '<span>' + escapeHtml(topic) + '</span>' : '') +
