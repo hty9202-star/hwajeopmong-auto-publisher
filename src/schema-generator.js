@@ -41,11 +41,23 @@ function getMedicalClinicSchema() {
 
 // ─── Physician 스키마 ───
 function getPhysicianSchema() {
+  const d = BRAND.doctor;
   return {
     '@type': 'Physician',
-    name: BRAND.doctor.name,
-    jobTitle: BRAND.doctor.title,
-    medicalSpecialty: BRAND.doctor.specialty,
+    // 모든 글에서 동일 인물로 묶이도록 고정 식별자
+    '@id': `${BRAND.url}/#physician`,
+    name: d.name,
+    jobTitle: d.title,
+    medicalSpecialty: d.specialty,
+    description: d.description,
+    url: d.profileUrl,
+    sameAs: d.sameAs,
+    hasCredential: d.credential
+      ? {
+          '@type': 'EducationalOccupationalCredential',
+          credentialCategory: d.credential,
+        }
+      : undefined,
     worksFor: {
       '@type': 'MedicalClinic',
       name: BRAND.name,
