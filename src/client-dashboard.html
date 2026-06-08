@@ -1359,21 +1359,30 @@ function buildEditDiffHtml(beforeHtml, afterHtml) {
     return '<p style="color:#6b7280;">변경 범위가 너무 커서 표시를 생략합니다. [수정 전] / [수정 후] 탭으로 비교해 주세요.</p>';
   }
 
-  var out = '';
+  // 줄(문단) 단위로 묶어 렌더 — 문단 구분이 또렷하게 보이도록
+  var paras = [];
+  var line = '';
+  var flush = function() {
+    if (line.replace(/<[^>]+>/g, '').trim() !== '') {
+      paras.push('<p style="margin:0 0 14px;">' + line + '</p>');
+    }
+    line = '';
+  };
   for (var k = 0; k < ops.length; k++) {
     var o = ops[k];
-    if (o.v === '\n') { if (o.t !== '-') out += '<br>'; continue; }
+    if (o.v === '\n') { if (o.t !== '-') flush(); continue; }
     var safe = escapeHtml(o.v);
-    if (o.t === '=') { out += safe + ' '; }
-    else if (o.t === '+') { out += '<ins style="background:#def7dc;color:#1e6b1e;text-decoration:none;padding:1px 3px;border-radius:3px;">' + safe + '</ins> '; }
-    else { out += '<del style="background:#fde8e8;color:#9b1c1c;padding:1px 3px;border-radius:3px;">' + safe + '</del> '; }
+    if (o.t === '=') { line += safe + ' '; }
+    else if (o.t === '+') { line += '<ins style="background:#def7dc;color:#1e6b1e;text-decoration:none;padding:1px 3px;border-radius:3px;">' + safe + '</ins> '; }
+    else { line += '<del style="background:#fde8e8;color:#9b1c1c;padding:1px 3px;border-radius:3px;">' + safe + '</del> '; }
   }
+  flush();
 
-  return '<div style="background:#fff;line-height:2;font-size:15px;">' +
-    '<div style="font-size:12px;color:#6b7280;margin-bottom:12px;">' +
+  return '<div style="background:#fff;line-height:1.9;font-size:15px;color:#1a1a1a;">' +
+    '<div style="font-size:12px;color:#6b7280;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid #e5e7eb;">' +
     '<span style="background:#def7dc;color:#1e6b1e;padding:1px 6px;border-radius:3px;">추가</span> ' +
     '<span style="background:#fde8e8;color:#9b1c1c;padding:1px 6px;border-radius:3px;text-decoration:line-through;">삭제</span> ' +
-    '· 이미지·서식 변경은 표시되지 않습니다</div>' + out + '</div>';
+    '· 이미지·서식 변경은 표시되지 않습니다</div>' + paras.join('') + '</div>';
 }
 
 function renderPreviewIframe(cleanHtml) {

@@ -33,7 +33,7 @@ export function jsonRes(res, data, status) {
 const MAX_BODY_SIZE = 1 * 1024 * 1024;
 export function parseBody(req) {
   return new Promise(function(resolve, reject) {
-    let body = '';
+    const chunks = [];
     let size = 0;
     req.on('data', function(ch) {
       size += ch.length;
@@ -42,10 +42,11 @@ export function parseBody(req) {
         reject(new Error('요청 크기 초과 (최대 1MB)'));
         return;
       }
-      body += ch;
+      // Buffer를 그대로 모은다 (멀티바이트 한글이 청크 경계에서 깨지지 않도록)
+      chunks.push(Buffer.isBuffer(ch) ? ch : Buffer.from(ch));
     });
     req.on('end', function() {
-      try { resolve(JSON.parse(body)); }
+      try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); }
       catch (e) { reject(e); }
     });
     req.on('error', function(e) {
