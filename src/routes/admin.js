@@ -472,6 +472,8 @@ export async function handleAdminRoutes(req, res, pathname, method, url) {
       contentType: item.content_type_name,
       status: item.status,
       createdAt: item.created_at,
+      original_title: item.original_title || null,
+      original_content: item.original_content || null,
     });
     return true;
   }

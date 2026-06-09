@@ -880,6 +880,11 @@
         <h2 id="previewTitle">콘텐츠 미리보기</h2>
         <button class="modal-close" onclick="closePreview()">&times;</button>
       </div>
+      <div id="adminPreviewTabs" style="display:none;gap:4px;padding:8px 0 0;border-bottom:1px solid #334155;margin-bottom:8px;">
+        <button type="button" class="admin-prev-tab" data-tab="after" onclick="adminSwitchTab('after')" style="padding:8px 14px;font-size:13px;border:none;background:none;color:#94a3b8;cursor:pointer;border-bottom:2px solid transparent;">수정 후</button>
+        <button type="button" class="admin-prev-tab" data-tab="before" onclick="adminSwitchTab('before')" style="padding:8px 14px;font-size:13px;border:none;background:none;color:#94a3b8;cursor:pointer;border-bottom:2px solid transparent;">수정 전</button>
+        <button type="button" class="admin-prev-tab" data-tab="diff" onclick="adminSwitchTab('diff')" style="padding:8px 14px;font-size:13px;border:none;background:none;color:#94a3b8;cursor:pointer;border-bottom:2px solid transparent;">변경 표시</button>
+      </div>
       <div class="modal-body" id="previewBody">로딩 중...</div>
     </div>
   </div>
@@ -1388,6 +1393,8 @@
     // Auto-refresh every 60s
     setInterval(loadData, 60000);
 
+  var adminPreviewData = null;
+
   async function showPreview(queueId) {
     const modal = document.getElementById('previewModal');
     const title = document.getElementById('previewTitle');
@@ -1395,13 +1402,71 @@
     modal.classList.add('active');
     title.textContent = '콘텐츠 미리보기';
     body.innerHTML = '로딩 중...';
+    document.getElementById('adminPreviewTabs').style.display = 'none';
     try {
       const res = await fetch(`${API_BASE}/api/content-preview?id=${encodeURIComponent(queueId)}`);
       const data = await res.json();
       if (data.error) { body.innerHTML = '<p style="color:#f87171;">콘텐츠를 찾을 수 없습니다.</p>'; return; }
       title.textContent = data.title || '콘텐츠 미리보기';
-      body.innerHTML = sanitizeHtml(data.content || '<p>내용 없음</p>');
+      adminPreviewData = data;
+      var hasOriginal = !!data.original_content;
+      document.getElementById('adminPreviewTabs').style.display = hasOriginal ? 'flex' : 'none';
+      adminSwitchTab('after');
     } catch(e) { body.innerHTML = '<p style="color:#f87171;">로딩 실패: ' + escapeHtml(e.message) + '</p>'; }
+  }
+
+  function adminSwitchTab(tab) {
+    var d = adminPreviewData;
+    if (!d) return;
+    var tabs = document.querySelectorAll('.admin-prev-tab');
+    for (var i=0;i<tabs.length;i++){
+      var active = tabs[i].getAttribute('data-tab')===tab;
+      tabs[i].style.borderBottomColor = active ? '#22c55e' : 'transparent';
+      tabs[i].style.color = active ? '#e2e8f0' : '#94a3b8';
+      tabs[i].style.fontWeight = active ? '600' : '400';
+    }
+    var body = document.getElementById('previewBody');
+    var html;
+    if (tab === 'before') {
+      html = d.original_content || '';
+    } else if (tab === 'diff') {
+      html = buildEditDiffHtml(d.original_content || '', d.content || '');
+      if (d.original_title && d.original_title !== d.title) {
+        html = '<p><del style="background:#7f1d1d;color:#fecaca;text-decoration:line-through;padding:1px 4px;border-radius:3px;">' + escapeHtml(d.original_title) + '</del><br>' +
+               '<ins style="background:#14532d;color:#bbf7d0;text-decoration:none;padding:1px 4px;border-radius:3px;">' + escapeHtml(d.title) + '</ins></p>' + html;
+      }
+    } else {
+      html = d.content || '<p>내용 없음</p>';
+    }
+    body.innerHTML = sanitizeHtml(html);
+  }
+
+  // ─── 수정 diff (광고주 대시보드와 동일 로직: 태그/공백 무시, 바뀐 단어만 강조) ───
+  function diffTokenize(html){ return String(html||'').match(/<[^>]+>|\s+|[^<\s]+/g) || []; }
+  function diffIsWord(t){ return !/^</.test(t) && !/^\s+$/.test(t); }
+  function lcsTable(a,b){ var n=a.length,m=b.length,dp=[]; for(var i=0;i<=n;i++)dp.push(new Array(m+1).fill(0)); for(var i=1;i<=n;i++)for(var j=1;j<=m;j++)dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]+1:Math.max(dp[i-1][j],dp[i][j-1]); return dp; }
+  function diffSeq(a,b){ if(a.length*b.length>4000000)return null; var dp=lcsTable(a,b),ops=[],i=a.length,j=b.length; while(i>0||j>0){ if(i>0&&j>0&&a[i-1]===b[j-1]){ops.unshift({t:'=',v:a[i-1]});i--;j--;} else if(j>0&&(i===0||dp[i][j-1]>=dp[i-1][j])){ops.unshift({t:'+',v:b[j-1]});j--;} else {ops.unshift({t:'-',v:a[i-1]});i--;} } return ops; }
+  function buildEditDiffHtml(beforeHtml, afterHtml){
+    var afterTokens = diffTokenize(afterHtml);
+    var beforeWords = diffTokenize(beforeHtml).filter(diffIsWord);
+    var afterWords = afterTokens.filter(diffIsWord);
+    var ops = diffSeq(beforeWords, afterWords);
+    var legend = '<div style="font-size:13px;color:#94a3b8;margin:0 0 16px;padding-bottom:10px;border-bottom:1px solid #334155;">'+
+      '<span style="background:#14532d;color:#bbf7d0;padding:1px 6px;border-radius:3px;">추가</span> '+
+      '<span style="background:#7f1d1d;color:#fecaca;padding:1px 6px;border-radius:3px;text-decoration:line-through;">삭제</span> · 바뀐 부분만 강조됩니다</div>';
+    if (!ops) return legend + afterHtml;
+    var ai=0;
+    var emitNonWords=function(){ var s=''; while(ai<afterTokens.length && !diffIsWord(afterTokens[ai])){ s+=afterTokens[ai]; ai++; } return s; };
+    var out=''; var changed=false;
+    for(var k=0;k<ops.length;k++){
+      var o=ops[k];
+      if(o.t==='='){ out+=emitNonWords(); out+=(ai<afterTokens.length?afterTokens[ai++]:''); }
+      else if(o.t==='+'){ out+=emitNonWords(); var w=(ai<afterTokens.length?afterTokens[ai++]:escapeHtml(o.v)); out+='<ins style="background:#14532d;color:#bbf7d0;text-decoration:none;border-radius:3px;padding:0 2px;">'+w+'</ins>'; changed=true; }
+      else { out+=emitNonWords(); out+='<del style="background:#7f1d1d;color:#fecaca;border-radius:3px;padding:0 2px;">'+escapeHtml(o.v)+'</del> '; changed=true; }
+    }
+    while(ai<afterTokens.length){ out+=afterTokens[ai++]; }
+    if(!changed) return '<p style="color:#94a3b8;background:#1e293b;padding:12px 16px;border-radius:8px;">본문 텍스트 변경 없음 (이미지 또는 서식만 변경되었습니다)</p>' + afterHtml;
+    return legend + out;
   }
   // HTML 미리보기용 간이 새니타이즈 (script/iframe/on* 이벤트 제거)
   function sanitizeHtml(html) {
@@ -1416,12 +1481,15 @@
     modal.classList.add('active');
     titleEl.textContent = '콘텐츠 미리보기';
     body.innerHTML = '로딩 중...';
+    document.getElementById('adminPreviewTabs').style.display = 'none';
     try {
       const res = await fetch(`${API_BASE}/api/content-preview?title=${encodedTitle}`);
       const data = await res.json();
       if (data.error) { body.innerHTML = '<p style="color:#f87171;">콘텐츠를 찾을 수 없습니다.</p>'; return; }
       titleEl.textContent = data.title || '콘텐츠 미리보기';
-      body.innerHTML = sanitizeHtml(data.content || '<p>내용 없음</p>');
+      adminPreviewData = data;
+      document.getElementById('adminPreviewTabs').style.display = data.original_content ? 'flex' : 'none';
+      adminSwitchTab('after');
     } catch(e) { body.innerHTML = '<p style="color:#f87171;">로딩 실패: ' + escapeHtml(e.message) + '</p>'; }
   }
   function closePreview() {
