@@ -69,6 +69,11 @@ async function bridgeApiCall(env, endpoint, method = 'GET', body = null) {
   throw lastError;
 }
 
+// ─── 글 메타만 갱신 (Bridge /posts/{id}/meta) — 스키마 메타 재전송용 ───
+export async function updatePostMetaViaBridge(env, postId, meta) {
+  return bridgeApiCall(env, `posts/${postId}/meta`, 'POST', { meta: meta });
+}
+
 // ─── WP REST API 직접 호출 (Application Password 인증) ───
 function getWpRestAuth(env) {
   // 방법 1: env 객체에서 WP_REST_USER + WP_REST_PASS

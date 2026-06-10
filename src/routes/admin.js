@@ -4,7 +4,7 @@
  */
 import { CONTENT_TYPES, BRAND } from '../config.js';
 import { calculateGeoScore, calculateEeatScore } from '../content-generator.js';
-import { checkConnection } from '../wordpress-publisher.js';
+import { checkConnection, updatePostMetaViaBridge } from '../wordpress-publisher.js';
 import { contentQueue, publishLogs, publishedTopics, settings, topics as topicsDB, citationResults, testConnection as testSupabase } from '../supabase-client.js';
 import { env } from '../lib/env.js';
 import { jsonRes, parseBody, getHtml, saveErrorLog } from '../lib/helpers.js';
@@ -475,6 +475,34 @@ export async function handleAdminRoutes(req, res, pathname, method, url) {
       original_title: item.original_title || null,
       original_content: item.original_content || null,
     });
+    return true;
+  }
+
+  // --- 기존 발행글 스키마 메타 일괄 재전송 (깨진 _hwj_jsonld 복구) ---
+  if (pathname === '/api/fix-schema-meta' && method === 'POST') {
+    if (!verifyAdminToken(req)) { jsonRes(res, { error: 'Unauthorized' }, 401); return true; }
+    try {
+      const all = await contentQueue.getAll();
+      const published = (all || []).filter(function(it) { return it.wp_post_id && it.schemas; });
+      let ok = 0, fail = 0;
+      const results = [];
+      for (const it of published) {
+        try {
+          await updatePostMetaViaBridge(env, it.wp_post_id, {
+            _hwj_jsonld: JSON.stringify(it.schemas),
+          });
+          ok++;
+          results.push({ wp_post_id: it.wp_post_id, status: 'ok' });
+        } catch (e) {
+          fail++;
+          results.push({ wp_post_id: it.wp_post_id, status: 'fail', error: e.message });
+        }
+      }
+      jsonRes(res, { success: true, total: published.length, ok: ok, fail: fail, results: results });
+    } catch (e) {
+      await saveErrorLog('스키마메타재전송', e);
+      jsonRes(res, { error: e.message }, 500);
+    }
     return true;
   }
 
