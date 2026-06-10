@@ -1378,7 +1378,8 @@ export async function generateContent(env, topic, contentType, options = {}) {
     excerpt: cleanedProduction.excerpt,
     metaDescription: cleanedProduction.metaDescription,
     tags: cleanedProduction.tags,
-    category: cleanedProduction.category,
+    // 질환별 카테고리로 발행 (워드프레스의 질환 카테고리명과 매칭). 큰분류(피부질환) 대신 질환명 사용.
+    category: topic.name,
     faq: cleanedProduction.faq,
     heroImage: images[0] || null,
     schemas,
