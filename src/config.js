@@ -34,6 +34,18 @@ export const BRAND = {
     'https://www.instagram.com/mongclinic_gangnam', // 인스타그램
     'https://www.youtube.com/@TV-ul7fv',            // 유튜브
   ],
+  // ─── 지점/지역 정보 (강남본점 전용 — 지역 GEO 신호) ───
+  branchName: '강남본점',
+  addressRegion: '서울특별시',
+  addressLocality: '강남구',
+  areaServed: ['서울 강남구', '강남역', '역삼동', '서초구', '서울특별시'],
+  // 정확한 좌표로 교체 권장 (네이버/구글 지도에서 강남대로84길 8 검색 후 좌표 확인)
+  geo: { lat: 37.4996, lng: 127.0309 }, // 강남역 인근 (대략값)
+  // 본사(네트워크) — branchOf로 연결해 권위 상속
+  parentOrg: {
+    name: '화접몽한의원 네트워크',
+    url: 'https://www.mongclinic.com',
+  },
 };
 
 // ─── AI 모델 설정 (Google Gemini - 유료) ───

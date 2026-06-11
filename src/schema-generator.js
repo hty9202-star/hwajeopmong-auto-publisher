@@ -24,9 +24,14 @@ function getMedicalClinicSchema() {
     address: {
       '@type': 'PostalAddress',
       streetAddress: BRAND.address,
-      addressLocality: '서울특별시',
+      addressLocality: BRAND.addressLocality || '서울특별시',
+      addressRegion: BRAND.addressRegion || '서울특별시',
       addressCountry: 'KR',
     },
+    areaServed: BRAND.areaServed,
+    branchOf: BRAND.parentOrg
+      ? { '@type': 'MedicalOrganization', name: BRAND.parentOrg.name, url: BRAND.parentOrg.url }
+      : undefined,
     medicalSpecialty: {
       '@type': 'MedicalSpecialty',
       name: '한방피부과',
@@ -154,7 +159,7 @@ function generateLocalBusinessSchema() {
     '@type': 'MedicalBusiness',
     '@id': `${BRAND.url}/#organization`,
     name: BRAND.name,
-    alternateName: BRAND.nameEn,
+    alternateName: BRAND.branchName ? `${BRAND.name} ${BRAND.branchName}` : BRAND.nameEn,
     url: BRAND.url,
     telephone: BRAND.phone,
     description: BRAND.specialty,
@@ -162,9 +167,19 @@ function generateLocalBusinessSchema() {
     address: {
       '@type': 'PostalAddress',
       streetAddress: BRAND.address,
-      addressLocality: '서울특별시',
+      addressLocality: BRAND.addressLocality || '서울특별시',
+      addressRegion: BRAND.addressRegion || '서울특별시',
       addressCountry: 'KR',
     },
+    // 지역 GEO 신호 (강남본점 — 지역 검색·AI 인용 강화)
+    areaServed: BRAND.areaServed,
+    geo: BRAND.geo
+      ? { '@type': 'GeoCoordinates', latitude: BRAND.geo.lat, longitude: BRAND.geo.lng }
+      : undefined,
+    // 본사(네트워크) 소속 — 권위 상속
+    branchOf: BRAND.parentOrg
+      ? { '@type': 'MedicalOrganization', name: BRAND.parentOrg.name, url: BRAND.parentOrg.url }
+      : undefined,
     priceRange: '$$',
     openingHoursSpecification: [
       {
