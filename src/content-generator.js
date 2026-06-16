@@ -1046,6 +1046,23 @@ function generateMedicalDisclaimer() {
 </div>`;
 }
 
+// ─── 후기·예약·상담 CTA (네이버 플레이스 연결, 글 하단) ───
+function generatePlaceCta() {
+  const place = 'https://map.naver.com/p/entry/place/19838331';
+  const kakao = 'https://pf.kakao.com/_cPxdPj';
+  const tel = '02-545-7579';
+  return `
+<div class="place-cta" style="background:#f4f8f2; border:1px solid #d6e6d0; border-radius:12px; padding:22px; margin:30px 0; text-align:center;">
+  <p style="font-size:1.05em; font-weight:600; color:#1f3d1a; margin:0 0 4px;">강남 ${BRAND.name}, 직접 확인해 보세요</p>
+  <p style="font-size:0.92em; color:#5a6b55; margin:0 0 16px;">실제 방문자 후기와 예약을 네이버에서 바로 확인하실 수 있습니다.</p>
+  <div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center;">
+    <a href="${place}" target="_blank" rel="noopener" style="display:inline-block; background:#03c75a; color:#ffffff; padding:11px 20px; border-radius:8px; font-weight:600; text-decoration:none;">네이버 후기·예약</a>
+    <a href="${kakao}" target="_blank" rel="noopener" style="display:inline-block; background:#fee500; color:#3c1e1e; padding:11px 20px; border-radius:8px; font-weight:600; text-decoration:none;">카카오톡 상담</a>
+    <a href="tel:${tel}" style="display:inline-block; background:#ffffff; color:#2d5a27; border:1px solid #2d5a27; padding:11px 20px; border-radius:8px; font-weight:600; text-decoration:none;">전화 ${tel}</a>
+  </div>
+</div>`;
+}
+
 // ─── 오시는길 안내 (글 최하단, 라인 구분형) ───
 // 지역(강남역) 키워드를 모든 글에 포함시켜 로컬 GEO 신호 강화
 function generateDirectionsHtml() {
@@ -1366,6 +1383,9 @@ export async function generateContent(env, topic, contentType, options = {}) {
 
   // 오시는길 안내 (글 최하단)
   finalContent += '\n' + generateDirectionsHtml();
+
+  // 후기·예약·상담 CTA (네이버 플레이스 — 전환 + 플레이스 동선)
+  finalContent += '\n' + generatePlaceCta();
 
   // JSON-LD 스키마 생성 (본문이 아닌 별도 필드로 전달 — WordPress가 script 태그를 strip하므로)
   const schemas = generateSchemas(topic, cleanedProduction);
