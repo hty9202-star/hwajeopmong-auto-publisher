@@ -8,7 +8,7 @@ import { checkConnection, updatePostMetaViaBridge } from '../wordpress-publisher
 import { contentQueue, publishLogs, publishedTopics, settings, topics as topicsDB, citationResults, testConnection as testSupabase } from '../supabase-client.js';
 import { env } from '../lib/env.js';
 import { jsonRes, parseBody, getHtml, saveErrorLog } from '../lib/helpers.js';
-import { verifyAdminToken, ADMIN_TOKENS, genToken } from '../lib/auth.js';
+import { verifyAdminToken, genToken, saveToken } from '../lib/auth.js';
 import { autoPublish, getIsPublishing, resolveNextTopic, getNextPublishTime, setupCronSchedule, activeCronJobs, getSchedulerEnabled, setSchedulerEnabled } from '../lib/publisher.js';
 import { citationCronJob, lastCitationTrackTime } from '../lib/citation.js';
 
@@ -39,7 +39,7 @@ export async function handleAdminRoutes(req, res, pathname, method, url) {
       if (!adminPw) { jsonRes(res, { error: 'ADMIN_PASSWORD 환경변수가 설정되지 않았습니다' }, 500); return true; }
       if (parsed.id === adminId && parsed.password === adminPw) {
         const tk = genToken();
-        ADMIN_TOKENS.set(tk, { id: parsed.id, at: new Date().toISOString() });
+        await saveToken(tk, 'admin', parsed.id);
         jsonRes(res, { success: true, token: tk });
       } else {
         jsonRes(res, { success: false, error: '아이디 또는 비밀번호가 일치하지 않습니다' }, 401);

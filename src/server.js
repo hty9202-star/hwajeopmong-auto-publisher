@@ -10,7 +10,7 @@ import http from 'http';
 
 // ─── 라이브러리 ───
 import { saveErrorLog, jsonRes } from './lib/helpers.js';
-import './lib/auth.js'; // 토큰 정리 인터벌 시작
+import { loadTokensFromDB } from './lib/auth.js'; // 토큰 정리 인터벌 시작 + DB 로드
 import { setupCronSchedule, loadImageApiKeys } from './lib/publisher.js';
 import { setupCitationCron } from './lib/citation.js';
 
@@ -23,6 +23,7 @@ import { handleReportRoutes } from './routes/report.js';
 const PORT = process.env.PORT || 3000;
 
 // ─── 초기화 ───
+loadTokensFromDB().catch(function(e) { console.error('[Server] 토큰 DB 로드 실패:', e.message); });
 setupCronSchedule().catch(function(e) { console.error('[Server] cron 스케줄 초기화 실패:', e.message); });
 loadImageApiKeys().catch(function(e) { console.error('[Server] 이미지 API 키 IIFE 예외:', e.message); });
 setupCitationCron().catch(function(e) { console.error('[Server] 인용추적 cron 초기화 실패:', e.message); });

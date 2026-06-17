@@ -9,7 +9,7 @@ import { publishToWordPress, updateWordPressPost } from '../wordpress-publisher.
 import { contentQueue, publishLogs, publishedTopics, settings, topics as topicsDB } from '../supabase-client.js';
 import { env } from '../lib/env.js';
 import { jsonRes, parseBody, getHtml, saveErrorLog } from '../lib/helpers.js';
-import { verifyToken, CLIENT_TOKENS, genToken } from '../lib/auth.js';
+import { verifyToken, genToken, saveToken } from '../lib/auth.js';
 import { autoPublish, getNextPublishTime } from '../lib/publisher.js';
 
 /**
@@ -44,7 +44,7 @@ export async function handleClientRoutes(req, res, pathname, method, url) {
       if (!cpw) { jsonRes(res, { error: 'CLIENT_PASSWORD 환경변수가 설정되지 않았습니다' }, 500); return true; }
       if (parsed.id === cid && parsed.password === cpw) {
         const tk = genToken();
-        CLIENT_TOKENS.set(tk, { id: parsed.id, at: new Date().toISOString() });
+        await saveToken(tk, 'client', parsed.id);
         jsonRes(res, { success: true, token: tk });
       } else {
         jsonRes(res, { success: false, error: 'Invalid credentials' }, 401);
