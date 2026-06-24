@@ -1063,6 +1063,31 @@ function generatePlaceCta() {
 </div>`;
 }
 
+// ─── 본문 맥락 내부 링크 자동 삽입 ───
+// 관련 질환명이 본문 <p>에 처음 등장하는 곳에, 이미 발행된 그 질환 글 링크를 건다.
+// publishedMap: { topicId: { name, url } } — 발행(published/approved)된 글만 포함.
+export function injectInternalLinks(content, topic, publishedMap, max) {
+  if (!content || !topic || !topic.relatedTopics || !publishedMap) return content;
+  max = max || 3;
+  var out = content;
+  var count = 0;
+  for (var i = 0; i < topic.relatedTopics.length; i++) {
+    if (count >= max) break;
+    var entry = publishedMap[topic.relatedTopics[i]];
+    if (!entry || !entry.url || !entry.name) continue;
+    var name = entry.name;
+    // 이미 링크돼 있으면 건너뜀
+    if (new RegExp('<a[^>]*>[^<]*' + name).test(out)) continue;
+    // <p> 본문 안에서 그 질환명이 처음 나오는 곳에만 링크 (제목/이미지/태그 안은 제외)
+    var re = new RegExp('(<p[^>]*>(?:(?!</p>).)*?)(' + name + ')', 's');
+    if (re.test(out)) {
+      out = out.replace(re, '$1<a href="' + entry.url + '">' + name + '</a>');
+      count++;
+    }
+  }
+  return out;
+}
+
 // ─── 오시는길 안내 (글 최하단, 라인 구분형) ───
 // 지역(강남역) 키워드를 모든 글에 포함시켜 로컬 GEO 신호 강화
 function generateDirectionsHtml() {

@@ -3,7 +3,7 @@
  */
 import cron from 'node-cron';
 import { CONTENT_TYPES } from '../config.js';
-import { generateContent } from '../content-generator.js';
+import { generateContent, injectInternalLinks } from '../content-generator.js';
 import { publishToWordPress } from '../wordpress-publisher.js';
 import { contentQueue, publishLogs, publishedTopics, settings, topics as topicsDB } from '../supabase-client.js';
 import { env } from './env.js';
@@ -169,6 +169,30 @@ async function _doAutoPublish(options) {
     console.error('[autoPublish] 콘텐츠 생성 실패:', e);
     await saveErrorLog('autoPublish_콘텐츠생성', e);
     return;
+  }
+
+  // ── 4.5단계: 본문 맥락 내부 링크 자동 삽입 (발행된 연관 질환 글로) ──
+  try {
+    if (topic.relatedTopics && topic.relatedTopics.length) {
+      const allItems = await contentQueue.getAll();
+      const publishedMap = {};
+      for (var pi = 0; pi < allItems.length; pi++) {
+        var it = allItems[pi];
+        var url = it.wp_post_url || it.wordpress_url || it.post_url;
+        if (url && !it.is_test && (it.status === 'published' || it.status === 'approved') && it.topic_id) {
+          if (!publishedMap[it.topic_id]) {
+            publishedMap[it.topic_id] = { name: it.topic_name, url: url };
+          }
+        }
+      }
+      var linkedCount = Object.keys(publishedMap).length;
+      if (linkedCount > 0) {
+        result.content = injectInternalLinks(result.content, topic, publishedMap, 3);
+        console.log('[내부링크] 발행 글 ' + linkedCount + '건 기준으로 본문 링크 주입 완료');
+      }
+    }
+  } catch (e) {
+    console.error('[내부링크] 주입 실패(발행은 계속):', e.message);
   }
 
   // ── 5단계: DB 저장 ──
