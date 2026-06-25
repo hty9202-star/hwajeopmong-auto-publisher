@@ -275,6 +275,34 @@ async function uploadImageViaRestApi(env, imageUrl) {
   }
 }
 
+// ─── 업로드한 미디어(대표이미지)에 alt(대체 텍스트) 설정 ───
+// 네이버 색인 'Alt 속성 누락' 방지 + 접근성/SEO. Bridge·REST 어느 경로로 올렸든 media ID만 있으면 동작.
+async function setMediaAltViaRestApi(env, mediaId, altText) {
+  if (!mediaId || !altText) return;
+  const auth = getWpRestAuth(env);
+  if (!auth) {
+    console.log('[이미지 alt] WP REST 인증 미설정 — 대표이미지 alt 설정 건너뜀');
+    return;
+  }
+  try {
+    const site = env.WP_SITE_ID || 'mongclinic.blog';
+    const url = `https://${site}/wp-json/wp/v2/media/${mediaId}`;
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Authorization': auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ alt_text: altText }),
+    });
+    if (!resp.ok) {
+      const t = await resp.text();
+      console.warn(`[이미지 alt] 설정 실패: ${resp.status} - ${t.substring(0, 150)}`);
+      return;
+    }
+    console.log(`[이미지 alt] 대표이미지 alt 설정 완료: media ${mediaId} → "${altText}"`);
+  } catch (e) {
+    console.warn(`[이미지 alt] 설정 예외: ${e.message}`);
+  }
+}
+
 // ─── 단일 이미지를 Bridge를 통해 WordPress에 업로드 ───
 // 생성 단계(content-generator)에서도 호출 → 외부 임시 URL을 즉시 영구 URL로 전환
 export async function uploadImageToWP(env, imageUrl) {
@@ -383,6 +411,9 @@ export async function publishToWordPress(env, content, statusOverride) {
     featuredMediaId = await uploadHeroImage(env, content.heroImage);
     if (featuredMediaId) {
       console.log(`[WordPress] 대표 이미지 설정: media ID ${featuredMediaId}`);
+      // 대표이미지 alt 설정 (네이버 'Alt 속성 누락' 방지)
+      const featuredAlt = content.title || (content.category ? `${content.category} 한방 치료 관련 이미지 - 화접몽한의원 강남본점` : '화접몽한의원 강남본점');
+      await setMediaAltViaRestApi(env, featuredMediaId, featuredAlt);
     } else {
       console.log(`[WordPress] 대표 이미지 업로드 실패 — featured_image_url로 폴백`);
     }
