@@ -2,7 +2,7 @@
  * 자동 발행 로직 + Cron 스케줄링
  */
 import cron from 'node-cron';
-import { CONTENT_TYPES } from '../config.js';
+import { CONTENT_TYPES, TOPICS } from '../config.js';
 import { generateContent, injectInternalLinks } from '../content-generator.js';
 import { publishToWordPress } from '../wordpress-publisher.js';
 import { contentQueue, publishLogs, publishedTopics, settings, topics as topicsDB } from '../supabase-client.js';
@@ -173,7 +173,13 @@ async function _doAutoPublish(options) {
 
   // ── 4.5단계: 본문 맥락 내부 링크 자동 삽입 (발행된 연관 질환 글로) ──
   try {
-    if (topic.relatedTopics && topic.relatedTopics.length) {
+    // DB 토픽에는 relatedTopics가 없을 수 있으므로 config(TOPICS)에서 보완 (id=슬러그 매칭)
+    var relatedTopics = topic.relatedTopics;
+    if ((!relatedTopics || !relatedTopics.length) && topic.id) {
+      var cfgTopic = TOPICS.find(function(t) { return t.id === topic.id; });
+      if (cfgTopic && cfgTopic.relatedTopics) relatedTopics = cfgTopic.relatedTopics;
+    }
+    if (relatedTopics && relatedTopics.length) {
       const allItems = await contentQueue.getAll();
       const publishedMap = {};
       for (var pi = 0; pi < allItems.length; pi++) {
@@ -187,8 +193,11 @@ async function _doAutoPublish(options) {
       }
       var linkedCount = Object.keys(publishedMap).length;
       if (linkedCount > 0) {
-        result.content = injectInternalLinks(result.content, topic, publishedMap, 3);
-        console.log('[내부링크] 발행 글 ' + linkedCount + '건 기준으로 본문 링크 주입 완료');
+        var topicForLinks = (topic.relatedTopics && topic.relatedTopics.length)
+          ? topic
+          : Object.assign({}, topic, { relatedTopics: relatedTopics });
+        result.content = injectInternalLinks(result.content, topicForLinks, publishedMap, 3);
+        console.log('[내부링크] 발행 글 ' + linkedCount + '건 기준으로 본문 링크 주입 완료 (relatedTopics: ' + relatedTopics.join(',') + ')');
       }
     }
   } catch (e) {
