@@ -2,9 +2,8 @@
  * 월간 리포트 API 라우트 핸들러
  * server.js에서 분리된 모듈
  */
-import { publishLogs, contentQueue, citationResults } from '../supabase-client.js';
+import { publishLogs, contentQueue, citationResults, settings } from '../supabase-client.js';
 import { jsonRes, saveErrorLog } from '../lib/helpers.js';
-import { getWpComTraffic } from '../lib/wpstats.js';
 
 /**
  * 월간 리포트 API 라우트 처리
@@ -27,8 +26,8 @@ export async function handleReportRoutes(req, res, pathname, method, url) {
       var queue = (await contentQueue.getByDateRange(rStartDate, rEndDate) || []).filter(function(q) { return !q.is_test; });
       var citations = await citationResults.getByDateRange(rStartDate, rEndDate) || [];
 
-      // WordPress.com(Jetpack) 트래픽 — 토큰 없으면 null (리포트는 정상 동작)
-      var traffic = await getWpComTraffic(rStartDate, rEndDate).catch(function() { return null; });
+      // 트래픽(조회수·방문자수) — 수동 입력값을 settings에서 읽음 (기간별 저장)
+      var traffic = await settings.get('traffic_' + rStartDate + '_' + rEndDate).catch(function() { return null; }) || null;
 
       var publishedLogs = logs.filter(function(l) { return l.status === 'published' || l.status === 'success'; });
       var totalPublished = publishedLogs.length;
@@ -148,6 +147,30 @@ export async function handleReportRoutes(req, res, pathname, method, url) {
       console.error('Report API error:', reportErr);
       await saveErrorLog('월간리포트', reportErr);
       jsonRes(res, { error: reportErr.message }, 500);
+      return true;
+    }
+  }
+
+  // 트래픽(조회수·방문자수) 수동 입력 저장 — 기간별로 settings에 저장
+  if (pathname === '/api/report-traffic' && method === 'POST') {
+    try {
+      var body = '';
+      await new Promise(function(resolve) {
+        req.on('data', function(chunk) { body += chunk; });
+        req.on('end', resolve);
+      });
+      var parsed = JSON.parse(body || '{}');
+      var sDate = parsed.startDate;
+      var eDate = parsed.endDate;
+      if (!sDate || !eDate) { jsonRes(res, { error: 'startDate, endDate 필수' }, 400); return true; }
+      var views = Math.max(0, parseInt(parsed.views, 10) || 0);
+      var visitors = Math.max(0, parseInt(parsed.visitors, 10) || 0);
+      await settings.set('traffic_' + sDate + '_' + eDate, { views: views, visitors: visitors });
+      jsonRes(res, { success: true, traffic: { views: views, visitors: visitors } });
+      return true;
+    } catch (e) {
+      await saveErrorLog('트래픽저장', e);
+      jsonRes(res, { error: e.message }, 500);
       return true;
     }
   }
