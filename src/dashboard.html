@@ -1176,7 +1176,7 @@
           const prevCall = post.queue_id
             ? `showPreview('${post.queue_id}')`
             : `showPreviewByTitle('${encodeURIComponent(post.title)}')`;
-          titleHtml += `<button type="button" onclick="${prevCall};return false;" title="수정 전/후·변경 표시 보기" style="cursor:pointer;background:#dbeafe;color:#1e40af;font-size:11px;padding:2px 8px;border-radius:4px;margin-left:6px;vertical-align:middle;border:none;font-family:inherit;">수정됨 · 전후 보기</button>`;
+          titleHtml += `<button type="button" onclick="${prevCall};return false;" title="클릭하면 수정 전/후·변경 표시를 볼 수 있습니다" style="cursor:pointer;background:#dbeafe;color:#1e40af;font-size:11px;padding:2px 8px;border-radius:4px;margin-left:6px;vertical-align:middle;border:none;font-family:inherit;">수정됨</button>`;
         }
         let reviewHtml;
         if (post.review_status === 'fixed-critical') {
