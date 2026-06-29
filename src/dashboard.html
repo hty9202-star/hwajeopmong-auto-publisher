@@ -2073,6 +2073,10 @@
     html += '<div class="card"><h3>평균 GEO 점수</h3><div class="value">' + s.avgGeo + '</div></div>';
     html += '<div class="card"><h3>평균 E-E-A-T 점수</h3><div class="value">' + s.avgEeat + '</div></div>';
     html += '<div class="card"><h3>AI 평균 노출률</h3><div class="value">' + s.avgCitation + '%</div></div>';
+    if (data.traffic) {
+      html += '<div class="card"><h3>조회수 (WordPress)</h3><div class="value">' + Number(data.traffic.views || 0).toLocaleString() + '</div></div>';
+      html += '<div class="card"><h3>방문자수 (WordPress)</h3><div class="value">' + Number(data.traffic.visitors || 0).toLocaleString() + '</div></div>';
+    }
     html += '</div>';
 
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;">';

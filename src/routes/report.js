@@ -4,6 +4,7 @@
  */
 import { publishLogs, contentQueue, citationResults } from '../supabase-client.js';
 import { jsonRes, saveErrorLog } from '../lib/helpers.js';
+import { getWpComTraffic } from '../lib/wpstats.js';
 
 /**
  * 월간 리포트 API 라우트 처리
@@ -25,6 +26,9 @@ export async function handleReportRoutes(req, res, pathname, method, url) {
       var logs = (await publishLogs.getByDateRange(rStartDate, rEndDate) || []).filter(function(l) { return !l.is_test; });
       var queue = (await contentQueue.getByDateRange(rStartDate, rEndDate) || []).filter(function(q) { return !q.is_test; });
       var citations = await citationResults.getByDateRange(rStartDate, rEndDate) || [];
+
+      // WordPress.com(Jetpack) 트래픽 — 토큰 없으면 null (리포트는 정상 동작)
+      var traffic = await getWpComTraffic(rStartDate, rEndDate).catch(function() { return null; });
 
       var publishedLogs = logs.filter(function(l) { return l.status === 'published' || l.status === 'success'; });
       var totalPublished = publishedLogs.length;
@@ -123,6 +127,7 @@ export async function handleReportRoutes(req, res, pathname, method, url) {
 
       jsonRes(res, {
         period: { startDate: rStartDate, endDate: rEndDate },
+        traffic: traffic,
         summary: {
           totalPublished: totalPublished,
           avgGeo: scoredCount > 0 ? Math.round(geoSum / scoredCount) : 0,
