@@ -1173,7 +1173,10 @@
           titleHtml += `<span class="badge-republish">재발행</span>`;
         }
         if (post.edited_at) {
-          titleHtml += `<span style="display:inline-block;background:#dbeafe;color:#1e40af;font-size:11px;padding:1px 6px;border-radius:4px;margin-left:6px;vertical-align:middle">수정됨</span>`;
+          const prevCall = post.queue_id
+            ? `showPreview('${post.queue_id}')`
+            : `showPreviewByTitle('${encodeURIComponent(post.title)}')`;
+          titleHtml += `<button type="button" onclick="${prevCall};return false;" title="수정 전/후·변경 표시 보기" style="cursor:pointer;background:#dbeafe;color:#1e40af;font-size:11px;padding:2px 8px;border-radius:4px;margin-left:6px;vertical-align:middle;border:none;font-family:inherit;">수정됨 · 전후 보기</button>`;
         }
         let reviewHtml;
         if (post.review_status === 'fixed-critical') {
