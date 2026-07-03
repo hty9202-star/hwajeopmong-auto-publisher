@@ -51,7 +51,7 @@ export const BRAND = {
 // ─── AI 모델 설정 (Google Gemini - 유료) ───
 export const AI_CONFIG = {
   provider: 'gemini',
-  model: 'gemini-2.5-flash',        // 유료: Flash Lite 대비 품질 대폭 향상
+  model: 'gemini-3.5-flash',        // Gemini 3.5 Flash (정식) - 품질 업그레이드. 실패 시 2.5-flash로 폴백
   maxTokens: 8192,
   temperature: 0.7,                 // v2.1: 콘텐츠 다양성 확보 (단계별 차등: 0.6/0.7/0.85)
   apiBase: 'https://generativelanguage.googleapis.com/v1beta',
