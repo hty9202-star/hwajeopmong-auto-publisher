@@ -53,6 +53,7 @@ function getPhysicianSchema() {
     '@id': `${BRAND.url}/#physician`,
     name: d.name,
     jobTitle: d.title,
+    image: d.image,
     medicalSpecialty: d.specialty,
     description: d.description,
     url: d.profileUrl,

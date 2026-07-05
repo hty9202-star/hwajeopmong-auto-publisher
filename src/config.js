@@ -16,10 +16,11 @@ export const BRAND = {
   address: '서울특별시 강남구 강남대로84길 8 우인빌딩 9층',
   doctor: {
     name: '오철',
-    title: '한의학 박사',
+    title: '화접몽한의원 강남본점 원장',
     specialty: '피부과 전문',
-    // E-E-A-T 저자 권위 신호 (Person/Physician 스키마용 — 화면 비노출, 태그 전용)
-    description: '화접몽한의원 네트워크 강남본점 대표원장. 한의학 박사. 2014년 『동의보감으로 말하다』 저술, 2015년 복합 여드름흉터 치료법 ‘리셀테라피’ 개발, 2011년 한방성형학회 부회장, MBC·KBS·SBS 등 다수 방송 출연 및 자문.',
+    image: 'https://mongclinic.blog/wp-content/uploads/2026/05/20260529_172954.png',
+    // E-E-A-T 저자 권위 신호 (Person/Physician 스키마용)
+    description: '화접몽한의원 강남본점 원장. 한의사이자 한의학 박사(2008년 세명대학교 대학원). 2007년 개원, 피부질환 한방치료 전문. 2014년 『동의보감으로 말하다』 저술, 2015년 복합 여드름흉터 치료법 ‘리셀테라피’ 개발, 2011년 한방성형학회 부회장, MBC·KBS·SBS 등 다수 방송 출연 및 자문.',
     credential: '한의학 박사',
     profileUrl: 'https://mongclinic.blog/',   // 블로그 저자 소개(의료진 소개) 위치
     // 동일 인물을 가리키는 외부 권위 출처

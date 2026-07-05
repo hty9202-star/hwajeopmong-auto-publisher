@@ -498,9 +498,8 @@ ${['korean-medicine-treatment','case-study','comparison'].includes(contentType.i
 - 백과사전식 제목 금지: "~란? 원인·증상·치료법" 패턴 절대 금지
 - ★이번 제목의 관점(이 관점을 우선 적용)★: ${(() => {
   var t = topic.name;
+  var regionAngle = '지역·로컬 키워드형 — "강남 ' + t + ' 치료", "강남역 ' + t + '", "강남 ' + t + ' 한의원"처럼 지역(강남·강남역)을 앞세운 키워드형 제목으로 쓰세요. 지역 검색 노출용이며, 자연스럽게 키워드를 앞에 배치하세요.';
   var angles = [
-    '지역·로컬 키워드형 — "강남 ' + t + ' 치료", "강남역 ' + t + '", "강남 ' + t + ' 한의원"처럼 지역(강남·강남역)을 앞세운 키워드형 제목으로 쓰세요. 지역 검색 노출용이며, 자연스럽게 키워드를 앞에 배치하세요.',
-    '지역·로컬 키워드형 — "강남 ' + t + ' 치료", "강남역 ' + t + '", "강남 ' + t + ' 한의원"처럼 지역(강남·강남역)을 앞세운 키워드형 제목으로 쓰세요. 지역 검색 노출용이며, 자연스럽게 키워드를 앞에 배치하세요.',
     '부위·상황 롱테일형 — "' + t + '"에 특정 부위(등·가슴·턱·이마·두피·팔다리)나 상황(재발·악화·환절기·계절)을 결합해 좁고 구체적인 검색어를 노리세요.',
     '연령·대상형 — "' + t + '"를 특정 연령·대상(10대·20·30대·성인·직장인 등)과 연결하세요.',
     '증상·고민형 — "' + t + '"의 구체적 증상·고민(가렵다·붉다·번진다·오래간다 등)을 제목 전면에 내세우세요.',
@@ -508,6 +507,8 @@ ${['korean-medicine-treatment','case-study','comparison'].includes(contentType.i
     '비교·선택형 — "' + t + '"의 치료 방식이나 접근의 차이를 비교하는 관점으로 쓰세요.',
     '서술·공감형 — "' + t + '"로 겪는 불편에 공감하는 서술형으로 쓰세요.'
   ];
+  // 지역형은 약 20% 확률로만 (제목마다 강남 넣으면 스팸처럼 보임)
+  if (Math.random() < 0.2) return regionAngle;
   return angles[Math.floor(Math.random() * angles.length)];
 })()}
 - 롱테일 우선: 넓은 키워드("${topic.name} 한방치료")만 반복하지 말고, 위 관점에 맞춰 부위·상황·연령 등 좁은 변형을 제목에 자연스럽게 녹이세요(억지로 넣지는 말 것).${topic.subtopics && topic.subtopics.length ? ' 참고 변형: ' + topic.subtopics.slice(0,5).join(', ') + '.' : ''}
@@ -1051,6 +1052,29 @@ function generateFaqHtml(faq) {
 }
 
 // ─── 브랜드 CTA 섹션 생성 ───
+// ─── 저자(오철 원장) 소개 박스 — E-E-A-T 신뢰 신호 ───
+function generateAuthorBox() {
+  const photo = 'https://mongclinic.blog/wp-content/uploads/2026/05/20260529_172954.png';
+  return `
+<div class="author-box" style="border:1px solid #e3e8e1; border-radius:12px; padding:20px; margin:30px 0; background:#fafcf9;">
+  <p style="font-size:0.85em; color:#2d5a27; font-weight:600; margin:0 0 14px;">✔ 이 글은 화접몽한의원 오철 원장이 감수했습니다</p>
+  <div style="display:flex; gap:16px; align-items:flex-start;">
+    <img src="${photo}" alt="화접몽한의원 강남본점 오철 원장" style="flex:0 0 72px; width:72px; height:72px; border-radius:50%; object-fit:cover;" loading="lazy" />
+    <div>
+      <p style="margin:0; font-size:1.05em; font-weight:700; color:#1a1a1a;">오철 <span style="font-size:0.85em; font-weight:500; color:#555;">· 화접몽한의원 강남본점 원장</span></p>
+      <p style="margin:2px 0 10px; font-size:0.85em; color:#888;">한의사 · 피부질환 한방치료</p>
+      <ul style="margin:0; padding-left:18px; font-size:0.9em; color:#444; line-height:1.7;">
+        <li>2007년 개원, 피부질환 한방치료 전문 진료</li>
+        <li>2008년 세명대학교 대학원 한의학 박사</li>
+        <li>2015년 복합 여드름흉터 치료법 '리셀테라피' 개발</li>
+        <li>2014년 『동의보감으로 말하다』 저술</li>
+        <li>MBC·KBS·SBS 등 방송 출연 및 자문</li>
+      </ul>
+    </div>
+  </div>
+</div>`;
+}
+
 function generateBrandCta(topic) {
   const treatment = TREATMENT_MAP[topic.id] || { name: '한방 맞춤 치료' };
   let extraBlock = '';
@@ -1438,6 +1462,9 @@ export async function generateContent(env, topic, contentType, options = {}) {
   if (isFaqType && cleanedProduction.faq && cleanedProduction.faq.length > 0) {
     finalContent += '\n' + generateFaqHtml(cleanedProduction.faq);
   }
+
+  // 저자(오철 원장) 소개 박스 — E-E-A-T
+  finalContent += '\n' + generateAuthorBox();
 
   // 브랜드 CTA 추가
   finalContent += '\n' + generateBrandCta(topic);
