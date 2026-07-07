@@ -408,6 +408,60 @@ async function callGemini(apiKey, systemPrompt, userPrompt, options = {}) {
   throw new Error(`Gemini API: all models and retries exhausted${lastFailDetail ? ' — last error: ' + lastFailDetail : ''}`);
 }
 
+// ─── 안전 JSON 파싱 (research·strategy·production 공통) ───
+// 두 가지 실패를 모두 방어한다:
+//  (1) "JSON 뒤 잡음" — 정상 JSON 뒤에 설명문/코드펜스/중복 객체가 붙어 파싱 실패
+//  (2) "잘린 JSON" — 따옴표·괄호가 안 닫힌 채 응답이 끊김
+// 정상 응답은 맨 처음 JSON.parse에서 그대로 통과하므로 기존 동작을 바꾸지 않는다.
+function safeParseJson(raw) {
+  if (typeof raw !== 'string') return raw;
+  let s = raw.trim();
+  // 코드펜스(```json ... ```) 제거
+  if (s.startsWith('```')) {
+    s = s.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+  }
+  // 1차: 그대로 시도 (정상 응답은 여기서 끝 — 기존과 동일)
+  try { return JSON.parse(s); } catch (_) {}
+
+  // 첫 완전 JSON 값만 추출 (문자열 내부의 { } " 는 무시하는 스캐너)
+  const start = s.search(/[\{\[]/);
+  if (start >= 0) {
+    const open = s[start];
+    const close = open === '{' ? '}' : ']';
+    let depth = 0, inStr = false, esc = false, end = -1;
+    for (let i = start; i < s.length; i++) {
+      const ch = s[i];
+      if (inStr) {
+        if (esc) esc = false;
+        else if (ch === '\\') esc = true;
+        else if (ch === '"') inStr = false;
+      } else if (ch === '"') {
+        inStr = true;
+      } else if (ch === open) {
+        depth++;
+      } else if (ch === close) {
+        depth--;
+        if (depth === 0) { end = i; break; }
+      }
+    }
+    if (end >= 0) {
+      // (1) 뒤 잡음 케이스: 첫 완전 JSON만 잘라 파싱
+      try { return JSON.parse(s.slice(start, end + 1)); } catch (_) {}
+    }
+    // (2) 잘린 케이스: start부터 끝까지 잡아 따옴표·괄호를 닫아 복구
+    let fixed = s.slice(start);
+    const openQuotes = (fixed.match(/"/g) || []).length;
+    if (openQuotes % 2 !== 0) fixed += '"';
+    const openBraces = (fixed.match(/\{/g) || []).length - (fixed.match(/\}/g) || []).length;
+    const openBrackets = (fixed.match(/\[/g) || []).length - (fixed.match(/\]/g) || []).length;
+    for (let i = 0; i < openBrackets; i++) fixed += ']';
+    for (let i = 0; i < openBraces; i++) fixed += '}';
+    return JSON.parse(fixed);
+  }
+  // 추출 지점을 못 찾으면 원래 에러를 그대로 던진다
+  return JSON.parse(s);
+}
+
 // ─── Stage 1: 리서치 AI ───
 async function stageResearch(apiKey, topic, contentType) {
   const angle = pickRandom(CONTENT_ANGLES);
@@ -443,7 +497,7 @@ ${angle}
     temperature: 0.6,
   });
 
-  return JSON.parse(result);
+  return safeParseJson(result);
 }
 
 // ─── Stage 2: 전략 AI ───
@@ -559,7 +613,7 @@ ${existingTitles.map(t => `- "${t}"`).join('\n')}
     temperature: 0.7,
   });
 
-  return JSON.parse(result);
+  return safeParseJson(result);
 }
 
 // ─── Stage 3: 프로덕션 AI (핵심) ───
@@ -708,20 +762,10 @@ ${faqInstruction}
   });
 
   try {
-    return JSON.parse(result);
+    return safeParseJson(result);
   } catch (e) {
-    // JSON이 잘린 경우 복구 시도
-    console.error('[Gemini] JSON 파싱 실패, 복구 시도:', e.message);
-    let fixed = result;
-    // 잘린 문자열 닫기
-    const openQuotes = (fixed.match(/"/g) || []).length;
-    if (openQuotes % 2 !== 0) fixed += '"';
-    // 닫히지 않은 중괄호/배열 닫기
-    const openBraces = (fixed.match(/\{/g) || []).length - (fixed.match(/\}/g) || []).length;
-    const openBrackets = (fixed.match(/\[/g) || []).length - (fixed.match(/\]/g) || []).length;
-    for (let i = 0; i < openBrackets; i++) fixed += ']';
-    for (let i = 0; i < openBraces; i++) fixed += '}';
-    return JSON.parse(fixed);
+    console.error('[Gemini] production JSON 파싱 실패:', e.message);
+    throw e;
   }
 }
 
