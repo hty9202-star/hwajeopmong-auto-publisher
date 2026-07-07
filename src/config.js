@@ -237,6 +237,20 @@ export const TOPICS = [
     description: '피지 분비가 많은 부위에 발생하는 만성 염증성 피부 질환',
     relatedTopics: ['acne', 'folliculitis', 'atopic-dermatitis'],
   },
+  {
+    id: 'cutaneous-amyloidosis',
+    name: '피부아밀로이드증',
+    nameEn: 'Cutaneous Amyloidosis',
+    slug: 'cutaneous-amyloidosis',
+    category: '피부질환',
+    keywords: ['피부아밀로이드증 한방치료', '강남 피부아밀로이드증', '강남역 피부아밀로이드증', '피부아밀로이드증 한의원'],
+    medicalName: 'Amyloidosis Cutis',
+    icd10: 'L99.0',
+    pexelsQuery: 'skin care dermatology',
+    description: '아밀로이드 단백질이 피부에 침착되어 색소침착·돌기·만성 가려움증을 일으키는 피부 질환',
+    subtopics: ['색소침착', '만성습진', '각질형성세포'],
+    relatedTopics: ['atopic-dermatitis', 'dyshidrosis', 'keratosis-pilaris'],
+  },
 ];
 
 // ─── WordPress 카테고리 매핑 ───
