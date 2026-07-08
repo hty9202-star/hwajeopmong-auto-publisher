@@ -132,6 +132,7 @@ export const TOPICS = [
     icd10: 'L85.8',
     pexelsQuery: 'skin texture smooth',
     description: '모낭 주위에 각질이 쌓여 닭살처럼 돌기가 생기는 피부 질환',
+    subtopics: ['매몰모형', '호르몬민감형', '홍반형', '다리 모공각화증', '팔 모공각화증', '착색'],
     relatedTopics: ['flat-warts', 'folliculitis', 'atopic-dermatitis'],
   },
   {
