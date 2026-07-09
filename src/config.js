@@ -159,6 +159,7 @@ export const TOPICS = [
     icd10: 'L70.0',
     pexelsQuery: 'clear skin face care',
     description: '피지선의 과다 분비와 모공 막힘으로 발생하는 염증성 피부 질환',
+    subtopics: ['좁쌀여드름', '화농성여드름', '난치성 여드름', '등가슴여드름', '턱여드름', '성인여드름'],
     relatedTopics: ['acne-scars', 'folliculitis', 'seborrheic-dermatitis'],
   },
   {
