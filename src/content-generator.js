@@ -774,6 +774,7 @@ ${faqInstruction}
 - ${topic.name} 토픽에 깊이 집중하세요: 원인, 증상, 치료, 관리법 등을 구체적이고 실질적으로 다루세요
 - 헤딩 구조: <h2>는 대주제로 3~5개 사용하고, 내용이 풍부한 <h2> 섹션 2~3곳에서 <h3>를 활용해 세부 항목을 나누세요. <h3>는 해당 <h2> 흐름 안에서 자연스럽게 이어지는 소주제여야 합니다. 모든 <h2>에 <h3>를 넣을 필요는 없고, 종류·유형·단계 등 세분화가 자연스러운 부분에만 넣으세요.
 - 기존 콘텐츠와 차별화: 새로운 비유, 예시, 표현을 적극 활용하세요
+- ★상투어 반복 금지★: "근본 원인", "체질을 살피는", "단계별 솔루션", "제안하는 해결책", "다스린다" 같은 표현을 제목·소제목·본문에서 습관적으로 반복하지 말고, 매번 다른 어휘·문장 구조로 바꿔 쓰세요(여러 글이 서로 닮아 보이지 않도록).
 - 언어 규칙: 전체 콘텐츠를 반드시 한국어로만 작성하세요. 영어 문장이나 영어 표현을 섞지 마세요. 의학 용어 영문 병기만 예외적으로 허용됩니다. 단, 한 단어 안에서 한글+영문을 섞은 반쪽 표기(예: "몰uscum", "molla바이러스")는 절대 금지하며, 외국어 용어는 완전한 영문(molluscum) 또는 완전한 한글 음역(몰러스컴) 중 하나로만 표기하세요.
 - ★링크 금지★: 본문에 <a> 태그(하이퍼링크)를 절대 넣지 마세요. 다른 질환명, 외부 사이트, 내부 페이지 등 어떤 링크도 포함하지 마세요. 순수 텍스트와 구조 태그(<h2>, <h3>, <p>, <ul>, <li>, <strong>, <em>)만 사용하세요.
 - 핵심 키워드 반영: ${(() => { const kws = topic.keywords || []; if (kws.length === 0) return '별도 키워드 없음.'; const shuffled = [...kws].sort(() => Math.random() - 0.5).slice(0, 3); return '다음 키워드 중 2개를 골라 본문에 자연스럽게 녹여주세요: ' + shuffled.map(k => '"' + k + '"').join(', ') + '. 문장 흐름 속에 자연스럽게 배치하고, 한 문단에 같은 키워드를 2개 이상 넣지 마세요.'; })()}
@@ -1179,6 +1180,12 @@ function generateAuthorBox() {
 
 function generateBrandCta(topic) {
   const treatment = TREATMENT_MAP[topic.id] || { name: '한방 맞춤 치료' };
+  const _ctaIntro = pickRandom([
+    `${BRAND.name}에서는 ${topic.name} 치료를 위해 개인별 체질과 증상을 정밀하게 분석한 후 맞춤형 치료를 진행합니다.`,
+    `${BRAND.name}은(는) ${topic.name}의 원인부터 살펴 환자마다 다른 치료 계획을 1:1로 설계합니다.`,
+    `${BRAND.name}에서는 ${topic.name}을(를) 겉으로 드러난 증상뿐 아니라 체질과 병변 상태까지 함께 보고 단계적으로 접근합니다.`,
+    `${BRAND.name}은(는) 오래 다뤄온 임상 경험을 토대로 ${topic.name}을(를) 무리한 시술보다 근본 회복에 초점을 맞춰 치료합니다.`,
+  ]);
   let extraBlock = '';
   if (topic.id === 'flat-warts') {
     extraBlock = `
@@ -1196,18 +1203,21 @@ function generateBrandCta(topic) {
   return `
 <div class="brand-cta" style="background:#f8f9fa; border-left:4px solid #2E75B6; padding:20px; margin:30px 0;">
   <h3>${BRAND.name} - ${topic.name} ${treatment.name}</h3>
-  <p>${BRAND.name}에서는 ${topic.name} 치료를 위해 개인별 체질과 증상을 정밀하게 분석한 후 맞춤형 치료를 진행합니다.</p>${extraBlock}
+  <p>${_ctaIntro}</p>${extraBlock}
   <p><strong>화접몽 홈페이지 바로가기:</strong> <a href="https://www.mongclinic.com/" target="_blank">https://www.mongclinic.com/</a></p>
 </div>`;
 }
 
 // ─── 의료 면책 조항 HTML ───
 function generateMedicalDisclaimer() {
+  const _body = pickRandom([
+    '본 콘텐츠는 건강 정보 제공을 목적으로 작성되었으며, 의학적 진단이나 치료를 대체하지 않습니다. 개인별 체질과 증상에 따라 치료 결과가 다를 수 있으므로, 정확한 진단과 치료를 위해 반드시 전문 의료진과 상담하시기 바랍니다.',
+    '이 글은 일반적인 건강 정보 제공을 위한 것으로, 의학적 진단·치료를 대신하지 않습니다. 증상과 체질에 따라 치료 경과가 달라질 수 있으니, 정확한 진단은 전문 의료진과의 상담을 통해 받으시길 권합니다.',
+  ]);
   return `
 <div class="medical-disclaimer" style="background:#fff3cd; border:1px solid #ffc107; border-radius:8px; padding:15px; margin:30px 0; font-size:0.9em; color:#664d03;">
   <p><strong>※ 의료법에 따른 안내</strong></p>
-  <p>본 콘텐츠는 건강 정보 제공을 목적으로 작성되었으며, 의학적 진단이나 치료를 대체하지 않습니다.
-  개인별 체질과 증상에 따라 치료 결과가 다를 수 있으므로, 정확한 진단과 치료를 위해 반드시 전문 의료진과 상담하시기 바랍니다.</p>
+  <p>${_body}</p>
 </div>`;
 }
 
@@ -1216,10 +1226,16 @@ function generatePlaceCta() {
   const place = 'https://map.naver.com/p/entry/place/19838331';
   const kakao = 'https://pf.kakao.com/_cPxdPj';
   const tel = '02-545-7579';
+  const _head = pickRandom([
+    { h: `강남 ${BRAND.name}, 직접 확인해 보세요`, s: '실제 방문자 후기와 예약을 네이버에서 바로 확인하실 수 있습니다.' },
+    { h: '후기와 예약, 네이버에서 바로 확인하세요', s: '실제 내원하신 분들의 생생한 후기를 네이버 플레이스에서 보실 수 있습니다.' },
+    { h: '궁금한 점은 상담으로 확인하세요', s: '증상과 치료 과정이 궁금하시면 카카오톡이나 전화로 편하게 문의하세요.' },
+    { h: `${BRAND.name} 방문 전, 후기부터 살펴보세요`, s: '네이버 플레이스에서 후기와 예약 정보를 한 번에 확인하실 수 있습니다.' },
+  ]);
   return `
 <div class="place-cta" style="background:#f4f8f2; border:1px solid #d6e6d0; border-radius:12px; padding:22px; margin:30px 0; text-align:center;">
-  <p style="font-size:1.05em; font-weight:600; color:#1f3d1a; margin:0 0 4px;">강남 ${BRAND.name}, 직접 확인해 보세요</p>
-  <p style="font-size:0.92em; color:#5a6b55; margin:0 0 16px;">실제 방문자 후기와 예약을 네이버에서 바로 확인하실 수 있습니다.</p>
+  <p style="font-size:1.05em; font-weight:600; color:#1f3d1a; margin:0 0 4px;">${_head.h}</p>
+  <p style="font-size:0.92em; color:#5a6b55; margin:0 0 16px;">${_head.s}</p>
   <div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center;">
     <a href="${place}" target="_blank" rel="noopener" style="display:inline-block; background:#03c75a; color:#ffffff; padding:11px 20px; border-radius:8px; font-weight:600; text-decoration:none;">네이버 후기·예약</a>
     <a href="${kakao}" target="_blank" rel="noopener" style="display:inline-block; background:#fee500; color:#3c1e1e; padding:11px 20px; border-radius:8px; font-weight:600; text-decoration:none;">카카오톡 상담</a>
@@ -1256,9 +1272,10 @@ export function injectInternalLinks(content, topic, publishedMap, max) {
 // ─── 오시는길 안내 (글 최하단, 라인 구분형) ───
 // 지역(강남역) 키워드를 모든 글에 포함시켜 로컬 GEO 신호 강화
 function generateDirectionsHtml() {
+  const _dirHead = pickRandom(['화접몽한의원 강남본점 오시는길', '강남역 화접몽한의원 오시는길', '화접몽한의원(강남본점) 위치 안내']);
   return `
 <div class="clinic-directions" style="border-top:1px solid #d9d9d9; margin-top:35px; padding:18px 4px 0; font-size:0.92em; line-height:1.8; color:#666;">
-  <p style="font-weight:600; color:#333; margin:0 0 6px;">화접몽한의원 강남본점 오시는길</p>
+  <p style="font-weight:600; color:#333; margin:0 0 6px;">${_dirHead}</p>
   <p style="margin:0;">📍 서울 강남구 강남대로84길 8, 우인빌딩 9층</p>
   <p style="margin:0;">🚇 2호선 강남역 3번 출구에서 도보 약 110m — 출구에서 뒤로 돌아 좌측 골목으로 약 50m, 우측 CU 편의점 건물 9층</p>
 </div>`;
@@ -1569,20 +1586,34 @@ export async function generateContent(env, topic, contentType, options = {}) {
     finalContent += '\n' + generateFaqHtml(cleanedProduction.faq);
   }
 
-  // 저자(오철 원장) 소개 박스 — E-E-A-T
+  // 저자(오철 원장) 소개 박스 — E-E-A-T (항상)
   finalContent += '\n' + generateAuthorBox();
 
-  // 브랜드 CTA 추가
-  finalContent += '\n' + generateBrandCta(topic);
+  // 하단 CTA 로테이션(템플릿 티 감소): 브랜드 CTA / 플레이스 CTA를 매 글 다르게 노출.
+  // ⭐블록이 있는 질환(편평사마귀·모공각화증)은 브랜드 CTA를 항상 유지하고 플레이스만 로테이션.
+  const _starBrand = (topic.id === 'flat-warts' || topic.id === 'keratosis-pilaris');
+  let _showBrand, _showPlace;
+  if (_starBrand) {
+    _showBrand = true;
+    _showPlace = Math.random() < 0.5;
+  } else {
+    const _r = Math.random();
+    if (_r < 0.45) { _showBrand = true; _showPlace = false; }
+    else if (_r < 0.90) { _showBrand = false; _showPlace = true; }
+    else { _showBrand = true; _showPlace = true; }
+  }
 
-  // 의료 면책 조항 추가
+  // 브랜드 CTA (로테이션)
+  if (_showBrand) finalContent += '\n' + generateBrandCta(topic);
+
+  // 의료 면책 조항 (항상 — 법적 필수)
   finalContent += '\n' + generateMedicalDisclaimer();
 
-  // 오시는길 안내 (글 최하단)
+  // 오시는길 안내 (항상 — 로컬 GEO 신호)
   finalContent += '\n' + generateDirectionsHtml();
 
-  // 후기·예약·상담 CTA (네이버 플레이스 — 전환 + 플레이스 동선)
-  finalContent += '\n' + generatePlaceCta();
+  // 후기·예약·상담 CTA (네이버 플레이스 — 로테이션)
+  if (_showPlace) finalContent += '\n' + generatePlaceCta();
 
   // JSON-LD 스키마 생성 (본문이 아닌 별도 필드로 전달 — WordPress가 script 태그를 strip하므로)
   const schemas = generateSchemas(topic, cleanedProduction);
