@@ -44,10 +44,10 @@ export async function askAI(model, question, citationSettings) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + chatKey },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-5.4',
         tools: [{
           type: 'web_search',
-          search_context_size: 'medium',
+          search_context_size: 'high',
           user_location: {
             type: 'approximate',
             country: 'KR',
