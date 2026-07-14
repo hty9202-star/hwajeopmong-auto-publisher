@@ -239,7 +239,8 @@ export async function handleAdminRoutes(req, res, pathname, method, url) {
     const publishedComboIds = (startDate || endDate)
       ? await contentQueue.getPublishedComboIdsByPeriod(startDate, endDate)
       : await publishedTopics.getComboIds();
-    const allTopics = await topicsDB.getAll();
+    const includeInactive = url.searchParams.get('includeInactive') === '1';
+    const allTopics = await topicsDB.getAll(includeInactive);
     const topicStatus = (allTopics || []).map(function(topic) {
       return {
         id: topic.id, name: topic.name, nameEn: topic.nameEn, slug: topic.slug, category: topic.category,

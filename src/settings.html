@@ -356,7 +356,7 @@ async function saveSettings(){
 // ─── 질환 관리 ───
 async function loadTopics(){
   try{
-    const res=await fetch('/api/topics',{headers:authHeaders()});
+    const res=await fetch('/api/topics?includeInactive=1',{headers:authHeaders()});
     allTopics=await res.json();
     renderTopics(allTopics);
   }catch(e){console.error(e)}
@@ -381,6 +381,7 @@ function renderTopics(topics){
           statusBadge+
         '</div>'+
         '<div class="topic-actions">'+
+          '<button class="btn-sm '+(t.is_active!==false?'':'primary')+'" onclick="toggleTopicActive(\''+t.id+'\','+(t.is_active!==false?'false':'true')+',\''+escapeHtml(t.name)+'\')">'+(t.is_active!==false?'비활성화':'활성화')+'</button>'+
           '<button class="btn-sm" onclick="openEditModal(\''+t.id+'\')">수정</button>'+
           '<button class="btn-sm danger" onclick="deleteTopic(\''+t.id+'\',\''+escapeHtml(t.name)+'\')">삭제</button>'+
         '</div>'+
@@ -473,6 +474,23 @@ async function saveTopic(){
       showToast(result.error||'저장 실패','error');
     }
   }catch(e){showToast('저장 실패: '+e.message,'error')}
+}
+
+async function toggleTopicActive(topicId, makeActive, topicName){
+  const actLabel=makeActive?'활성화':'비활성화';
+  const note=makeActive?'\n(다시 발행 대상에 포함됩니다)':'\n(발행에서 제외되며, 기존 콘텐츠는 유지됩니다)';
+  if(!confirm(topicName+' 질환을 '+actLabel+'하시겠습니까?'+note))return;
+  try{
+    const res=await fetch('/api/topics/'+topicId,{method:'PUT',headers:authHeaders({'Content-Type':'application/json'}),body:JSON.stringify({is_active:makeActive})});
+    const result=await res.json();
+    if(result&&result.success!==false){
+      showToast(topicName+' '+actLabel+' 완료','success');
+      loadTopics();
+      loadSettings();
+    }else{
+      showToast((result&&result.error)||'실패','error');
+    }
+  }catch(e){showToast('실패: '+e.message,'error')}
 }
 
 async function deleteTopic(topicId, topicName){
