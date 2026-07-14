@@ -20,7 +20,7 @@ export const BRAND = {
     specialty: '피부과 전문',
     image: 'https://mongclinic.blog/wp-content/uploads/2026/05/20260529_172954.png',
     // E-E-A-T 저자 권위 신호 (Person/Physician 스키마용)
-    description: '화접몽한의원 강남본점 원장. 한의사이자 한의학 박사(2008년 세명대학교 대학원). 2007년 개원, 피부질환 한방치료 전문. 2014년 『동의보감으로 말하다』 저술, 2015년 복합 여드름흉터 치료법 ‘리셀테라피’ 개발, 2011년 한방성형학회 부회장, MBC·KBS·SBS 등 다수 방송 출연 및 자문.',
+    description: '화접몽한의원 강남본점 원장. 2007년 개원, 피부질환 한방치료 전문. 2014년 『동의보감으로 말하다』 저술, 2015년 복합 여드름흉터 치료법 ‘리셀테라피’ 개발, 2011년 한방성형학회 부회장, MBC·KBS·SBS 등 다수 방송 출연 및 자문.',
     credential: '한의학 박사',
     profileUrl: 'https://mongclinic.blog/',   // 블로그 저자 소개(의료진 소개) 위치
     // 동일 인물을 가리키는 외부 권위 출처
@@ -119,6 +119,7 @@ export const TOPICS = [
     icd10: 'B07.8',
     pexelsQuery: 'skin care dermatology',
     description: 'HPV(인유두종바이러스)에 의해 발생하는 편평한 형태의 사마귀',
+    subtopics: ['좁쌀여드름 구분', '검버섯 구분', '점 구분', '비립종 구분', '쥐젖 구분', '물사마귀 차이', '전염', '원인·HPV', '면역력 저하', '방치 시 번짐', '재발', '레이저 치료', '냉동치료 비교', '자연치유 여부', '연고 치료', '목·손등', '얼굴', '청소년·젊은층', '제거 후 색소침착 관리', '거우침'],
     relatedTopics: ['keratosis-pilaris', 'folliculitis'],
   },
   {
@@ -132,7 +133,7 @@ export const TOPICS = [
     icd10: 'L85.8',
     pexelsQuery: 'skin texture smooth',
     description: '모낭 주위에 각질이 쌓여 닭살처럼 돌기가 생기는 피부 질환',
-    subtopics: ['매몰모형', '호르몬민감형', '홍반형', '다리 모공각화증', '팔 모공각화증', '착색'],
+    subtopics: ['팔뚝', '허벅지·다리', '등', '얼굴 홍조', '각질 제거', '유전', '건조·겨울', '보습관리', '성인', '청소년', '색소침착', '뱀살', '완치 여부', '뜯는 습관', '레이저 치료', 'AHA·BHA 성분', '아토피 연관', '여드름 구분', '화안케어'],
     relatedTopics: ['flat-warts', 'folliculitis', 'atopic-dermatitis'],
   },
   {
@@ -146,6 +147,7 @@ export const TOPICS = [
     icd10: 'L73.9',
     pexelsQuery: 'skin health care',
     description: '모낭(털주머니)에 염증이 생기는 피부 감염 질환',
+    subtopics: ['두피 모낭염', '등', '얼굴', '다리 면도 후', '엉덩이', '겨드랑이·왁싱 후', '재발', '세균성·진균성 구분', '말라세지아 모낭염', '곰팡이성 여드름', '여드름 구분', '땀·마스크', '압출 주의', '항생제·연고 한계', '흉터 여부', '가려움', '원인', '발효약초테라피'],
     relatedTopics: ['acne', 'seborrheic-dermatitis'],
   },
   {
@@ -159,7 +161,7 @@ export const TOPICS = [
     icd10: 'L70.0',
     pexelsQuery: 'clear skin face care',
     description: '피지선의 과다 분비와 모공 막힘으로 발생하는 염증성 피부 질환',
-    subtopics: ['좁쌀여드름', '화농성여드름', '난치성 여드름', '등가슴여드름', '턱여드름', '성인여드름'],
+    subtopics: ['이마', '볼', '입주변', '턱드름', '호르몬', '생리주기', '스트레스', '압출', '흉터 예방', '자국·색소침착', '화장품', '마스크 트러블', '좁쌀여드름', '화농성 여드름', '성인여드름', '블랙헤드·화이트헤드', '결절·낭포성', '등여드름', '여드름약(이소트레티노인)', '여드름 흉터', '화안케어'],
     relatedTopics: ['acne-scars', 'folliculitis', 'seborrheic-dermatitis'],
   },
   {
@@ -173,6 +175,7 @@ export const TOPICS = [
     icd10: 'L20',
     pexelsQuery: 'skin care natural remedy',
     description: '만성적으로 재발하는 가려움증과 습진을 동반하는 피부 질환',
+    subtopics: ['성인 아토피', '소아 아토피', '아기·신생아 아토피', '얼굴', '목', '팔오금', '손 습진', '태선화', '진물', '밤 가려움', '건조·각질', '보습', '스테로이드 연고', '재발', '원인', '유전', '좋은 음식', '환절기·겨울 관리', '한약치료'],
     relatedTopics: ['seborrheic-dermatitis', 'dyshidrosis', 'psoriasis'],
   },
   {
@@ -186,6 +189,7 @@ export const TOPICS = [
     icd10: 'L90.5',
     pexelsQuery: 'skin recovery healing',
     description: '여드름 염증 후 남은 흉터 및 색소 침착',
+    subtopics: ['패인흉터', '붉은자국', '갈색 색소침착', '송곳형', '박스형', '롤링형', '모공흉터', '볼·턱 흉터', '자연회복 여부', '초기 관리', '오래된 흉터', '흉터 연고', '서브시전', '레이저 치료', 'TCA 크로스', '없애는 법', '자외선 차단', '화장품 커버', '리셀테라피'],
     relatedTopics: ['acne', 'folliculitis'],
   },
   {
@@ -199,6 +203,7 @@ export const TOPICS = [
     icd10: 'L40',
     pexelsQuery: 'skin health dermatology',
     description: '피부 세포가 비정상적으로 빠르게 증식하여 은백색 비늘이 생기는 만성 피부 질환',
+    subtopics: ['판상건선', '물방울건선', '농포건선', '두피 건선', '손발톱 건선', '손발바닥 건선', '팔꿈치', '무릎', '건선 관절염', '인설·각질', '초기증상', '원인·자가면역', '스트레스', '겨울·계절 악화', '재발', '지루성피부염 구분', '좋은 음식', '생활관리·보습', '완치·전염 여부', '한약 처방'],
     relatedTopics: ['atopic-dermatitis', 'seborrheic-dermatitis'],
   },
   {
@@ -212,6 +217,7 @@ export const TOPICS = [
     icd10: 'L30.1',
     pexelsQuery: 'hand care skin',
     description: '손바닥, 손가락, 발바닥에 작은 물집이 생기는 습진성 피부 질환',
+    subtopics: ['손가락', '손바닥', '발바닥', '물집', '각질 벗겨짐', '갈라짐·균열', '손톱 변화', '가려움', '원인', '재발', '만성화', '여름·계절 악화', '스트레스', '다한증', '주부습진 구분', '무좀 구분', '금속알레르기', '발효약초테라피'],
     relatedTopics: ['atopic-dermatitis', 'psoriasis'],
   },
   {
@@ -225,6 +231,7 @@ export const TOPICS = [
     icd10: 'E66',
     pexelsQuery: 'healthy lifestyle wellness',
     description: '한의학적 체질 진단을 기반으로 한 맞춤형 체중 관리 프로그램',
+    subtopics: ['다이어트 한약', '체질별 처방', '복부비만', '산후비만', '갱년기 비만', '폭식', '식욕억제', '요요 방지', '붓기·부종', '대사', '정체기 극복', '운동 병행', '하체비만·셀룰라이트', '부작용·안전성', '다이어트약 비교', '40대 다이어트'],
   },
   {
     id: 'seborrheic-dermatitis',
@@ -237,6 +244,7 @@ export const TOPICS = [
     icd10: 'L21',
     pexelsQuery: 'scalp care healthy hair',
     description: '피지 분비가 많은 부위에 발생하는 만성 염증성 피부 질환',
+    subtopics: ['두피 지루성피부염', '이마·눈썹', '콧볼 홍반', '얼굴', '비듬', '각질', '홍반', '가려움', '만성 재발', '계절성 악화', '스트레스', '아토피 구분', '건선 구분', '여드름 구분', '약용샴푸 관리', '말라세지아균 원인', '화안케어'],
     relatedTopics: ['acne', 'folliculitis', 'atopic-dermatitis'],
   },
   {
@@ -250,7 +258,7 @@ export const TOPICS = [
     icd10: 'L99.0',
     pexelsQuery: 'skin care dermatology',
     description: '아밀로이드 단백질이 피부에 침착되어 색소침착·돌기·만성 가려움증을 일으키는 피부 질환',
-    subtopics: ['색소침착', '만성습진', '각질형성세포'],
+    subtopics: ['정강이 오돌토돌 돌기', '종아리 갈색 색소침착', '등 색소침착', '적갈색 구진', '만성 가려움', '긁는 습관', '태선화', '태선양형', '반점상형', '마찰 원인', '모공각화증 구분', '만성단순태선 구분', '아토피 구분', '각질', '다리 색소침착 치료', '거우침'],
     relatedTopics: ['atopic-dermatitis', 'dyshidrosis', 'keratosis-pilaris'],
   },
 ];
