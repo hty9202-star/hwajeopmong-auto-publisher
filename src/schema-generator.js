@@ -32,10 +32,8 @@ function getMedicalClinicSchema() {
     branchOf: BRAND.parentOrg
       ? { '@type': 'MedicalOrganization', name: BRAND.parentOrg.name, url: BRAND.parentOrg.url }
       : undefined,
-    medicalSpecialty: {
-      '@type': 'MedicalSpecialty',
-      name: '한방피부과',
-    },
+    // MedicalSpecialty는 지정 열거값만 유효 (자유 문구·객체 형태 불가)
+    medicalSpecialty: 'https://schema.org/Dermatologic',
     availableService: {
       '@type': 'MedicalTherapy',
       name: '한방 피부질환 치료',
@@ -48,13 +46,18 @@ function getMedicalClinicSchema() {
 function getPhysicianSchema() {
   const d = BRAND.doctor;
   return {
-    '@type': 'Physician',
+    // schema.org에서 Physician은 '조직(Organization)' 계열이라 jobTitle·worksFor를
+    // 쓸 수 없다(검증 경고). 저자는 실제 개인이므로 Person으로 지정한다 —
+    // 구글 E-E-A-T도 저자는 Person을 선호한다.
+    '@type': 'Person',
     // 모든 글에서 동일 인물로 묶이도록 고정 식별자
     '@id': `${BRAND.url}/#physician`,
     name: d.name,
     jobTitle: d.title,
     image: d.image,
-    medicalSpecialty: d.specialty,
+    // medicalSpecialty는 schema.org 지정 열거값만 허용(자유 문구 불가) →
+    // Person에서는 knowsAbout으로 전문 분야를 표현한다.
+    knowsAbout: d.specialty,
     description: d.description,
     url: d.profileUrl,
     sameAs: d.sameAs,
@@ -137,10 +140,8 @@ function generateArticleSchema(topic, production) {
       '@type': 'MedicalCondition',
       name: topic.name,
     },
-    specialty: {
-      '@type': 'MedicalSpecialty',
-      name: '한방피부과',
-    },
+    // MedicalSpecialty는 지정 열거값만 유효 (자유 문구·객체 형태 불가)
+    specialty: 'https://schema.org/Dermatologic',
     speakable: {
       // 따옴표 없는 클래스 선택자 사용 — WordPress 메타 저장 시 백슬래시 제거로
       // JSON이 깨지는 문제 방지([class~="..."] 형태는 내부 따옴표 때문에 깨짐)

@@ -21,7 +21,9 @@ export const BRAND = {
     image: 'https://mongclinic.blog/wp-content/uploads/2026/05/20260529_172954.png',
     // E-E-A-T 저자 권위 신호 (Person/Physician 스키마용)
     description: '화접몽한의원 강남본점 원장. 2007년 개원, 피부질환 한방치료 전문. 2014년 『동의보감으로 말하다』 저술, 2015년 복합 여드름흉터 치료법 ‘리셀테라피’ 개발, 2011년 한방성형학회 부회장, MBC·KBS·SBS 등 다수 방송 출연 및 자문.',
-    credential: '한의학 박사',
+    // credential(학위) 정보는 사용하지 않음 — 사실 확인이 어려운 자격 표기는
+    // 구조화 데이터에서 제외한다(E-E-A-T·의료 신뢰성). 비우면 hasCredential 자체가 생성되지 않음.
+    credential: '',
     profileUrl: 'https://mongclinic.blog/',   // 블로그 저자 소개(의료진 소개) 위치
     // 동일 인물을 가리키는 외부 권위 출처
     sameAs: [
