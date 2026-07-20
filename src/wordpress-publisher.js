@@ -394,8 +394,11 @@ export async function publishToWordPress(env, content, statusOverride) {
   const categoryId = await resolveCategory(env, content.category);
 
   // 3. 글 발행 (Bridge API)
+  // _yoast_wpseo_title은 일부러 설정하지 않는다.
+  // 값을 넣으면 글마다 SEO 타이틀이 고정돼 Yoast 전역 제목 템플릿
+  // (%%title%% %%sep%% %%sitename%% → "제목 | 화접몽한의원 강남본점")이 무시된다.
+  // 브랜드·지역 접미는 Yoast 전역 설정에서 일괄 관리한다.
   const meta = {
-    _yoast_wpseo_title: content.title,
     _yoast_wpseo_metadesc: content.metaDescription || '',
     _yoast_wpseo_focuskw: content.focusKeyphrase || '',
   };
@@ -551,7 +554,7 @@ export async function updateWordPressPost(env, wpPostId, updates) {
   }
   const meta = {};
   if (updates.metaDescription) {
-    meta._yoast_wpseo_title = updates.title || '';
+    // _yoast_wpseo_title 미설정 — Yoast 전역 제목 템플릿을 사용한다(위 발행 로직과 동일 정책)
     meta._yoast_wpseo_metadesc = updates.metaDescription;
     postData.meta = meta;
   }
