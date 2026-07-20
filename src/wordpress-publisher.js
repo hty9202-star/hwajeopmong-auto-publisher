@@ -403,6 +403,12 @@ export async function publishToWordPress(env, content, statusOverride) {
     _yoast_wpseo_focuskw: content.focusKeyphrase || '',
   };
 
+  // 제목에 이미 브랜드가 들어 있는 경우(한방 치료법 유형 등)에만 SEO 타이틀을 제목 그대로 고정한다.
+  // 그대로 두면 Yoast 전역 템플릿이 "| 화접몽한의원 강남본점"을 한 번 더 붙여 브랜드가 중복된다.
+  if (content.title && content.title.includes('화접몽')) {
+    meta._yoast_wpseo_title = content.title;
+  }
+
   // JSON-LD 스키마를 커스텀 메타 필드로 전달
   if (content.schemas && Array.isArray(content.schemas) && content.schemas.length > 0) {
     meta._hwj_jsonld = JSON.stringify(content.schemas);
