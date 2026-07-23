@@ -491,51 +491,41 @@ export async function publishToWordPress(env, content, statusOverride) {
   };
 }
 
-// ─── 검색엔진 인덱싱 알림 (IndexNow + Google Sitemap Ping) ───
+// ─── 검색엔진 인덱싱 알림 (IndexNow) ───
+// ※ 구글/빙 sitemap ping은 2023년 폐기됨(404/410 응답) — 제거.
+//   구글은 사이트맵 자동 재크롤로 대체되고, 빙·네이버·얀덱스는 IndexNow가 정식 경로.
+// IndexNow 작동 조건 2가지(둘 다 필요):
+//   1) Render 환경변수 INDEXNOW_API_KEY 설정
+//   2) 같은 키값이 담긴 키 파일이 사이트에 호스팅되어 있어야 함
+//      (기본: https://{site}/{key}.txt — 워드프레스 미디어 업로드 URL을 쓰려면
+//       INDEXNOW_KEY_LOCATION 환경변수로 전체 URL을 지정)
 async function notifySearchEngines(env, postUrl) {
   const site = env.WP_SITE_ID || 'mongclinic.blog';
-  const sitemapUrl = 'https://' + site + '/sitemap_index.xml';
   const results = [];
 
-  // 1. Google Sitemap Ping
-  try {
-    const gResp = await fetch('https://www.google.com/ping?sitemap=' + encodeURIComponent(sitemapUrl), {
-      signal: AbortSignal.timeout(5000),
-    });
-    results.push('Google: ' + gResp.status);
-  } catch (e) {
-    results.push('Google: fail');
-  }
-
-  // 2. IndexNow (Bing, Yandex, Naver 등 동시 지원)
   const indexNowKey = env.INDEXNOW_API_KEY;
-  if (indexNowKey) {
-    try {
-      const inResp = await fetch('https://api.indexnow.org/indexnow', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          host: site,
-          key: indexNowKey,
-          keyLocation: 'https://' + site + '/' + indexNowKey + '.txt',
-          urlList: [postUrl],
-        }),
-        signal: AbortSignal.timeout(5000),
-      });
-      results.push('IndexNow: ' + inResp.status);
-    } catch (e) {
-      results.push('IndexNow: fail');
-    }
+  if (!indexNowKey) {
+    console.warn('[검색엔진 알림] INDEXNOW_API_KEY 미설정 — 색인 알림이 전송되지 않습니다. Render 환경변수를 설정하세요.');
+    return;
   }
 
-  // 3. Bing Sitemap Ping (IndexNow 없어도 동작)
+  const keyLocation = env.INDEXNOW_KEY_LOCATION || ('https://' + site + '/' + indexNowKey + '.txt');
   try {
-    const bResp = await fetch('https://www.bing.com/ping?sitemap=' + encodeURIComponent(sitemapUrl), {
-      signal: AbortSignal.timeout(5000),
+    const inResp = await fetch('https://api.indexnow.org/indexnow', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: JSON.stringify({
+        host: site,
+        key: indexNowKey,
+        keyLocation: keyLocation,
+        urlList: [postUrl],
+      }),
+      signal: AbortSignal.timeout(8000),
     });
-    results.push('Bing: ' + bResp.status);
+    // 200=접수, 202=접수(키 검증 대기), 403=키 파일 불일치, 422=URL/호스트 불일치
+    results.push('IndexNow: ' + inResp.status + (inResp.status === 403 ? ' (키 파일 확인 필요)' : inResp.status === 422 ? ' (호스트/URL 불일치)' : ''));
   } catch (e) {
-    results.push('Bing: fail');
+    results.push('IndexNow: fail (' + e.message + ')');
   }
 
   console.log('[검색엔진 알림] ' + postUrl + ' → ' + results.join(', '));
