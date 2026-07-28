@@ -646,6 +646,7 @@
   <div class="container">
     <div class="actions">
       <button class="btn btn-primary" id="recalcBtn" onclick="recalculateScores()">기존 콘텐츠 점수 재계산</button>
+      <button class="btn btn-primary" id="resyncBtn" onclick="resyncPublished()">발행글 재동기화 (본문+스키마)</button>
       <button class="btn btn-secondary" onclick="qualityLoaded=false;loadQualityData()">새로고침</button>
     </div>
 
@@ -1723,6 +1724,37 @@
       btn.classList.remove('btn-loading');
       btn.textContent = '기존 콘텐츠 점수 재계산';
       recalcLock = false;
+    }
+  }
+
+  // ─── 발행글 재동기화 (DB 정정 내용 → WP 라이브 반영: 본문 + 스키마 메타) ───
+  let resyncLock = false;
+  async function resyncPublished() {
+    if (resyncLock) return;
+    if (!confirm('발행된 모든 글의 본문과 스키마를 DB 기준으로 워드프레스에 다시 전송합니다.\n(박사 표기 제거, "전문→중심" 순화 등 정정 내용이 라이브에 반영됩니다)\n\n진행할까요?')) return;
+    resyncLock = true;
+    const btn = document.getElementById('resyncBtn');
+    btn.disabled = true;
+    btn.classList.add('btn-loading');
+    try {
+      btn.textContent = '스키마 재전송 중...';
+      const r1 = await fetch(API_BASE + '/api/fix-schema-meta', { method: 'POST' });
+      const d1 = await r1.json();
+      if (d1.error) throw new Error('스키마: ' + d1.error);
+
+      btn.textContent = '본문 재전송 중... (수 분 소요)';
+      const r2 = await fetch(API_BASE + '/api/resync-content', { method: 'POST' });
+      const d2 = await r2.json();
+      if (d2.error) throw new Error('본문: ' + d2.error);
+
+      alert('재동기화 완료\n스키마: 성공 ' + d1.ok + ' / 실패 ' + d1.fail + '\n본문: 성공 ' + d2.ok + ' / 실패 ' + d2.fail);
+    } catch (e) {
+      alert('재동기화 실패: ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove('btn-loading');
+      btn.textContent = '발행글 재동기화 (본문+스키마)';
+      resyncLock = false;
     }
   }
 
