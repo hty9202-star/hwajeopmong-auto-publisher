@@ -1191,7 +1191,7 @@ function generateAuthorBox() {
       <p style="margin:0; font-size:1.05em; font-weight:700; color:#1a1a1a;">오철 <span style="font-size:0.85em; font-weight:500; color:#555;">· 화접몽한의원 강남본점 원장</span></p>
       <p style="margin:2px 0 10px; font-size:0.85em; color:#888;">한의사 · 피부질환 한방치료</p>
       <ul style="margin:0; padding-left:18px; font-size:0.9em; color:#444; line-height:1.7;">
-        <li>2007년 개원, 피부질환 한방치료 중심 진료</li>
+        <li>2007년 개원, 피부과한의원</li>
         <li>2015년 복합 여드름흉터 치료법 '리셀테라피' 개발</li>
         <li>2014년 『동의보감으로 말하다』 저술</li>
         <li>MBC·KBS·SBS 등 방송 출연 및 자문</li>
