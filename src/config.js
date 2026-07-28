@@ -9,7 +9,8 @@
 export const BRAND = {
   name: '화접몽 한의원',
   nameEn: 'Hwajeopmong Korean Medicine Clinic',
-  specialty: '피부질환 전문 한방 클리닉',
+  // '전문' 표방은 전문의 자격·전문병원 지정 없이는 의료광고 리스크 → '중심'으로 순화 (2026-07)
+  specialty: '피부질환 중심 한방 클리닉',
   tone: '전문적이고 신뢰감 있으며, 환자를 배려하는 따뜻한 어조',
   url: 'https://www.mongclinic.com',
   phone: '0507-1423-7587',
@@ -17,10 +18,10 @@ export const BRAND = {
   doctor: {
     name: '오철',
     title: '화접몽한의원 강남본점 원장',
-    specialty: '피부과 전문',
+    specialty: '피부질환 한방 진료', // '피부과 전문'은 전문의 오인 소지(의료법) → 순화
     image: 'https://mongclinic.blog/wp-content/uploads/2026/05/20260529_172954.png',
     // E-E-A-T 저자 권위 신호 (Person/Physician 스키마용)
-    description: '화접몽한의원 강남본점 원장. 2007년 개원, 피부질환 한방치료 전문. 2014년 『동의보감으로 말하다』 저술, 2015년 복합 여드름흉터 치료법 ‘리셀테라피’ 개발, 2011년 한방성형학회 부회장, MBC·KBS·SBS 등 다수 방송 출연 및 자문.',
+    description: '화접몽한의원 강남본점 원장. 2007년 개원, 피부질환 한방치료 중심 진료. 2014년 『동의보감으로 말하다』 저술, 2015년 복합 여드름흉터 치료법 ‘리셀테라피’ 개발, 2011년 한방성형학회 부회장, MBC·KBS·SBS 등 다수 방송 출연 및 자문.',
     // credential(학위) 정보는 사용하지 않음 — 사실 확인이 어려운 자격 표기는
     // 구조화 데이터에서 제외한다(E-E-A-T·의료 신뢰성). 비우면 hasCredential 자체가 생성되지 않음.
     credential: '',
