@@ -423,10 +423,41 @@ async function callGemini(apiKey, systemPrompt, userPrompt, options = {}) {
 }
 
 // ─── 안전 JSON 파싱 (research·strategy·production 공통) ───
-// 두 가지 실패를 모두 방어한다:
+// 네 가지 실패를 모두 방어한다:
 //  (1) "JSON 뒤 잡음" — 정상 JSON 뒤에 설명문/코드펜스/중복 객체가 붙어 파싱 실패
 //  (2) "잘린 JSON" — 따옴표·괄호가 안 닫힌 채 응답이 끊김
+//  (3) 코드펜스(```json) 포장
+//  (4) "문자열 안 제어문자" — AI가 문자열 값 안에 실제 줄바꿈·탭을 이스케이프 없이
+//      넣어 "Bad control character in string literal" 발생 → 문자열 내부만 이스케이프
 // 정상 응답은 맨 처음 JSON.parse에서 그대로 통과하므로 기존 동작을 바꾸지 않는다.
+
+// 문자열 리터럴 내부의 제어문자만 이스케이프 (문자열 밖 공백·줄바꿈은 합법이라 유지)
+function escapeCtrlInStrings(str) {
+  let out = '';
+  let inStr = false, esc = false;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    if (inStr) {
+      if (esc) { out += ch; esc = false; continue; }
+      if (ch === '\\') { out += ch; esc = true; continue; }
+      if (ch === '"') { out += ch; inStr = false; continue; }
+      const code = ch.charCodeAt(0);
+      if (code < 0x20) {
+        if (ch === '\n') out += '\\n';
+        else if (ch === '\t') out += '\\t';
+        else if (ch === '\r') { /* 제거 */ }
+        else { /* 기타 제어문자 제거 */ }
+        continue;
+      }
+      out += ch;
+    } else {
+      if (ch === '"') inStr = true;
+      out += ch;
+    }
+  }
+  return out;
+}
+
 function safeParseJson(raw) {
   if (typeof raw !== 'string') return raw;
   let s = raw.trim();
@@ -435,6 +466,10 @@ function safeParseJson(raw) {
     s = s.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
   }
   // 1차: 그대로 시도 (정상 응답은 여기서 끝 — 기존과 동일)
+  try { return JSON.parse(s); } catch (_) {}
+
+  // 2차: 문자열 내부 제어문자 이스케이프 후 재시도 ("Bad control character" 방어)
+  s = escapeCtrlInStrings(s);
   try { return JSON.parse(s); } catch (_) {}
 
   // 첫 완전 JSON 값만 추출 (문자열 내부의 { } " 는 무시하는 스캐너)
