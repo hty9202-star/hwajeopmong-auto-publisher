@@ -472,6 +472,14 @@ function safeParseJson(raw) {
   s = escapeCtrlInStrings(s);
   try { return JSON.parse(s); } catch (_) {}
 
+  // 2.5차: 누락된 쉼표 복구 ("Expected ',' or '}'" 방어)
+  // 제어문자 이스케이프 후에는 문자열 안에 실제 줄바꿈이 없으므로,
+  // "값 끝 → 줄바꿈 → 다음 키(따옴표)" 패턴 사이의 줄바꿈은 전부 구조적 위치다.
+  // 그 사이에 쉼표가 없으면 Gemini가 쉼표를 빠뜨린 것 → 넣어서 복구한다.
+  const commaFixed = s.replace(/("|\d|true|false|null|\}|\])(\s*\n\s*)(")/g, '$1,$2$3');
+  try { return JSON.parse(commaFixed); } catch (_) {}
+  s = commaFixed;
+
   // 첫 완전 JSON 값만 추출 (문자열 내부의 { } " 는 무시하는 스캐너)
   const start = s.search(/[\{\[]/);
   if (start >= 0) {
@@ -499,7 +507,9 @@ function safeParseJson(raw) {
     }
     // (2) 잘린 케이스: start부터 끝까지 잡아 따옴표·괄호를 닫아 복구
     let fixed = s.slice(start);
-    const openQuotes = (fixed.match(/"/g) || []).length;
+    // 이스케이프된 문자(\", \\ 등)를 제거한 뒤 세어야 실제 구조용 따옴표 개수가 나온다
+    const structural = fixed.replace(/\\./g, '');
+    const openQuotes = (structural.match(/"/g) || []).length;
     if (openQuotes % 2 !== 0) fixed += '"';
     const openBraces = (fixed.match(/\{/g) || []).length - (fixed.match(/\}/g) || []).length;
     const openBrackets = (fixed.match(/\[/g) || []).length - (fixed.match(/\]/g) || []).length;
@@ -546,7 +556,14 @@ ${angle}
     temperature: 0.6,
   });
 
-  return safeParseJson(result);
+  try {
+    return safeParseJson(result);
+  } catch (e) {
+    // 수리 불가능한 JSON이면 같은 프롬프트로 1회 재생성 (Gemini 응답은 확률적이라 재시도로 대부분 해결)
+    console.warn('[리서치] JSON 파싱 실패 → 1회 재생성:', e.message);
+    const retry = await callGemini(apiKey, systemPrompt, userPrompt, { temperature: 0.6 });
+    return safeParseJson(retry);
+  }
 }
 
 // ─── Stage 2: 전략 AI ───
@@ -685,7 +702,13 @@ ${assignedFacet.hint}
     temperature: 0.7,
   });
 
-  return safeParseJson(result);
+  try {
+    return safeParseJson(result);
+  } catch (e) {
+    console.warn('[전략] JSON 파싱 실패 → 1회 재생성:', e.message);
+    const retry = await callGemini(apiKey, systemPrompt, userPrompt, { temperature: 0.7 });
+    return safeParseJson(retry);
+  }
 }
 
 // ─── Stage 3: 프로덕션 AI (핵심) ───
@@ -848,8 +871,14 @@ ${faqInstruction}
   try {
     return safeParseJson(result);
   } catch (e) {
-    console.error('[Gemini] production JSON 파싱 실패:', e.message);
-    throw e;
+    console.warn('[집필] JSON 파싱 실패 → 1회 재생성:', e.message);
+    const retry = await callGemini(apiKey, systemPrompt, userPrompt, { temperature: 0.85 });
+    try {
+      return safeParseJson(retry);
+    } catch (e2) {
+      console.error('[Gemini] production JSON 파싱 재시도도 실패:', e2.message);
+      throw e2;
+    }
   }
 }
 
