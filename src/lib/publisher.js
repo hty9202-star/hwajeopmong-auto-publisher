@@ -155,9 +155,11 @@ async function _doAutoPublish(options) {
   try {
     console.log('Generating: ' + topic.name + ' / ' + contentType.name);
     const comboId = topic.id + '__' + contentType.id;
-    const existingTitles = await contentQueue.getTitlesByComboId(comboId);
+    // 질환 전체(유형 무관) 최근 제목으로 회피 — 콤보 단위만 보면 유형이 바뀔 때
+    // 같은 서브토픽(예: 엉덩이 모낭염)이 연속 선택되는 문제가 있었음 (2026-08-05)
+    const existingTitles = await contentQueue.getTitlesByTopicId(topic.id);
     if (existingTitles.length > 0) {
-      console.log('[중복 방지] 기존 ' + existingTitles.length + '건 제목 회피: ' + existingTitles.join(', '));
+      console.log('[중복 방지] 질환 전체 기존 ' + existingTitles.length + '건 제목 회피: ' + existingTitles.join(', '));
     }
     const imagesPerContent = publish.imagesPerContent || 3;
     result = await generateContent(env, topic, contentType, { existingTitles, imagesPerContent });

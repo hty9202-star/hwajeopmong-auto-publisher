@@ -193,6 +193,16 @@ export const contentQueue = {
     return (data || []).map(d => d.title).filter(Boolean);
   },
 
+  // 질환 전체 기존 제목 조회 (유형 무관 중복 방지용)
+  // ※ 콤보 단위로만 회피하면 유형이 다를 때 같은 서브토픽(예: 엉덩이 모낭염)이
+  //   연속으로 뽑히는 문제가 생김 — 질환 단위로 넓혀서 회피한다. (2026-08-05)
+  async getTitlesByTopicId(topicId) {
+    const data = await supabaseRequest('content_queue', {
+      query: `?topic_id=eq.${encodeURIComponent(topicId)}&select=title&order=created_at.desc&limit=15`,
+    });
+    return (data || []).map(d => d.title).filter(Boolean);
+  },
+
   // 삭제
   async delete(id) {
     return supabaseRequest('content_queue', {
